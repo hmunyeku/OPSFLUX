@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Graceful fallback for optional export dependencies
 try:
     from weasyprint import HTML as WeasyHTML
-except ImportError:
+except (ImportError, OSError):
     WeasyHTML = None
 
 try:

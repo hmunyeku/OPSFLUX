@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import { ClipboardCheck, Eye, Plus, ShieldCheck } from 'lucide-react'
+import { ClipboardCheck, Download, Eye, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useComplianceAudits, useComplianceAuditTemplates, useCreateComplianceAudit } from '@/hooks/useConformite'
 import { usePermission } from '@/hooks/usePermission'
 import { SearchableSelect } from '@/pages/conformite/components'
 import { ComplianceAuditDetailModal } from '@/components/shared/ComplianceAuditDetailModal'
+import { conformiteService } from '@/services/conformiteService'
+import { useToast } from '@/components/ui/Toast'
 
 interface SupplierAuditManagerProps {
   tierId: string
@@ -12,13 +14,15 @@ interface SupplierAuditManagerProps {
 }
 
 export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const { toast } = useToast()
   const { hasPermission } = usePermission()
   const { data: audits = [], isLoading } = useComplianceAudits({ target_type: 'tier', target_id: tierId })
   const { data: templates = [] } = useComplianceAuditTemplates()
   const createAudit = useCreateComplianceAudit()
   const [templateId, setTemplateId] = useState('')
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null)
+  const [downloadingAuditId, setDownloadingAuditId] = useState<string | null>(null)
 
   const templateOptions = useMemo(() => templates.map(template => ({
     value: template.id,
@@ -39,6 +43,18 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
       title: selectedTemplate?.name,
     })
     setTemplateId('')
+  }
+
+  const handleDownloadReport = async (auditId: string) => {
+    if (downloadingAuditId) return
+    setDownloadingAuditId(auditId)
+    try {
+      await conformiteService.downloadAuditReport(auditId, i18n.language?.startsWith('en') ? 'en' : 'fr')
+    } catch {
+      toast({ title: t('conformite.rules.audits.report_error'), variant: 'error' })
+    } finally {
+      setDownloadingAuditId(null)
+    }
   }
 
   return (
@@ -99,6 +115,15 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
                   <ShieldCheck size={12} />
                   {audit.score_percent ?? '—'}%
                 </span>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadReport(audit.id)}
+                  disabled={downloadingAuditId === audit.id}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                  title={t('conformite.rules.audits.report_pdf')}
+                >
+                  <Download size={14} />
+                </button>
                 <button
                   type="button"
                   onClick={() => setSelectedAuditId(audit.id)}

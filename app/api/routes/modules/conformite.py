@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -122,6 +122,281 @@ async def _load_audit_for_read(db: AsyncSession, audit_id: UUID, entity_id: UUID
     await _enrich_audit_target(db, audit)
     await _enrich_audit_answer_attachment_counts(db, [audit])
     return audit
+
+
+def _audit_pdf_date(value) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, datetime):
+        return value.strftime("%d/%m/%Y %H:%M")
+    if isinstance(value, date):
+        return value.strftime("%d/%m/%Y")
+    return str(value)
+
+
+def _audit_answer_display(value: dict | None) -> str:
+    if not value:
+        return "-"
+    raw = value.get("label") or value.get("value") or value.get("text")
+    return str(raw).strip() if raw else "-"
+
+
+def _audit_plain_text(value: str | None) -> str:
+    if not value:
+        return ""
+    import re
+    return re.sub(r"<[^>]+>", " ", value).replace("&nbsp;", " ").strip()
+
+
+async def _build_audit_report_variables(
+    db: AsyncSession,
+    *,
+    audit: ComplianceAudit,
+    entity_id: UUID,
+) -> dict:
+    entity = await db.get(Entity, entity_id)
+    tier = await db.get(Tier, audit.target_id) if audit.target_type == "tier" else None
+    answers_by_question = {answer.question_id: answer for answer in audit.answers or []}
+    themes = []
+    total_questions = 0
+    answered_questions = 0
+    missing_required = 0
+    missing_evidence = 0
+    for theme in sorted(audit.template.themes if audit.template else [], key=lambda row: row.position):
+        question_rows = []
+        for question in sorted(theme.questions or [], key=lambda row: row.position):
+            total_questions += 1
+            answer = answers_by_question.get(question.id)
+            answered = bool(answer and (answer.score is not None or answer.response_value is not None))
+            if answered:
+                answered_questions += 1
+            if question.required and not answered:
+                missing_required += 1
+            attachment_count = int(getattr(answer, "attachment_count", 0) or 0) if answer else 0
+            if question.attachment_required and attachment_count <= 0:
+                missing_evidence += 1
+            question_rows.append({
+                "code": question.code or "",
+                "text": question.text,
+                "required": question.required,
+                "attachment_required": question.attachment_required,
+                "answer": _audit_answer_display(answer.response_value if answer else None),
+                "score": f"{float(answer.score):.0f}%" if answer and answer.score is not None else "-",
+                "notes": _audit_plain_text(answer.notes if answer else None),
+                "attachment_count": attachment_count,
+            })
+        themes.append({
+            "title": theme.title,
+            "description": theme.description or "",
+            "weight": float(theme.weight or 0),
+            "questions": question_rows,
+        })
+    return {
+        "entity": {
+            "name": entity.name if entity else "",
+            "code": entity.code if entity else "",
+        },
+        "audit": {
+            "reference": audit.reference,
+            "title": audit.title,
+            "status": audit.status,
+            "score": f"{float(audit.score_percent):.0f}%" if audit.score_percent is not None else "-",
+            "planned_at": _audit_pdf_date(audit.planned_at),
+            "started_at": _audit_pdf_date(audit.started_at),
+            "submitted_at": _audit_pdf_date(audit.submitted_at),
+            "validated_at": _audit_pdf_date(audit.validated_at),
+            "valid_until": _audit_pdf_date(audit.valid_until),
+            "summary": _audit_plain_text(audit.summary),
+            "validation_workflow_id": str(audit.validation_moc_id) if audit.validation_moc_id else "",
+        },
+        "template": {
+            "code": audit.template.code if audit.template else "",
+            "name": audit.template.name if audit.template else "",
+            "audit_type": audit.template.audit_type if audit.template else "",
+            "passing_score": f"{float(audit.template.passing_score):.0f}%" if audit.template else "-",
+        },
+        "supplier": {
+            "name": tier.name if tier else str(audit.target_id),
+            "code": tier.code if tier else "",
+            "type": tier.type if tier else "",
+            "country": tier.country if tier else "",
+        },
+        "metrics": {
+            "total_questions": total_questions,
+            "answered_questions": answered_questions,
+            "missing_required": missing_required,
+            "missing_evidence": missing_evidence,
+        },
+        "themes": themes,
+        "generated_at": _audit_pdf_date(datetime.now(timezone.utc)),
+    }
+
+
+_SUPPLIER_AUDIT_REPORT_FALLBACK_HTML = """
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; color:#111827; font-size:12px; }
+    h1 { font-size:22px; margin:0 0 4px; }
+    h2 { font-size:15px; margin:18px 0 8px; }
+    .muted { color:#64748b; }
+    .header { display:flex; justify-content:space-between; border-bottom:2px solid #1d4ed8; padding-bottom:10px; margin-bottom:14px; }
+    .badge { display:inline-block; padding:4px 8px; border:1px solid #cbd5e1; border-radius:999px; font-weight:700; }
+    .grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:12px 0; }
+    .card { border:1px solid #dbe3ef; border-radius:8px; padding:8px; }
+    .label { font-size:9px; text-transform:uppercase; color:#64748b; letter-spacing:.04em; }
+    .value { font-size:15px; font-weight:700; margin-top:3px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { border-bottom:1px solid #e5e7eb; padding:7px 6px; vertical-align:top; text-align:left; }
+    th { background:#f8fafc; font-size:10px; color:#475569; text-transform:uppercase; }
+    .question { font-weight:700; }
+    .footer { margin-top:20px; padding-top:8px; border-top:1px solid #e5e7eb; color:#64748b; font-size:10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Rapport audit fournisseur</h1>
+      <div class="muted">{{ audit.reference }} - {{ template.audit_type }}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="badge">{{ audit.status }}</div>
+      <div class="muted" style="margin-top:6px">{{ entity.name }} {{ entity.code }}</div>
+    </div>
+  </div>
+
+  <h2>{{ audit.title }}</h2>
+  <div class="muted">{{ supplier.name }}{% if supplier.code %} - {{ supplier.code }}{% endif %}</div>
+
+  <div class="grid">
+    <div class="card"><div class="label">Score</div><div class="value">{{ audit.score }}</div></div>
+    <div class="card"><div class="label">Seuil</div><div class="value">{{ template.passing_score }}</div></div>
+    <div class="card"><div class="label">Questions</div><div class="value">{{ metrics.answered_questions }}/{{ metrics.total_questions }}</div></div>
+    <div class="card"><div class="label">Preuves manquantes</div><div class="value">{{ metrics.missing_evidence }}</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Workflow validation</div>
+    <div>{{ audit.validation_workflow_id or '-' }}</div>
+    <div class="label" style="margin-top:8px">Dates</div>
+    <div>Planifie: {{ audit.planned_at }} - Demarre: {{ audit.started_at }} - Soumis: {{ audit.submitted_at }} - Valide: {{ audit.validated_at }}</div>
+  </div>
+
+  {% if audit.summary %}<p>{{ audit.summary }}</p>{% endif %}
+
+  {% for theme in themes %}
+    <h2>{{ theme.title }}</h2>
+    {% if theme.description %}<p class="muted">{{ theme.description }}</p>{% endif %}
+    <table>
+      <thead><tr><th style="width:42%">Question</th><th>Reponse</th><th>Score</th><th>Preuves</th><th>Notes</th></tr></thead>
+      <tbody>
+      {% for q in theme.questions %}
+        <tr>
+          <td><div class="question">{{ q.code }} {{ q.text }}</div>{% if q.required %}<div class="muted">Obligatoire</div>{% endif %}</td>
+          <td>{{ q.answer }}</td>
+          <td>{{ q.score }}</td>
+          <td>{{ q.attachment_count }}{% if q.attachment_required %} requis{% endif %}</td>
+          <td>{{ q.notes or '-' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+
+  <div class="footer">
+    Rapport genere automatiquement par OpsFlux le {{ generated_at }}. Les preuves jointes restent archivees sur les reponses d'audit.
+  </div>
+</body>
+</html>
+"""
+
+
+def _pdf_escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _build_basic_audit_pdf(variables: dict) -> bytes:
+    """Small dependency-free PDF fallback for dev hosts without WeasyPrint."""
+    import textwrap
+
+    lines: list[str] = [
+        "Rapport audit fournisseur",
+        f"Reference: {variables['audit']['reference']}",
+        f"Titre: {variables['audit']['title']}",
+        f"Fournisseur: {variables['supplier']['name']} {variables['supplier']['code']}".strip(),
+        f"Type: {variables['template']['audit_type']} - Modele: {variables['template']['name']}",
+        f"Statut: {variables['audit']['status']} - Score: {variables['audit']['score']} - Seuil: {variables['template']['passing_score']}",
+        f"Questions: {variables['metrics']['answered_questions']}/{variables['metrics']['total_questions']} - Preuves manquantes: {variables['metrics']['missing_evidence']}",
+        f"Workflow validation: {variables['audit']['validation_workflow_id'] or '-'}",
+        f"Generation: {variables['generated_at']}",
+        "",
+    ]
+    if variables["audit"]["summary"]:
+        lines.append("Synthese:")
+        lines.extend(textwrap.wrap(str(variables["audit"]["summary"]), width=92) or ["-"])
+        lines.append("")
+    for theme in variables["themes"]:
+        lines.append(f"Theme: {theme['title']} ({theme['weight']}%)")
+        for question in theme["questions"]:
+            prefix = f"- {question['code']} {question['text']}".strip()
+            lines.extend(textwrap.wrap(prefix, width=92) or ["-"])
+            detail = (
+                f"  Reponse: {question['answer']} | Score: {question['score']} | "
+                f"Preuves: {question['attachment_count']}"
+            )
+            lines.extend(textwrap.wrap(detail, width=92))
+            if question["notes"]:
+                lines.extend(textwrap.wrap(f"  Notes: {question['notes']}", width=92))
+        lines.append("")
+
+    pages = [lines[index:index + 46] for index in range(0, max(len(lines), 1), 46)]
+    objects: list[bytes] = []
+
+    def add_object(payload: str | bytes) -> int:
+        if isinstance(payload, str):
+            payload = payload.encode("latin-1", "replace")
+        objects.append(payload)
+        return len(objects)
+
+    catalog_id = add_object("<< /Type /Catalog /Pages 2 0 R >>")
+    pages_id = add_object("<< /Type /Pages /Kids [] /Count 0 >>")
+    font_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    page_refs: list[int] = []
+    for page_lines in pages:
+        commands = ["BT", "/F1 12 Tf", "48 792 Td", "14 TL"]
+        for line in page_lines:
+            commands.append(f"({_pdf_escape(line)}) Tj")
+            commands.append("T*")
+        commands.append("ET")
+        stream = "\n".join(commands).encode("latin-1", "replace")
+        content_id = add_object(
+            b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream"
+        )
+        page_id = add_object(
+            f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 595 842] "
+            f"/Resources << /Font << /F1 {font_id} 0 R >> >> /Contents {content_id} 0 R >>"
+        )
+        page_refs.append(page_id)
+    objects[pages_id - 1] = (
+        f"<< /Type /Pages /Kids [{' '.join(f'{ref} 0 R' for ref in page_refs)}] /Count {len(page_refs)} >>"
+    ).encode("latin-1", "replace")
+
+    output = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for index, payload in enumerate(objects, start=1):
+        offsets.append(len(output))
+        output.extend(f"{index} 0 obj\n".encode("ascii"))
+        output.extend(payload)
+        output.extend(b"\nendobj\n")
+    xref_offset = len(output)
+    output.extend(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("ascii"))
+    for offset in offsets[1:]:
+        output.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    output.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\n"
+        f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii")
+    )
+    return bytes(output)
 
 
 async def _resolve_audit_validator_ids(
@@ -2078,6 +2353,56 @@ async def submit_compliance_audit(
     audit.submitted_at = datetime.now(timezone.utc)
     await db.commit()
     return await _load_audit_for_read(db, audit.id, entity_id)
+
+
+@router.get(
+    "/audits/{audit_id}/report.pdf",
+    dependencies=[require_permission("conformite.audit.read")],
+)
+async def download_compliance_audit_report_pdf(
+    audit_id: UUID,
+    language: str = "fr",
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceAudit)
+        .options(
+            selectinload(ComplianceAudit.template)
+            .selectinload(ComplianceAuditTemplate.themes)
+            .selectinload(ComplianceAuditTheme.questions),
+            selectinload(ComplianceAudit.answers)
+            .selectinload(ComplianceAuditAnswer.question)
+            .selectinload(ComplianceAuditQuestion.theme),
+        )
+        .where(ComplianceAudit.id == audit_id, ComplianceAudit.entity_id == entity_id)
+    )
+    audit = result.scalars().unique().one_or_none()
+    if not audit:
+        raise HTTPException(404, "Audit not found")
+    await _enrich_audit_answer_attachment_counts(db, [audit])
+    variables = await _build_audit_report_variables(db, audit=audit, entity_id=entity_id)
+    from app.core.pdf_templates import _html_to_pdf, render_pdf, render_template_string
+
+    try:
+        pdf_bytes = await render_pdf(
+            db,
+            slug="compliance.supplier_audit_report",
+            entity_id=entity_id,
+            language=language,
+            variables=variables,
+        )
+        if not pdf_bytes:
+            html = render_template_string(_SUPPLIER_AUDIT_REPORT_FALLBACK_HTML, variables)
+            pdf_bytes = _html_to_pdf(html)
+    except RuntimeError:
+        pdf_bytes = _build_basic_audit_pdf(variables)
+    safe_ref = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in audit.reference)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="audit-fournisseur-{safe_ref}.pdf"'},
+    )
 
 
 # ── Job Positions (fiches de poste) ─────────────────────────────────────

@@ -4915,11 +4915,11 @@ def _html_to_pdf(html: str, template: "PdfTemplate | None" = None) -> bytes:
         css = CSS(string=page_css)
         pdf_bytes = html_doc.write_pdf(stylesheets=[css])
         return pdf_bytes
-    except ImportError:
+    except (ImportError, OSError):
         logger.exception(
-            "weasyprint is not installed. Install with: pip install weasyprint"
+            "weasyprint is not available. Install WeasyPrint and its system libraries."
         )
-        raise RuntimeError("weasyprint is required for PDF generation but is not installed")
+        raise RuntimeError("weasyprint is required for PDF generation but is not available")
 
 
 async def render_pdf_preview(

@@ -138,6 +138,24 @@ export const conformiteService = {
     return data
   },
 
+  downloadAuditReport: async (id: string, language: 'fr' | 'en' = 'fr'): Promise<void> => {
+    const response = await api.get(`/api/v1/conformite/audits/${id}/report.pdf`, {
+      params: { language },
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const disposition = response.headers['content-disposition'] as string | undefined
+    const match = disposition?.match(/filename="([^"]+)"/)
+    a.download = match?.[1] ?? `audit-fournisseur-${id}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  },
+
   // ── Records ──
   listRecords: async (params: ComplianceRecordListParams = {}): Promise<PaginatedResponse<ComplianceRecord>> => {
     const { data } = await api.get('/api/v1/conformite/records', { params })

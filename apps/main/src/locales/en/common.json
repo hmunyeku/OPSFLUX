@@ -1854,7 +1854,9 @@
         "select": "Select...",
         "response_placeholder": "Answer or finding...",
         "notes_placeholder": "Notes, comments, observations...",
-        "save_before_evidence": "Save answers before attaching evidence to this question."
+        "save_before_evidence": "Save answers before attaching evidence to this question.",
+        "report_pdf": "Download PDF report",
+        "report_error": "Unable to generate the audit report."
       },
       "view": {
         "matrix": "Matrix view",

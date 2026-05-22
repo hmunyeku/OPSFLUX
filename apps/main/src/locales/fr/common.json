@@ -1987,7 +1987,9 @@
         "select": "Sélectionner...",
         "response_placeholder": "Réponse ou constat...",
         "notes_placeholder": "Notes, commentaires, observations...",
-        "save_before_evidence": "Enregistrez les réponses pour joindre les preuves à cette question."
+        "save_before_evidence": "Enregistrez les réponses pour joindre les preuves à cette question.",
+        "report_pdf": "Télécharger le rapport PDF",
+        "report_error": "Impossible de générer le rapport d'audit."
       },
       "view": {
         "matrix": "Vue matrice",

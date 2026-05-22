@@ -1701,6 +1701,7 @@
       "subtitle": "Configure audit grids for companies: themes, weights, questions, evidence and approval threshold.",
       "create": "New template",
       "create_title": "Configure an audit template",
+      "open_detail": "Open",
       "save": "Save template",
       "created": "Audit template created",
       "create_error": "Unable to create audit template",

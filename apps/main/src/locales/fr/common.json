@@ -1834,6 +1834,7 @@
       "subtitle": "Configurez les grilles d'audit applicables aux entreprises: thèmes, pondérations, questions, preuves et seuil de validation.",
       "create": "Nouveau modèle",
       "create_title": "Configurer un modèle d'audit",
+      "open_detail": "Ouvrir",
       "save": "Enregistrer le modèle",
       "created": "Modèle d'audit créé",
       "create_error": "Impossible de créer le modèle d'audit",

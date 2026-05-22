@@ -1713,6 +1713,7 @@
       "inactive": "Inactive",
       "empty_title": "No audit template configured",
       "empty_description": "Create an audit grid before launching supplier audits from company records.",
+      "search": "Search template, code, type or threshold...",
       "theme_count": "theme(s)",
       "theme_label": "Theme {{count}}",
       "question_count": "question(s)",

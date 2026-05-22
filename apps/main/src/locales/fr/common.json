@@ -1846,6 +1846,7 @@
       "inactive": "Inactif",
       "empty_title": "Aucun modèle d'audit configuré",
       "empty_description": "Créez une grille d'audit avant de lancer des audits fournisseurs depuis les fiches entreprises.",
+      "search": "Rechercher un modèle, code, type ou seuil...",
       "theme_count": "thème(s)",
       "theme_label": "Thème {{count}}",
       "question_count": "question(s)",

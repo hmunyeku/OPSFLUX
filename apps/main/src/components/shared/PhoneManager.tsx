@@ -26,11 +26,11 @@ import { useDictionaryOptions } from '@/hooks/useDictionary'
 import type { Phone } from '@/types/api'
 
 const FALLBACK_PHONE_LABELS = [
-  { value: 'mobile', label: 'Mobile' },
-  { value: 'office', label: 'Bureau' },
-  { value: 'home', label: 'Domicile' },
-  { value: 'fax', label: 'Fax' },
-  { value: 'other', label: 'Autre' },
+  { value: 'mobile', labelKey: 'shared.phones.labels.mobile' },
+  { value: 'office', labelKey: 'shared.phones.labels.office' },
+  { value: 'home', labelKey: 'shared.phones.labels.home' },
+  { value: 'fax', labelKey: 'shared.phones.labels.fax' },
+  { value: 'other', labelKey: 'shared.phones.labels.other' },
 ]
 
 /** Look up flag emoji from a phone prefix like "+33" */
@@ -271,7 +271,9 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
   const sendVerification = useSendPhoneVerification()
   const verifyPhone = useVerifyPhone()
   const dictPhoneLabels = useDictionaryOptions('phone_label')
-  const PHONE_LABELS = dictPhoneLabels.length > 0 ? dictPhoneLabels : FALLBACK_PHONE_LABELS
+  const PHONE_LABELS = dictPhoneLabels.length > 0
+    ? dictPhoneLabels
+    : FALLBACK_PHONE_LABELS.map((item) => ({ value: item.value, label: t(item.labelKey) }))
 
   const [showForm, setShowForm] = useState(false)
   const [number, setNumber] = useState('')
@@ -301,30 +303,30 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
       })
       setNumber('')
       setShowForm(false)
-      toast({ title: 'Téléphone ajouté', variant: 'success' })
+      toast({ title: t('shared.phones.added'), variant: 'success' })
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [ownerId, ownerType, number, label, countryCode, phones.length, createPhone, toast])
+  }, [ownerId, ownerType, number, label, countryCode, phones.length, createPhone, toast, t])
 
   const handleDelete = useCallback(async (id: string) => {
     try {
       await deletePhone.mutateAsync(id)
       setConfirmDeleteId(null)
-      toast({ title: 'Téléphone supprimé', variant: 'success' })
+      toast({ title: t('shared.phones.deleted'), variant: 'success' })
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [deletePhone, toast])
+  }, [deletePhone, toast, t])
 
   const handleSetDefault = useCallback(async (id: string) => {
     try {
       await updatePhone.mutateAsync({ id, payload: { is_default: true } })
-      toast({ title: 'Numéro par défaut défini', variant: 'success' })
+      toast({ title: t('shared.phones.default_set'), variant: 'success' })
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [updatePhone, toast])
+  }, [updatePhone, toast, t])
 
   if (!ownerId) return null
 
@@ -349,7 +351,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                       try {
                         await updatePhone.mutateAsync({ id: phone.id, payload: updates })
                         setEditingId(null)
-                        toast({ title: 'Téléphone modifié', variant: 'success' })
+                        toast({ title: t('shared.phones.updated'), variant: 'success' })
                       } catch {
                         toast({ title: t('common.error'), variant: 'error' })
                       }
@@ -387,7 +389,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                     </span>
                     {phone.is_default && (
                       <span className="inline-flex items-center gap-0.5 text-[9px] text-yellow-600 dark:text-yellow-400">
-                        <Star size={8} className="fill-yellow-500 text-yellow-500" /> défaut
+                        <Star size={8} className="fill-yellow-500 text-yellow-500" /> {t('common.default')}
                       </span>
                     )}
                   </div>
@@ -403,13 +405,13 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && otpCode.length === 6) verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: 'Téléphone vérifié', variant: 'success' }) }, onError: () => toast({ title: t('common.invalid_code'), variant: 'error' }) }) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && otpCode.length === 6) verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: t('shared.phones.verified'), variant: 'success' }) }, onError: () => toast({ title: t('common.invalid_code'), variant: 'error' }) }) }}
                       placeholder="000000"
                       className="w-14 px-1 py-0.5 text-[10px] font-mono rounded border border-border/60 bg-card focus:outline-none text-center"
                       autoFocus
                     />
                     <button
-                      onClick={() => verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: 'Téléphone vérifié', variant: 'success' }) }, onError: () => toast({ title: t('common.invalid_code'), variant: 'error' }) })}
+                      onClick={() => verifyPhone.mutate({ phoneId: phone.id, code: otpCode }, { onSuccess: () => { setVerifyingPhoneId(null); setOtpCode(''); toast({ title: t('shared.phones.verified'), variant: 'success' }) }, onError: () => toast({ title: t('common.invalid_code'), variant: 'error' }) })}
                       disabled={otpCode.length !== 6 || verifyPhone.isPending}
                       className="p-0.5 rounded hover:bg-green-100 text-green-600 disabled:opacity-40"
                     >
@@ -427,10 +429,10 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                         onSuccess: (data: any) => {
                           setVerifyingPhoneId(phone.id)
                           setOtpCode('')
-                          const msg = data?.debug_code ? `Code : ${data.debug_code} (SMS non configuré)` : 'Code envoyé par SMS'
+                          const msg = data?.debug_code ? t('shared.phones.sms_debug_code', { code: data.debug_code }) : t('shared.phones.sms_sent')
                           toast({ title: msg, variant: 'success' })
                         },
-                        onError: () => toast({ title: "Erreur d'envoi", variant: 'error' }),
+                        onError: () => toast({ title: t('shared.phones.send_error'), variant: 'error' }),
                       })
                     }}
                     className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 shrink-0"
@@ -455,14 +457,14 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                     <button
                       onClick={() => setConfirmDeleteId(phone.id)}
                       className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-destructive"
-                      title="Supprimer"
+                      title={t('common.delete')}
                     >
                       <X size={10} />
                     </button>
                   ) : (
                     <span className="flex items-center gap-0.5 text-[10px]">
-                      <button onClick={() => handleDelete(phone.id)} className="px-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20">Oui</button>
-                      <button onClick={() => setConfirmDeleteId(null)} className="px-1 rounded bg-accent text-muted-foreground hover:bg-accent/80">Non</button>
+                      <button onClick={() => handleDelete(phone.id)} className="px-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20">{t('common.yes')}</button>
+                      <button onClick={() => setConfirmDeleteId(null)} className="px-1 rounded bg-accent text-muted-foreground hover:bg-accent/80">{t('common.no')}</button>
                     </span>
                   )}
                 </div>
@@ -481,7 +483,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
           onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
         >
-          <Plus size={12} /> Ajouter un téléphone
+          <Plus size={12} /> {t('shared.phones.add')}
         </button>
       )}
 
@@ -500,9 +502,9 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
           <select className="gl-form-select text-xs w-[110px]" value={label} onChange={(e) => setLabel(e.target.value)}>
             {PHONE_LABELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
-          <button onClick={() => { setShowForm(false); setNumber('') }} className="btn-sm btn-secondary">Annuler</button>
+          <button onClick={() => { setShowForm(false); setNumber('') }} className="btn-sm btn-secondary">{t('common.cancel')}</button>
           <button onClick={handleCreate} disabled={!number.trim() || createPhone.isPending} className="btn-sm btn-primary">
-            {createPhone.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
+            {createPhone.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.add')}
           </button>
         </div>
       )}

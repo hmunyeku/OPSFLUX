@@ -7200,7 +7200,22 @@
     "phones": {
       "title": "Téléphones",
       "add": "Ajouter un téléphone",
-      "empty": "Aucun téléphone"
+      "empty": "Aucun téléphone",
+      "added": "Téléphone ajouté",
+      "updated": "Téléphone modifié",
+      "deleted": "Téléphone supprimé",
+      "default_set": "Numéro par défaut défini",
+      "verified": "Téléphone vérifié",
+      "sms_sent": "Code envoyé par SMS",
+      "sms_debug_code": "Code : {{code}} (SMS non configuré)",
+      "send_error": "Erreur d'envoi",
+      "labels": {
+        "mobile": "Mobile",
+        "office": "Bureau",
+        "home": "Domicile",
+        "fax": "Fax",
+        "other": "Autre"
+      }
     },
     "emails": {
       "title": "Emails",

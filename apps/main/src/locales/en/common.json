@@ -6894,7 +6894,22 @@
     "phones": {
       "title": "Phones",
       "add": "Add phone",
-      "empty": "No phone"
+      "empty": "No phone",
+      "added": "Phone added",
+      "updated": "Phone updated",
+      "deleted": "Phone deleted",
+      "default_set": "Default number set",
+      "verified": "Phone verified",
+      "sms_sent": "Code sent by SMS",
+      "sms_debug_code": "Code: {{code}} (SMS not configured)",
+      "send_error": "Send error",
+      "labels": {
+        "mobile": "Mobile",
+        "office": "Office",
+        "home": "Home",
+        "fax": "Fax",
+        "other": "Other"
+      }
     },
     "emails": {
       "title": "Emails",

@@ -50,7 +50,7 @@ import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary
 import { usePermission } from '@/hooks/usePermission'
 import { normalizeNames } from '@/lib/normalize'
 import { describeError } from '@/lib/errors'
-import { validateTierContactForm } from '@/lib/formValidation'
+import { makeFormValidationCopy, validateTierContactForm } from '@/lib/formValidation'
 import type { TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
 const EMPTY_CONTACT_FORM: TierContactCreate = {
@@ -139,6 +139,7 @@ export function ContactListSection({
   const createContact = useCreateTierContact()
   const civilityOptions = useDictionaryOptions('civility')
   const civilityLabels = useDictionaryLabels('civility')
+  const validationCopy = useMemo(() => makeFormValidationCopy(t), [t])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<TierContactCreate>(EMPTY_CONTACT_FORM)
   const [contactSearch, setContactSearch] = useState('')
@@ -192,7 +193,15 @@ export function ContactListSection({
   const handleCreate = useCallback(async () => {
     // Client-side validation gate. Server-side Pydantic still validates;
     // this catches typos before the network roundtrip.
-    const errors = validateTierContactForm(form)
+    const errors = validateTierContactForm(form, {
+      copy: validationCopy,
+      labels: {
+        first_name: t('tiers.ui.first_name'),
+        last_name: t('tiers.ui.last_name'),
+        email: t('common.email'),
+        phone: t('common.phone'),
+      },
+    })
     if (Object.keys(errors).length > 0) {
       const firstError = Object.values(errors)[0]
       toast({

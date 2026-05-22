@@ -3,6 +3,19 @@
     "name": "OpsFlux",
     "tagline": "Plateforme ERP opérations"
   },
+  "validation": {
+    "required": "{{label}} requis",
+    "min_length": "{{label}} doit contenir au moins {{min}} caractères",
+    "max_length": "{{label}} ne peut excéder {{max}} caractères",
+    "invalid": "{{label}} invalide",
+    "phone_characters": "{{label}} ne doit contenir que des chiffres et + - . ( ) espace",
+    "phone_min": "{{label}} trop court (minimum {{min}} chiffres)",
+    "phone_max": "{{label}} trop long (maximum {{max}} chiffres)",
+    "url_protocol": "{{label}} doit commencer par http:// ou https://",
+    "number": "{{label}} doit être un nombre",
+    "min_value": "{{label}} doit être ≥ {{min}}",
+    "max_value": "{{label}} doit être ≤ {{max}}"
+  },
   "errors": {
     "access_denied": "Accès refusé.",
     "authentication_required": "Authentification requise.",

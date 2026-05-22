@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils'
 import { PageNavBar, TabBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { normalizeNames } from '@/lib/normalize'
-import { validateTierForm, type FormErrors } from '@/lib/formValidation'
+import { makeFormValidationCopy, validateTierForm, type FormErrors } from '@/lib/formValidation'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -199,6 +199,7 @@ function CreateTierPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { stagingRef, stagingOwnerType } = useStagingRef('tier')
   const tierTypeOptions = useDictionaryOptions('tier_type')
+  const validationCopy = useMemo(() => makeFormValidationCopy(t), [t])
   // Initial contacts staged in local state — sent as `contacts[]` in the
   // create payload. TierContact is FK-linked, so the backend creates
   // the rows in the same transaction. `is_primary` is enforced as
@@ -249,7 +250,17 @@ function CreateTierPanel() {
     // user doesn't wait for a server roundtrip to discover a typo.
     // The server still validates everything via Pydantic; this is
     // just for UX latency.
-    const errors = validateTierForm(form)
+    const errors = validateTierForm(form, {
+      copy: validationCopy,
+      labels: {
+        name: t('common.name'),
+        email: t('common.email'),
+        phone: t('common.phone'),
+        fax: t('tiers.ui.fax'),
+        website: t('tiers.ui.website'),
+        capital: t('tiers.ui.capital'),
+      },
+    })
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       const firstError = Object.values(errors)[0]

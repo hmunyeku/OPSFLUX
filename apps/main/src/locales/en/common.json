@@ -3,6 +3,19 @@
     "name": "OpsFlux",
     "tagline": "Operations ERP Platform"
   },
+  "validation": {
+    "required": "{{label}} is required",
+    "min_length": "{{label}} must contain at least {{min}} characters",
+    "max_length": "{{label}} cannot exceed {{max}} characters",
+    "invalid": "{{label}} is invalid",
+    "phone_characters": "{{label}} may only contain digits and + - . ( ) spaces",
+    "phone_min": "{{label}} is too short (minimum {{min}} digits)",
+    "phone_max": "{{label}} is too long (maximum {{max}} digits)",
+    "url_protocol": "{{label}} must start with http:// or https://",
+    "number": "{{label}} must be a number",
+    "min_value": "{{label}} must be ≥ {{min}}",
+    "max_value": "{{label}} must be ≤ {{max}}"
+  },
   "popup": {
     "load_error_title": "Unable to load panel",
     "invalid_url": "Invalid detached window parameters."

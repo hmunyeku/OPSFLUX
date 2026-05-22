@@ -8,6 +8,7 @@ import type {
   ComplianceRuleCreate, ComplianceRuleUpdate,
   ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceExemptionCreate, ComplianceExemptionUpdate,
+  ComplianceAuditCreate,
   JobPositionCreate, JobPositionUpdate,
   TierContactTransferCreate,
   ComplianceAuthorizedCenterCreate, ComplianceAuthorizedCenterUpdate,
@@ -204,6 +205,28 @@ export function useRuleHistory(ruleId?: string) {
 }
 
 // ── Records ──
+
+export function useComplianceAuditTemplates() {
+  return useQuery({
+    queryKey: ['compliance-audit-templates'],
+    queryFn: () => conformiteService.listAuditTemplates(),
+  })
+}
+
+export function useComplianceAudits(params: { target_type?: string; target_id?: string } = {}) {
+  return useQuery({
+    queryKey: ['compliance-audits', params],
+    queryFn: () => conformiteService.listAudits(params),
+  })
+}
+
+export function useCreateComplianceAudit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ComplianceAuditCreate) => conformiteService.createAudit(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-audits'] }) },
+  })
+}
 
 export function useComplianceRecords(params: {
   page?: number; page_size?: number;

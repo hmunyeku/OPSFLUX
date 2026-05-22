@@ -60,7 +60,7 @@ PROJECT_CHANGE_STATUSES = (
 )
 
 MOC_STATUSES = tuple(dict.fromkeys(PROCESS_MOC_STATUSES + PROJECT_CHANGE_STATUSES))
-MOC_WORKFLOW_PROFILES = ("process_moc", "project_change")
+MOC_WORKFLOW_PROFILES = ("process_moc", "project_change", "audit_validation")
 
 MOC_MODIFICATION_TYPES = ("permanent", "temporary")
 # CDC Daxium: nature du MOC — orthogonale au "modification_type".

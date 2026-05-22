@@ -36,6 +36,7 @@ export function EditRulePanel() {
   const { data: historyData } = useRuleHistory(rule?.id)
 
   const [form, setForm] = useState<Record<string, any>>({
+    subject_scope: rule?.subject_scope ?? 'person',
     target_type: rule?.target_type ?? 'all',
     target_value: rule?.target_value ?? '',
     description: rule?.description ?? '',
@@ -67,6 +68,7 @@ export function EditRulePanel() {
       await updateRule.mutateAsync({
         id: rule.id,
         payload: {
+          subject_scope: form.subject_scope,
           target_type: form.target_type,
           target_value: form.target_value || undefined,
           description: form.description || undefined,

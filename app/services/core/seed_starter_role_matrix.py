@@ -116,6 +116,8 @@ HSE_MGR_EXTRA = [
     "conformite.rule.create", "conformite.rule.update", "conformite.rule.delete",
     "conformite.type.create", "conformite.type.update", "conformite.type.delete",
     "conformite.exemption.create", "conformite.exemption.update", "conformite.exemption.approve",
+    "conformite.audit.create", "conformite.audit.update", "conformite.audit.submit", "conformite.audit.delete",
+    "conformite.audit.template.create", "conformite.audit.template.update", "conformite.audit.template.delete",
     "conformite.transfer.create",
     "conformite.jobposition.create", "conformite.jobposition.update", "conformite.jobposition.delete",
     "paxlog.compliance.manage",

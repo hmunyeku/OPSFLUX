@@ -80,7 +80,7 @@ export function JobPositionDetailPanel({ id }: { id: string }) {
   }
 
   const linkedRules = allRules?.filter(
-    r => r.active && (
+    r => r.active && ((r.subject_scope ?? 'person') === 'person' || r.subject_scope === 'all') && (
       (r.target_type === 'job_position' && (r.target_value === jp.code || r.target_value === jp.id)) ||
       r.target_type === 'all'
     )

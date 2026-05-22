@@ -10,7 +10,7 @@ import logging
 from datetime import date, datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import any_, func as sqla_func, literal, select, text
+from sqlalchemy import any_, func as sqla_func, literal, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.common import (
@@ -20,6 +20,7 @@ from app.models.common import (
     ComplianceType,
     Phone,
     Setting,
+    Tier,
     TierContact,
     User,
     UserEmail,
@@ -34,6 +35,18 @@ DEFAULT_COMPLIANCE_SEQUENCE = [
     "job_profile",
     "self_declaration",
 ]
+
+
+def _owner_subject_scope(owner_type: str) -> str:
+    if owner_type in {"user", "tier_contact"}:
+        return "person"
+    if owner_type == "tier":
+        return "company"
+    if owner_type == "asset":
+        return "asset"
+    if owner_type == "packlog_cargo":
+        return "cargo"
+    return "all"
 
 
 def _coerce_number(value):
@@ -466,10 +479,17 @@ async def check_owner_compliance(
     if not include_contextual:
         applicability_filter = ComplianceRule.applicability == "permanent"
 
+    subject_scope = _owner_subject_scope(owner_type)
+    subject_scope_filter = or_(
+        ComplianceRule.subject_scope == subject_scope,
+        ComplianceRule.subject_scope == "all",
+    )
+
     all_rules = await db.execute(
         select(ComplianceRule.compliance_type_id)
         .where(ComplianceRule.entity_id == entity_id, ComplianceRule.active == True)  # noqa: E712
         .where(ComplianceRule.target_type == "all")
+        .where(subject_scope_filter)
         .where(applicability_filter)
     )
     required_type_ids = set(row[0] for row in all_rules.all())
@@ -488,12 +508,35 @@ async def check_owner_compliance(
             select(ComplianceRule.compliance_type_id).where(
                 ComplianceRule.entity_id == entity_id,
                 ComplianceRule.active == True,  # noqa: E712
+                subject_scope_filter,
                 ComplianceRule.target_type == "job_position",
                 literal(jp_id_str) == any_(sqla_func.string_to_array(ComplianceRule.target_value, ",")),
                 applicability_filter,
             )
         )
         required_type_ids |= set(row[0] for row in jp_rules.all())
+
+    if owner_type == "tier":
+        tier_result = await db.execute(select(Tier.type).where(Tier.id == owner_id, Tier.entity_id == entity_id))
+        tier_type = tier_result.scalar()
+        tier_type_values = {"all", "*"}
+        if tier_type:
+            tier_type_values.add(tier_type)
+        company_rules = await db.execute(
+            select(ComplianceRule.compliance_type_id).where(
+                ComplianceRule.entity_id == entity_id,
+                ComplianceRule.active == True,  # noqa: E712
+                subject_scope_filter,
+                ComplianceRule.target_type == "tier_type",
+                or_(
+                    ComplianceRule.target_value.is_(None),
+                    ComplianceRule.target_value == "",
+                    ComplianceRule.target_value.in_(tier_type_values),
+                ),
+                applicability_filter,
+            )
+        )
+        required_type_ids |= set(row[0] for row in company_rules.all())
 
     records_result = await db.execute(
         select(ComplianceRecord).where(

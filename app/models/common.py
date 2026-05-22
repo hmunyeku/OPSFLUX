@@ -1622,10 +1622,19 @@ class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base)
     """
     __delete_policy__ = {"category": "main", "default_mode": "soft"}
     __tablename__ = "compliance_rules"
-    __table_args__ = (Index("idx_compliance_rules_type", "compliance_type_id"),)
+    __table_args__ = (
+        Index("idx_compliance_rules_type", "compliance_type_id"),
+        Index("idx_compliance_rules_subject_scope", "entity_id", "subject_scope"),
+    )
 
     entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     compliance_type_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_types.id"), nullable=False)
+    subject_scope: Mapped[str] = mapped_column(
+        String(20),
+        default="person",
+        server_default="person",
+        nullable=False,
+    )  # person, company, asset, cargo, all
     target_type: Mapped[str] = mapped_column(String(30), nullable=False)  # tier_type, asset, department, job_position, all
     target_value: Mapped[str | None] = mapped_column(String(200))  # e.g. 'client', asset_id, 'Operations'
     description: Mapped[str | None] = mapped_column(Text)
@@ -1728,6 +1737,120 @@ class ComplianceExemption(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     compliance_record: Mapped["ComplianceRecord"] = relationship()
     approver: Mapped["User | None"] = relationship(foreign_keys=[approved_by])
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
+
+
+class ComplianceAuditTemplate(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
+    """Supplier audit template: weighted themes and questions."""
+    __tablename__ = "compliance_audit_templates"
+    __table_args__ = (
+        UniqueConstraint("entity_id", "code", name="uq_compliance_audit_template_code"),
+        Index("idx_compliance_audit_templates_entity", "entity_id"),
+        Index("idx_compliance_audit_templates_type", "audit_type"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    audit_type: Mapped[str] = mapped_column(String(50), nullable=False)  # administratif, hse, metier...
+    target_scope: Mapped[str] = mapped_column(String(20), default="company", server_default="company", nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    passing_score: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("70.00"), server_default="70", nullable=False)
+    validity_days: Mapped[int | None] = mapped_column(Integer)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+
+    themes: Mapped[list["ComplianceAuditTheme"]] = relationship(back_populates="template", cascade="all, delete-orphan")
+
+
+class ComplianceAuditTheme(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Weighted section of an audit questionnaire."""
+    __tablename__ = "compliance_audit_themes"
+    __table_args__ = (
+        Index("idx_compliance_audit_themes_template", "template_id"),
+    )
+
+    template_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("compliance_audit_templates.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    weight: Mapped[Decimal] = mapped_column(Numeric(8, 2), default=Decimal("1.00"), server_default="1", nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
+    template: Mapped["ComplianceAuditTemplate"] = relationship(back_populates="themes")
+    questions: Mapped[list["ComplianceAuditQuestion"]] = relationship(back_populates="theme", cascade="all, delete-orphan")
+
+
+class ComplianceAuditQuestion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One scored audit question."""
+    __tablename__ = "compliance_audit_questions"
+    __table_args__ = (
+        Index("idx_compliance_audit_questions_theme", "theme_id"),
+    )
+
+    theme_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("compliance_audit_themes.id", ondelete="CASCADE"), nullable=False
+    )
+    code: Mapped[str | None] = mapped_column(String(50))
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    response_type: Mapped[str] = mapped_column(String(30), default="score", server_default="score", nullable=False)
+    weight: Mapped[Decimal] = mapped_column(Numeric(8, 2), default=Decimal("1.00"), server_default="1", nullable=False)
+    required: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    attachment_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    options_json: Mapped[dict | None] = mapped_column(JSONB)
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
+    theme: Mapped["ComplianceAuditTheme"] = relationship(back_populates="questions")
+
+
+class ComplianceAudit(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
+    """Audit instance against a supplier/company, validated through MOC workflow."""
+    __tablename__ = "compliance_audits"
+    __table_args__ = (
+        Index("idx_compliance_audits_entity", "entity_id"),
+        Index("idx_compliance_audits_target", "target_type", "target_id"),
+        Index("idx_compliance_audits_status", "status"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    template_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_audit_templates.id"), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(30), default="tier", server_default="tier", nullable=False)
+    target_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    reference: Mapped[str] = mapped_column(String(80), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="draft", server_default="draft", nullable=False)
+    planned_at: Mapped[date | None] = mapped_column(Date)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    valid_until: Mapped[date | None] = mapped_column(Date)
+    score_percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    summary: Mapped[str | None] = mapped_column(Text)
+    validation_moc_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("mocs.id", ondelete="SET NULL"))
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    template: Mapped["ComplianceAuditTemplate"] = relationship()
+    answers: Mapped[list["ComplianceAuditAnswer"]] = relationship(back_populates="audit", cascade="all, delete-orphan")
+    validation_moc: Mapped["MOC | None"] = relationship(foreign_keys=[validation_moc_id])
+
+
+class ComplianceAuditAnswer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Answer, score, notes and proof slot for one audit question."""
+    __tablename__ = "compliance_audit_answers"
+    __table_args__ = (
+        UniqueConstraint("audit_id", "question_id", name="uq_compliance_audit_answer_question"),
+        Index("idx_compliance_audit_answers_audit", "audit_id"),
+    )
+
+    audit_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_audits.id", ondelete="CASCADE"), nullable=False)
+    question_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_audit_questions.id"), nullable=False)
+    response_value: Mapped[dict | None] = mapped_column(JSONB)
+    score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    notes: Mapped[str | None] = mapped_column(Text)
+    answered_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    audit: Mapped["ComplianceAudit"] = relationship(back_populates="answers")
+    question: Mapped["ComplianceAuditQuestion"] = relationship()
 
 
 # ─── Job Positions / Fiches de Poste ─────────────────────────────────────────

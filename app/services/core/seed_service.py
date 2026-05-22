@@ -1923,6 +1923,11 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("compliance_rule_target", "department", "Département", 4, {"en": "Department"}),
         ("compliance_rule_target", "job_position", "Fiche de poste", 5, {"en": "Job position"}),
         ("compliance_rule_target", "packlog_cargo", "Colis PackLog", 6, {"en": "PackLog cargo"}),
+        ("compliance_rule_subject_scope", "person", "Personnes", 1, {"en": "People"}),
+        ("compliance_rule_subject_scope", "company", "Entreprises", 2, {"en": "Companies"}),
+        ("compliance_rule_subject_scope", "asset", "Assets", 3, {"en": "Assets"}),
+        ("compliance_rule_subject_scope", "cargo", "Colis", 4, {"en": "Cargo"}),
+        ("compliance_rule_subject_scope", "all", "Tous les perimetres", 5, {"en": "All scopes"}),
         # ── Rule priorities ──
         ("compliance_rule_priority", "high", "Haute", 1, {"en": "High"}),
         ("compliance_rule_priority", "normal", "Normale", 2, {"en": "Normal"}),

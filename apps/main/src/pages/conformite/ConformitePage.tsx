@@ -392,7 +392,7 @@ export function ConformitePage() {
             onCreateRule={(payload) => createRule.mutate(payload as ComplianceRuleCreate)}
             onDeleteRule={(id) => deleteRule.mutate({ id })}
             onEditRule={(rule) => openDynamicPanel({ type: 'edit', module: 'conformite', id: rule.id, meta: { subtype: 'rule' }, data: { rule } })}
-            onCreateRulePanel={(prefill) => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule', prefill_type_id: prefill.type_id, prefill_target_type: prefill.target_type, prefill_target_value: prefill.target_value || '' } })}
+            onCreateRulePanel={(prefill) => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule', prefill_type_id: prefill.type_id, prefill_subject_scope: prefill.subject_scope, prefill_target_type: prefill.target_type, prefill_target_value: prefill.target_value || '' } })}
           />
         )
       case 'transferts':

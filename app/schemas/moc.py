@@ -54,7 +54,7 @@ class MOCCreate(BaseModel):
     # the type's configured rules (source='matrix').
     moc_type_id: UUID | None = None
     workflow_profile: str | None = Field(
-        default=None, pattern="^(process_moc|project_change)$"
+        default=None, pattern="^(process_moc|project_change|audit_validation)$"
     )
     objectives: str | None = None
     description: str | None = None
@@ -97,7 +97,7 @@ class MOCContextCreate(BaseModel):
     impact_analysis: str | None = None
     moc_type_id: UUID | None = None
     workflow_profile: str | None = Field(
-        default=None, pattern="^(process_moc|project_change)$"
+        default=None, pattern="^(process_moc|project_change|audit_validation)$"
     )
     manager_id: UUID | None = None
     site_label: str | None = Field(default=None, max_length=100)

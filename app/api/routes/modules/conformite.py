@@ -1,27 +1,30 @@
 """Conformite (compliance) module routes — types, rules, records."""
 
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, selectinload
 
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.database import get_db
 from app.core.references import generate_reference
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.services.modules import compliance_service
+from app.services.modules.moc_service import create_contextual_moc, transition as transition_moc
 from app.services.connectors.compliance_connector import create_connector
 from app.services.modules.compliance_external_verification import apply_external_certificate_result
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     ComplianceType, ComplianceTypeAuthorizedCenter, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
+    ComplianceAudit, ComplianceAuditAnswer, ComplianceAuditQuestion, ComplianceAuditTemplate, ComplianceAuditTheme,
     Entity, JobPosition, TierContactTransfer, TierContact, Tier, Attachment, ContactEmail,
-    User, UserEmail, Phone, Setting,
+    User, UserEmail, Phone, Setting, UserGroup, UserGroupMember,
 )
 from app.schemas.common import (
     PaginatedResponse,
@@ -31,10 +34,13 @@ from app.schemas.common import (
     ComplianceRecordCreate, ComplianceRecordRead, ComplianceRecordUpdate,
     ComplianceCheckResult,
     ComplianceExemptionCreate, ComplianceExemptionRead, ComplianceExemptionUpdate,
+    ComplianceAuditAnswerUpsert, ComplianceAuditCreate, ComplianceAuditRead, ComplianceAuditSubmit,
+    ComplianceAuditTemplateCreate, ComplianceAuditTemplateRead, ComplianceAuditTemplateUpdate, ComplianceAuditUpdate,
     JobPositionCreate, JobPositionRead, JobPositionUpdate,
     TierContactTransferCreate, TierContactTransferRead,
     TierRead,
 )
+from app.schemas.moc import MOCContextCreate, MOCInitialValidator
 router = APIRouter(
     prefix="/api/v1/conformite",
     tags=["conformite"],
@@ -44,6 +50,7 @@ def _snapshot_rule(rule: ComplianceRule) -> dict:
     """Create a JSON snapshot of a rule's current state for history."""
     return {
         "compliance_type_id": str(rule.compliance_type_id),
+        "subject_scope": rule.subject_scope,
         "target_type": rule.target_type,
         "target_value": rule.target_value,
         "description": rule.description,
@@ -57,6 +64,90 @@ def _snapshot_rule(rule: ComplianceRule) -> dict:
         "effective_to": str(rule.effective_to) if rule.effective_to else None,
         "condition_json": rule.condition_json,
     }
+
+
+async def _enrich_audit_target(db: AsyncSession, audit: ComplianceAudit) -> ComplianceAudit:
+    if audit.target_type == "tier":
+        tier = await db.get(Tier, audit.target_id)
+        setattr(audit, "target_name", tier.name if tier else None)
+    return audit
+
+
+def _audit_read_options():
+    return (
+        selectinload(ComplianceAudit.template)
+        .selectinload(ComplianceAuditTemplate.themes)
+        .selectinload(ComplianceAuditTheme.questions),
+        selectinload(ComplianceAudit.answers),
+    )
+
+
+async def _load_audit_for_read(db: AsyncSession, audit_id: UUID, entity_id: UUID) -> ComplianceAudit:
+    result = await db.execute(
+        select(ComplianceAudit)
+        .options(*_audit_read_options())
+        .where(ComplianceAudit.id == audit_id, ComplianceAudit.entity_id == entity_id)
+    )
+    audit = result.scalars().unique().one()
+    await _enrich_audit_target(db, audit)
+    return audit
+
+
+async def _resolve_audit_validator_ids(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    requested_ids: list[UUID],
+) -> list[UUID]:
+    unique_ids = list(dict.fromkeys(requested_ids))
+    if not unique_ids:
+        return []
+    membership_exists = (
+        select(UserGroupMember.user_id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserGroupMember.user_id == User.id,
+            UserGroup.entity_id == entity_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+        .exists()
+    )
+    result = await db.execute(
+        select(User.id).where(
+            User.id.in_(unique_ids),
+            User.active == True,  # noqa: E712
+            or_(User.default_entity_id == entity_id, membership_exists),
+        )
+    )
+    allowed = set(result.scalars().all())
+    return [user_id for user_id in unique_ids if user_id in allowed]
+
+
+def _audit_score(answers: list[ComplianceAuditAnswer]) -> Decimal | None:
+    total_weight = Decimal("0")
+    weighted_score = Decimal("0")
+    for answer in answers:
+        if answer.score is None or not answer.question:
+            continue
+        question_weight = Decimal(str(answer.question.weight or 1))
+        theme_weight = Decimal(str(answer.question.theme.weight or 1)) if answer.question.theme else Decimal("1")
+        weight = question_weight * theme_weight
+        total_weight += weight
+        weighted_score += Decimal(str(answer.score)) * weight
+    if total_weight <= 0:
+        return None
+    return (weighted_score / total_weight).quantize(Decimal("0.01"))
+
+
+async def _recompute_audit_score(db: AsyncSession, audit: ComplianceAudit) -> None:
+    result = await db.execute(
+        select(ComplianceAuditAnswer)
+        .options(
+            selectinload(ComplianceAuditAnswer.question).selectinload(ComplianceAuditQuestion.theme)
+        )
+        .where(ComplianceAuditAnswer.audit_id == audit.id)
+    )
+    audit.score_percent = _audit_score(list(result.scalars().all()))
 
 async def _count_record_proof(
     db: AsyncSession,
@@ -862,6 +953,7 @@ async def create_compliance_rule(
     await emit_event("conformite.rule.created", {
         "rule_id": str(rule.id),
         "entity_id": str(entity_id),
+        "subject_scope": rule.subject_scope,
         "target_type": rule.target_type,
         "target_value": rule.target_value,
         "description": rule.description or "",
@@ -911,6 +1003,7 @@ async def update_compliance_rule(
     await emit_event("conformite.rule.updated", {
         "rule_id": str(rule.id),
         "entity_id": str(entity_id),
+        "subject_scope": rule.subject_scope,
         "target_type": rule.target_type,
         "target_value": rule.target_value,
         "description": rule.description or "",
@@ -1174,11 +1267,16 @@ async def create_compliance_record(
         if hasattr(issued_at, 'tzinfo') and issued_at.tzinfo is None:
             issued_at = issued_at.replace(tzinfo=timezone.utc)
         # Find applicable rule for potential override
+        subject_scope = compliance_service._owner_subject_scope(data["owner_type"])
         rule_q = await db.execute(
             select(ComplianceRule).where(
                 ComplianceRule.compliance_type_id == ct.id,
                 ComplianceRule.entity_id == entity_id,
                 ComplianceRule.active == True,
+                or_(
+                    ComplianceRule.subject_scope == subject_scope,
+                    ComplianceRule.subject_scope == "all",
+                ),
             ).limit(1)
         )
         rule = rule_q.scalar_one_or_none()
@@ -1599,6 +1697,344 @@ async def check_compliance(
     )
 
     return ComplianceCheckResult(**verdict)
+
+
+# ── Supplier audits / audits tiers ──────────────────────────────────────
+
+
+@router.get(
+    "/audit-templates",
+    response_model=list[ComplianceAuditTemplateRead],
+    dependencies=[require_permission("conformite.audit.template.read")],
+)
+async def list_audit_templates(
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceAuditTemplate)
+        .options(
+            selectinload(ComplianceAuditTemplate.themes)
+            .selectinload(ComplianceAuditTheme.questions)
+        )
+        .where(
+            ComplianceAuditTemplate.entity_id == entity_id,
+            ComplianceAuditTemplate.active == True,  # noqa: E712
+        )
+        .order_by(ComplianceAuditTemplate.audit_type, ComplianceAuditTemplate.code)
+    )
+    return result.scalars().unique().all()
+
+
+@router.post(
+    "/audit-templates",
+    response_model=ComplianceAuditTemplateRead,
+    status_code=201,
+)
+async def create_audit_template(
+    body: ComplianceAuditTemplateCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.audit.template.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    existing = await db.execute(
+        select(ComplianceAuditTemplate.id).where(
+            ComplianceAuditTemplate.entity_id == entity_id,
+            ComplianceAuditTemplate.code == body.code,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(409, "Audit template code already exists")
+
+    template = ComplianceAuditTemplate(
+        entity_id=entity_id,
+        code=body.code,
+        name=body.name,
+        audit_type=body.audit_type,
+        target_scope=body.target_scope,
+        description=body.description,
+        passing_score=Decimal(str(body.passing_score)),
+        validity_days=body.validity_days,
+    )
+    db.add(template)
+    await db.flush()
+    for theme_in in body.themes:
+        theme = ComplianceAuditTheme(
+            template_id=template.id,
+            title=theme_in.title,
+            description=theme_in.description,
+            weight=Decimal(str(theme_in.weight)),
+            position=theme_in.position,
+        )
+        db.add(theme)
+        await db.flush()
+        for question_in in theme_in.questions:
+            db.add(ComplianceAuditQuestion(
+                theme_id=theme.id,
+                code=question_in.code,
+                text=question_in.text,
+                response_type=question_in.response_type,
+                weight=Decimal(str(question_in.weight)),
+                required=question_in.required,
+                attachment_required=question_in.attachment_required,
+                options_json=question_in.options_json,
+                position=question_in.position,
+            ))
+    await db.commit()
+    result = await db.execute(
+        select(ComplianceAuditTemplate)
+        .options(selectinload(ComplianceAuditTemplate.themes).selectinload(ComplianceAuditTheme.questions))
+        .where(ComplianceAuditTemplate.id == template.id)
+    )
+    return result.scalars().unique().one()
+
+
+@router.patch(
+    "/audit-templates/{template_id}",
+    response_model=ComplianceAuditTemplateRead,
+)
+async def update_audit_template(
+    template_id: UUID,
+    body: ComplianceAuditTemplateUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("conformite.audit.template.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceAuditTemplate)
+        .options(selectinload(ComplianceAuditTemplate.themes).selectinload(ComplianceAuditTheme.questions))
+        .where(ComplianceAuditTemplate.id == template_id, ComplianceAuditTemplate.entity_id == entity_id)
+    )
+    template = result.scalars().unique().one_or_none()
+    if not template:
+        raise HTTPException(404, "Audit template not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        if key == "passing_score" and value is not None:
+            value = Decimal(str(value))
+        setattr(template, key, value)
+    await db.commit()
+    await db.refresh(template)
+    return template
+
+
+@router.get(
+    "/audits",
+    response_model=list[ComplianceAuditRead],
+    dependencies=[require_permission("conformite.audit.read")],
+)
+async def list_compliance_audits(
+    target_type: str | None = None,
+    target_id: UUID | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    query = (
+        select(ComplianceAudit)
+        .options(*_audit_read_options())
+        .where(ComplianceAudit.entity_id == entity_id)
+        .order_by(ComplianceAudit.created_at.desc())
+    )
+    if target_type:
+        query = query.where(ComplianceAudit.target_type == target_type)
+    if target_id:
+        query = query.where(ComplianceAudit.target_id == target_id)
+    audits = list((await db.execute(query)).scalars().unique().all())
+    for audit in audits:
+        await _enrich_audit_target(db, audit)
+    return audits
+
+
+@router.post("/audits", response_model=ComplianceAuditRead, status_code=201)
+async def create_compliance_audit(
+    body: ComplianceAuditCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.audit.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    template = await db.get(ComplianceAuditTemplate, body.template_id)
+    if not template or template.entity_id != entity_id or not template.active:
+        raise HTTPException(404, "Audit template not found")
+    if body.target_type != "tier":
+        raise HTTPException(400, "Only tier audits are supported in this release")
+    tier = await db.get(Tier, body.target_id)
+    if not tier or tier.entity_id != entity_id:
+        raise HTTPException(404, "Supplier not found")
+    ref = await generate_reference("AUD", db, entity_id=entity_id)
+    audit = ComplianceAudit(
+        entity_id=entity_id,
+        template_id=template.id,
+        target_type=body.target_type,
+        target_id=body.target_id,
+        reference=ref,
+        title=body.title or f"{template.name} - {tier.name}",
+        planned_at=body.planned_at,
+        summary=body.summary,
+        created_by=current_user.id,
+    )
+    db.add(audit)
+    await db.flush()
+    await db.commit()
+    return await _load_audit_for_read(db, audit.id, entity_id)
+
+
+@router.patch("/audits/{audit_id}", response_model=ComplianceAuditRead)
+async def update_compliance_audit(
+    audit_id: UUID,
+    body: ComplianceAuditUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("conformite.audit.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceAudit)
+        .options(*_audit_read_options())
+        .where(ComplianceAudit.id == audit_id, ComplianceAudit.entity_id == entity_id)
+    )
+    audit = result.scalars().unique().one_or_none()
+    if not audit:
+        raise HTTPException(404, "Audit not found")
+    for key, value in body.model_dump(exclude_unset=True).items():
+        setattr(audit, key, value)
+    await db.commit()
+    return await _load_audit_for_read(db, audit.id, entity_id)
+
+
+@router.put("/audits/{audit_id}/answers", response_model=ComplianceAuditRead)
+async def upsert_audit_answers(
+    audit_id: UUID,
+    answers: list[ComplianceAuditAnswerUpsert],
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.audit.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceAudit)
+        .options(
+            selectinload(ComplianceAudit.template)
+            .selectinload(ComplianceAuditTemplate.themes)
+            .selectinload(ComplianceAuditTheme.questions),
+            selectinload(ComplianceAudit.answers),
+        )
+        .where(ComplianceAudit.id == audit_id, ComplianceAudit.entity_id == entity_id)
+    )
+    audit = result.scalars().unique().one_or_none()
+    if not audit:
+        raise HTTPException(404, "Audit not found")
+    question_ids = {
+        question.id
+        for theme in (audit.template.themes if audit.template else [])
+        for question in theme.questions
+    }
+    if any(item.question_id not in question_ids for item in answers):
+        raise HTTPException(400, "Answer references a question outside this audit template")
+
+    existing_result = await db.execute(
+        select(ComplianceAuditAnswer).where(ComplianceAuditAnswer.audit_id == audit.id)
+    )
+    existing = {answer.question_id: answer for answer in existing_result.scalars().all()}
+    now = datetime.now(timezone.utc)
+    for item in answers:
+        row = existing.get(item.question_id)
+        if row is None:
+            row = ComplianceAuditAnswer(audit_id=audit.id, question_id=item.question_id)
+            db.add(row)
+        row.response_value = item.response_value
+        row.score = Decimal(str(item.score)) if item.score is not None else None
+        row.notes = item.notes
+        row.answered_by = current_user.id
+        row.answered_at = now
+    audit.status = "in_progress" if audit.status == "draft" else audit.status
+    audit.started_at = audit.started_at or now
+    await db.flush()
+    await _recompute_audit_score(db, audit)
+    await db.commit()
+    return await _load_audit_for_read(db, audit.id, entity_id)
+
+
+@router.post("/audits/{audit_id}/submit", response_model=ComplianceAuditRead)
+async def submit_compliance_audit(
+    audit_id: UUID,
+    body: ComplianceAuditSubmit,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.audit.submit"),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ComplianceAudit)
+        .options(
+            selectinload(ComplianceAudit.template)
+            .selectinload(ComplianceAuditTemplate.themes)
+            .selectinload(ComplianceAuditTheme.questions),
+            selectinload(ComplianceAudit.answers),
+        )
+        .where(ComplianceAudit.id == audit_id, ComplianceAudit.entity_id == entity_id)
+    )
+    audit = result.scalars().unique().one_or_none()
+    if not audit:
+        raise HTTPException(404, "Audit not found")
+    if audit.validation_moc_id:
+        raise HTTPException(409, "Audit validation workflow already exists")
+
+    required_question_ids = {
+        question.id
+        for theme in (audit.template.themes if audit.template else [])
+        for question in theme.questions
+        if question.required
+    }
+    answered_question_ids = {
+        answer.question_id
+        for answer in audit.answers
+        if answer.score is not None or answer.response_value is not None
+    }
+    missing = required_question_ids - answered_question_ids
+    if missing:
+        raise HTTPException(422, f"Audit has {len(missing)} required unanswered question(s)")
+    validator_ids = await _resolve_audit_validator_ids(
+        db,
+        entity_id=entity_id,
+        requested_ids=body.validator_user_ids,
+    )
+    if not validator_ids:
+        raise HTTPException(422, "At least one active validator from the current entity is required")
+
+    await _recompute_audit_score(db, audit)
+    moc_payload = MOCContextCreate(
+        title=f"Validation audit {audit.reference}",
+        description=body.comment or audit.summary,
+        impact_analysis=f"Score audit: {audit.score_percent if audit.score_percent is not None else 'N/A'}%",
+        workflow_profile="audit_validation",
+        context_module="conformite",
+        context_payload={
+            "audit_id": str(audit.id),
+            "audit_reference": audit.reference,
+            "target_type": audit.target_type,
+            "target_id": str(audit.target_id),
+        },
+        initial_validators=[
+            MOCInitialValidator(user_id=user_id, role="metier", metier_code="AUDIT", metier_name="Audit")
+            for user_id in validator_ids
+        ],
+    )
+    moc = await create_contextual_moc(
+        db,
+        entity_id=entity_id,
+        actor=current_user,
+        context_type="compliance_audit",
+        context_id=audit.id,
+        context_module="conformite",
+        payload=moc_payload,
+        context_payload=moc_payload.context_payload,
+    )
+    await transition_moc(db, moc=moc, to_status="submitted", actor=current_user, comment=body.comment)
+    audit.validation_moc_id = moc.id
+    audit.status = "submitted"
+    audit.submitted_at = datetime.now(timezone.utc)
+    await db.commit()
+    return await _load_audit_for_read(db, audit.id, entity_id)
 
 
 # ── Job Positions (fiches de poste) ─────────────────────────────────────
@@ -2249,6 +2685,10 @@ async def list_pending_verifications(
                 ComplianceRule.compliance_type_id == rec.compliance_type_id,
                 ComplianceRule.entity_id == entity_id,
                 ComplianceRule.active == True,
+                or_(
+                    ComplianceRule.subject_scope == compliance_service._owner_subject_scope(rec.owner_type),
+                    ComplianceRule.subject_scope == "all",
+                ),
             ).limit(1)
         )
         rule = rule_q.scalar_one_or_none()
@@ -2635,6 +3075,10 @@ async def verify_record(
                     ComplianceRule.compliance_type_id == record.compliance_type_id,
                     ComplianceRule.entity_id == entity_id,
                     ComplianceRule.active == True,
+                    or_(
+                        ComplianceRule.subject_scope == compliance_service._owner_subject_scope(record.owner_type),
+                        ComplianceRule.subject_scope == "all",
+                    ),
                 ).limit(1)
             )
             rule = rule_q.scalar_one_or_none()

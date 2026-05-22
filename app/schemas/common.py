@@ -1581,6 +1581,7 @@ class ComplianceRuleRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID
     compliance_type_id: UUID
+    subject_scope: str = "person"
     target_type: str
     target_value: str | None = None
     description: str | None = None
@@ -1603,6 +1604,7 @@ class ComplianceRuleRead(OpsFluxSchema):
 
 class ComplianceRuleCreate(BaseModel):
     compliance_type_id: UUID
+    subject_scope: str = Field("person", pattern=r'^(person|company|asset|cargo|all)$')
     target_type: str = Field(..., pattern=r'^(tier_type|asset|department|job_position|packlog_cargo|all)$')
     target_value: str | None = None
     description: str | None = None
@@ -1619,6 +1621,7 @@ class ComplianceRuleCreate(BaseModel):
 
 
 class ComplianceRuleUpdate(BaseModel):
+    subject_scope: str | None = Field(None, pattern=r'^(person|company|asset|cargo|all)$')
     target_type: str | None = Field(None, pattern=r'^(tier_type|asset|department|job_position|packlog_cargo|all)$')
     target_value: str | None = None
     description: str | None = None
@@ -1769,6 +1772,148 @@ class ComplianceExemptionRead(OpsFluxSchema):
 
 
 # ─── Job Positions / Fiches de Poste ─────────────────────────────────────────
+
+
+class ComplianceAuditQuestionCreate(BaseModel):
+    code: str | None = Field(None, max_length=50)
+    text: str = Field(..., min_length=1)
+    response_type: str = Field("score", pattern=r"^(score|yes_no|choice|text)$")
+    weight: float = Field(1.0, ge=0)
+    required: bool = True
+    attachment_required: bool = False
+    options_json: dict | None = None
+    position: int = 0
+
+
+class ComplianceAuditQuestionRead(OpsFluxSchema):
+    id: UUID
+    theme_id: UUID
+    code: str | None = None
+    text: str
+    response_type: str
+    weight: float
+    required: bool
+    attachment_required: bool
+    options_json: dict | None = None
+    position: int
+
+
+class ComplianceAuditThemeCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    weight: float = Field(1.0, ge=0)
+    position: int = 0
+    questions: list[ComplianceAuditQuestionCreate] = Field(default_factory=list)
+
+
+class ComplianceAuditThemeRead(OpsFluxSchema):
+    id: UUID
+    template_id: UUID
+    title: str
+    description: str | None = None
+    weight: float
+    position: int
+    questions: list[ComplianceAuditQuestionRead] = Field(default_factory=list)
+
+
+class ComplianceAuditTemplateCreate(BaseModel):
+    code: str = Field(..., min_length=1, max_length=50)
+    name: str = Field(..., min_length=1, max_length=200)
+    audit_type: str = Field(..., min_length=1, max_length=50)
+    target_scope: str = Field("company", pattern=r"^(company)$")
+    description: str | None = None
+    passing_score: float = Field(70.0, ge=0, le=100)
+    validity_days: int | None = Field(None, ge=1)
+    themes: list[ComplianceAuditThemeCreate] = Field(default_factory=list)
+
+
+class ComplianceAuditTemplateUpdate(BaseModel):
+    name: str | None = Field(None, max_length=200)
+    audit_type: str | None = Field(None, max_length=50)
+    description: str | None = None
+    passing_score: float | None = Field(None, ge=0, le=100)
+    validity_days: int | None = Field(None, ge=1)
+    active: bool | None = None
+
+
+class ComplianceAuditTemplateRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    code: str
+    name: str
+    audit_type: str
+    target_scope: str
+    description: str | None = None
+    passing_score: float
+    validity_days: int | None = None
+    active: bool
+    created_at: datetime
+    updated_at: datetime
+    themes: list[ComplianceAuditThemeRead] = Field(default_factory=list)
+
+
+class ComplianceAuditAnswerUpsert(BaseModel):
+    question_id: UUID
+    response_value: dict | None = None
+    score: float | None = Field(None, ge=0, le=100)
+    notes: str | None = None
+
+
+class ComplianceAuditCreate(BaseModel):
+    template_id: UUID
+    target_type: str = Field("tier", pattern=r"^(tier)$")
+    target_id: UUID
+    title: str | None = Field(None, max_length=200)
+    planned_at: date | None = None
+    summary: str | None = None
+
+
+class ComplianceAuditUpdate(BaseModel):
+    title: str | None = Field(None, max_length=200)
+    planned_at: date | None = None
+    summary: str | None = None
+    status: str | None = Field(None, pattern=r"^(draft|in_progress|submitted|in_review|validated|rejected|closed)$")
+
+
+class ComplianceAuditSubmit(BaseModel):
+    validator_user_ids: list[UUID] = Field(default_factory=list)
+    comment: str | None = None
+
+
+class ComplianceAuditAnswerRead(OpsFluxSchema):
+    id: UUID
+    audit_id: UUID
+    question_id: UUID
+    response_value: dict | None = None
+    score: float | None = None
+    notes: str | None = None
+    answered_by: UUID | None = None
+    answered_at: datetime | None = None
+
+
+class ComplianceAuditRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    template_id: UUID
+    target_type: str
+    target_id: UUID
+    reference: str
+    title: str
+    status: str
+    planned_at: date | None = None
+    started_at: datetime | None = None
+    submitted_at: datetime | None = None
+    validated_at: datetime | None = None
+    valid_until: date | None = None
+    score_percent: float | None = None
+    summary: str | None = None
+    validation_moc_id: UUID | None = None
+    created_by: UUID
+    created_at: datetime
+    updated_at: datetime
+    template: ComplianceAuditTemplateRead | None = None
+    answers: list[ComplianceAuditAnswerRead] = Field(default_factory=list)
+    target_name: str | None = None
 
 
 class JobPositionRead(OpsFluxSchema):

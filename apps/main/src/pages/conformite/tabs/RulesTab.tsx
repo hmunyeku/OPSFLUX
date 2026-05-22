@@ -16,7 +16,7 @@ import {
 } from '../shared'
 import { formatDate } from '@/lib/i18n'
 
-type TargetTab = 'job_position' | 'department' | 'asset' | 'packlog_cargo' | 'all'
+type TargetTab = 'job_position' | 'tier_type' | 'department' | 'asset' | 'packlog_cargo' | 'all'
 
 export function RulesMatrixView({
   rules,
@@ -32,10 +32,10 @@ export function RulesMatrixView({
   types: ComplianceType[]
   jobPositions: JobPosition[] | undefined
   isLoading: boolean
-  onCreateRule: (payload: { compliance_type_id: string; target_type: string; target_value?: string }) => void
+  onCreateRule: (payload: { compliance_type_id: string; subject_scope?: string; target_type: string; target_value?: string }) => void
   onDeleteRule: (id: string) => void
   onEditRule?: (rule: ComplianceRule) => void
-  onCreateRulePanel?: (prefill: { type_id: string; target_type: string; target_value?: string }) => void
+  onCreateRulePanel?: (prefill: { type_id: string; subject_scope?: string; target_type: string; target_value?: string }) => void
 }) {
   const { t } = useTranslation()
   const [searchFilter, setSearchFilter] = useState('')
@@ -46,12 +46,14 @@ export function RulesMatrixView({
   const [exportOpen, setExportOpen] = useState(false)
   const [hoveredCol, setHoveredCol] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
-  const [listGroupBy, setListGroupBy] = useState<'target_type' | 'category' | 'applicability' | 'none'>('target_type')
+  const [listGroupBy, setListGroupBy] = useState<'subject_scope' | 'target_type' | 'category' | 'applicability' | 'none'>('subject_scope')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const {
     categoryLabels,
     ruleTargetOptions,
     ruleTargetLabels,
+    ruleSubjectScopeOptions,
+    ruleSubjectScopeLabels,
     rulePriorityOptions,
     rulePriorityLabels,
     ruleApplicabilityOptions,
@@ -60,12 +62,14 @@ export function RulesMatrixView({
   const packlogCargoTypeOptions = useDictionaryOptions('packlog_cargo_type')
   const targetTabs = useMemo<{ id: TargetTab; label: string }[]>(() => [
     { id: 'job_position', label: t('conformite.rules.target_tabs.job_position') },
+    { id: 'tier_type', label: t('conformite.rules.target_tabs.tier_type') },
     { id: 'all', label: t('conformite.rules.target_tabs.all') },
     { id: 'packlog_cargo', label: t('conformite.rules.target_tabs.packlog_cargo') },
     { id: 'department', label: t('conformite.rules.target_tabs.department') },
     { id: 'asset', label: t('conformite.rules.target_tabs.asset') },
   ], [t])
   const groupByOptions = useMemo(() => ([
+    ['subject_scope', t('conformite.rules.group_by.subject_scope')],
     ['target_type', t('conformite.rules.group_by.target_type')],
     ['category', t('conformite.rules.group_by.category')],
     ['applicability', t('conformite.rules.group_by.applicability')],
@@ -96,10 +100,11 @@ export function RulesMatrixView({
 
   const ruleFilterDefs = useMemo<DataTableFilterDef[]>(() => [
     { id: 'category', label: 'Catégorie', type: 'select', options: availableCategories.map(cat => ({ value: cat, label: categoryGroupLabels[cat] ?? cat })) },
+    { id: 'subject_scope', label: t('conformite.rules.subject_scope_label'), type: 'select', options: ruleSubjectScopeOptions.map(o => ({ value: o.value, label: o.label })) },
     { id: 'target_type', label: 'Cible', type: 'select', options: ruleTargetOptions.map(o => ({ value: o.value, label: o.label })) },
     { id: 'applicability', label: 'Applicabilité', type: 'select', options: ruleApplicabilityOptions.map(o => ({ value: o.value, label: o.label })) },
     { id: 'priority', label: 'Priorité', type: 'select', options: rulePriorityOptions.map(o => ({ value: o.value, label: o.label })) },
-  ], [availableCategories, categoryGroupLabels, ruleApplicabilityOptions, rulePriorityOptions, ruleTargetOptions])
+  ], [availableCategories, categoryGroupLabels, ruleApplicabilityOptions, rulePriorityOptions, ruleSubjectScopeOptions, ruleTargetOptions, t])
 
   const filteredTypes = useMemo(() => {
     return types
@@ -110,18 +115,26 @@ export function RulesMatrixView({
   const ruleMap = useMemo(() => {
     const map = new Map<string, ComplianceRule>()
     for (const r of rules) {
+      const scope = r.subject_scope ?? 'person'
       if (r.target_type === 'all') {
-        map.set(`${r.compliance_type_id}::all::__all__`, r)
+        map.set(`${r.compliance_type_id}::${scope}::all::__all__`, r)
       } else if (r.target_value?.includes(',')) {
         for (const v of r.target_value.split(',')) {
-          map.set(`${r.compliance_type_id}::${r.target_type}::${v.trim()}`, r)
+          map.set(`${r.compliance_type_id}::${scope}::${r.target_type}::${v.trim()}`, r)
         }
       } else {
-        map.set(`${r.compliance_type_id}::${r.target_type}::${r.target_value}`, r)
+        map.set(`${r.compliance_type_id}::${scope}::${r.target_type}::${r.target_value}`, r)
       }
     }
     return map
   }, [rules])
+
+  const subjectScopeForTarget = useCallback((targetType: string) => {
+    if (targetType === 'tier_type') return 'company'
+    if (targetType === 'asset') return 'asset'
+    if (targetType === 'packlog_cargo') return 'cargo'
+    return 'person'
+  }, [])
 
   const rows = useMemo(() => {
     if (activeTargetTab === 'all') return [{ id: '__all__', label: 'Tous les employés', sub: '' }]
@@ -151,7 +164,7 @@ export function RulesMatrixView({
   }, [activeTargetTab, jobPositions, rules, searchFilter, packlogCargoTypeOptions])
 
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = { job_position: 0, all: 0, department: 0, asset: 0, packlog_cargo: 0 }
+    const counts: Record<string, number> = { job_position: 0, tier_type: 0, all: 0, department: 0, asset: 0, packlog_cargo: 0 }
     for (const r of rules) {
       if (r.target_type in counts) counts[r.target_type]++
     }
@@ -161,20 +174,21 @@ export function RulesMatrixView({
   const handleCellClick = useCallback((typeId: string, rowId: string) => {
     const targetType = activeTargetTab === 'all' ? 'all' : activeTargetTab
     const targetValue = activeTargetTab === 'all' ? undefined : rowId
+    const subjectScope = subjectScopeForTarget(targetType)
     const key = activeTargetTab === 'all'
-      ? `${typeId}::all::__all__`
-      : `${typeId}::${activeTargetTab}::${rowId}`
+      ? `${typeId}::${subjectScope}::all::__all__`
+      : `${typeId}::${subjectScope}::${activeTargetTab}::${rowId}`
     const existing = ruleMap.get(key)
     if (existing && onEditRule) {
       onEditRule(existing)
     } else if (existing) {
       onDeleteRule(existing.id)
     } else if (onCreateRulePanel) {
-      onCreateRulePanel({ type_id: typeId, target_type: targetType, target_value: targetValue })
+      onCreateRulePanel({ type_id: typeId, subject_scope: subjectScope, target_type: targetType, target_value: targetValue })
     } else {
-      onCreateRule({ compliance_type_id: typeId, target_type: targetType, target_value: targetValue })
+      onCreateRule({ compliance_type_id: typeId, subject_scope: subjectScope, target_type: targetType, target_value: targetValue })
     }
-  }, [ruleMap, onCreateRule, onDeleteRule, onEditRule, onCreateRulePanel, activeTargetTab])
+  }, [ruleMap, onCreateRule, onDeleteRule, onEditRule, onCreateRulePanel, activeTargetTab, subjectScopeForTarget])
 
   const filteredRulesForList = useMemo(() => {
     let filtered = rules
@@ -187,6 +201,8 @@ export function RulesMatrixView({
       const typeIds = new Set(types.filter(t => t.category === selectedCategory).map(t => t.id))
       filtered = filtered.filter(r => typeIds.has(r.compliance_type_id))
     }
+    const subjectFilter = activeRuleFilters.subject_scope as string | undefined
+    if (subjectFilter) filtered = filtered.filter(r => (r.subject_scope ?? 'person') === subjectFilter)
     const targetFilter = activeRuleFilters.target_type as string | undefined
     if (targetFilter) filtered = filtered.filter(r => r.target_type === targetFilter)
     const appFilter = activeRuleFilters.applicability as string | undefined
@@ -201,11 +217,12 @@ export function RulesMatrixView({
         const jp = r.target_type === 'job_position' && r.target_value ? jobPositions?.find(p => p.id === r.target_value) : null
         return (ct?.code.toLowerCase().includes(q) || ct?.name.toLowerCase().includes(q) ||
           r.target_value?.toLowerCase().includes(q) || jp?.name.toLowerCase().includes(q) ||
+          ruleSubjectScopeLabels[r.subject_scope ?? 'person']?.toLowerCase().includes(q) ||
           r.description?.toLowerCase().includes(q))
       })
     }
     return filtered
-  }, [rules, types, selectedCategory, searchFilter, jobPositions, activeRuleFilters])
+  }, [rules, types, selectedCategory, searchFilter, jobPositions, activeRuleFilters, ruleSubjectScopeLabels])
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
@@ -274,7 +291,10 @@ export function RulesMatrixView({
             for (const rule of filteredRulesForList) {
               const ct = types.find(t => t.id === rule.compliance_type_id)
               let groupKey: string
-              if (listGroupBy === 'target_type') {
+              if (listGroupBy === 'subject_scope') {
+                const scope = rule.subject_scope ?? 'person'
+                groupKey = ruleSubjectScopeLabels[scope] ?? scope
+              } else if (listGroupBy === 'target_type') {
                 groupKey = ruleTargetLabels[rule.target_type] ?? rule.target_type
               } else if (listGroupBy === 'category') {
                 groupKey = categoryGroupLabels[ct?.category ?? ''] ?? ct?.category ?? t('common.other')
@@ -317,6 +337,7 @@ export function RulesMatrixView({
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Type</th>
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('conformite.types.category')}</th>
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('conformite.rules.target_type')}</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('conformite.rules.subject_scope_label')}</th>
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Valeur</th>
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('common.priority')}</th>
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{t('conformite.rules.applicability_label')}</th>
@@ -343,6 +364,9 @@ export function RulesMatrixView({
                               </td>
                               <td className="px-3 py-2 text-muted-foreground">
                                 {ruleTargetLabels[rule.target_type] ?? rule.target_type}
+                              </td>
+                              <td className="px-3 py-2 text-muted-foreground">
+                                {ruleSubjectScopeLabels[rule.subject_scope ?? 'person'] ?? rule.subject_scope ?? 'person'}
                               </td>
                               <td className="px-3 py-2 text-foreground">
                                 {rule.target_type === 'all' ? '—' : jpNames.length > 0 ? jpNames.join(', ') : rule.target_value ?? '—'}
@@ -497,9 +521,10 @@ export function RulesMatrixView({
                           {row.sub && <span className="text-muted-foreground ml-1 sm:ml-1.5 text-[9px] sm:text-[10px] hidden sm:inline">{row.sub}</span>}
                         </td>
                         {filteredTypes.map((type) => {
+                          const subjectScope = subjectScopeForTarget(activeTargetTab === 'all' ? 'all' : activeTargetTab)
                           const key = activeTargetTab === 'all'
-                            ? `${type.id}::all::__all__`
-                            : `${type.id}::${activeTargetTab}::${row.id}`
+                            ? `${type.id}::${subjectScope}::all::__all__`
+                            : `${type.id}::${subjectScope}::${activeTargetTab}::${row.id}`
                           const rule = ruleMap.get(key)
                           const checked = Boolean(rule)
                           return (
@@ -558,6 +583,7 @@ export function RulesMatrixView({
             type_code: ct?.code ?? '',
             type_name: ct?.name ?? '',
             category: categoryGroupLabels[ct?.category ?? ''] ?? ct?.category ?? '',
+            subject_scope: ruleSubjectScopeLabels[rule.subject_scope ?? 'person'] ?? rule.subject_scope ?? 'person',
             target_type: ruleTargetLabels[rule.target_type] ?? rule.target_type,
             target_value_display: rule.target_type === 'all' ? (ruleTargetLabels.all ?? 'Tous') : jpVals.length > 0 ? jpVals.map((p: any) => `${p.code} - ${p.name}`).join(', ') : rule.target_value ?? '',
             priority: rulePriorityLabels[rule.priority] ?? rule.priority,
@@ -571,6 +597,7 @@ export function RulesMatrixView({
           { id: 'type_code', header: t('conformite.columns.type_code') },
           { id: 'type_name', header: t('conformite.columns.type_name') },
           { id: 'category', header: t('conformite.columns.category') },
+          { id: 'subject_scope', header: t('conformite.rules.subject_scope_label') },
           { id: 'target_type', header: t('conformite.columns.target') },
           { id: 'target_value_display', header: t('conformite.columns.target_value') },
           { id: 'priority', header: t('conformite.columns.priority') },

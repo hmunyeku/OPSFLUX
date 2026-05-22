@@ -229,7 +229,7 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
   typeReadOnly?: boolean
 }) {
   const { t } = useTranslation()
-  const { ruleTargetOptions, rulePriorityOptions, ruleApplicabilityOptions } = useConformiteDictionaryState()
+  const { ruleTargetOptions, ruleSubjectScopeOptions, rulePriorityOptions, ruleApplicabilityOptions } = useConformiteDictionaryState()
   const typeOptions = useMemo(() =>
     (typesData?.items ?? []).map((t: any) => ({ value: t.id, label: `${t.code} — ${t.name}`, group: t.category })),
   [typesData])
@@ -239,6 +239,12 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
   [jpData])
 
   const ct = typesData?.items?.find((t: any) => t.id === form.compliance_type_id)
+  const inferSubjectScope = (targetType: string) => {
+    if (targetType === 'tier_type') return 'company'
+    if (targetType === 'asset') return 'asset'
+    if (targetType === 'packlog_cargo') return 'cargo'
+    return 'person'
+  }
 
   // SmartForm context is optional — when rendered inside a
   // SmartFormProvider (create + edit panels), section levels
@@ -291,7 +297,14 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
             <TagSelector
               options={ruleTargetOptions}
               value={form.target_type}
-              onChange={(v: string) => setForm({ ...form, target_type: v, target_value: '' })}
+              onChange={(v: string) => setForm({ ...form, target_type: v, subject_scope: inferSubjectScope(v), target_value: '' })}
+            />
+          </DynamicPanelField>
+          <DynamicPanelField label={t('conformite.rules.subject_scope_label')} required>
+            <TagSelector
+              options={ruleSubjectScopeOptions}
+              value={form.subject_scope ?? 'person'}
+              onChange={(v: string) => setForm({ ...form, subject_scope: v })}
             />
           </DynamicPanelField>
           {form.target_type === 'job_position' && (

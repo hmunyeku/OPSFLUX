@@ -99,6 +99,7 @@ export function useConformiteDictionaryState() {
   const statusOptions = useDictionaryOptions('compliance_status')
   const exemptionStatusOptions = useDictionaryOptions('compliance_exemption_status')
   const ruleTargetOptions = useDictionaryOptions('compliance_rule_target')
+  const ruleSubjectScopeOptions = useDictionaryOptions('compliance_rule_subject_scope')
   const verificationStatusOptions = useDictionaryOptions('compliance_verification_status')
   const rulePriorityOptions = useDictionaryOptions('compliance_rule_priority')
   const ruleApplicabilityOptions = useDictionaryOptions('compliance_rule_applicability')
@@ -131,6 +132,13 @@ export function useConformiteDictionaryState() {
     job_position: t('conformite.rules.targets.job_position'),
     packlog_cargo: t('conformite.rules.targets.packlog_cargo'),
   })
+  const ruleSubjectScopeLabels = useDictionaryLabels('compliance_rule_subject_scope', {
+    person: t('conformite.rules.subject_scopes.person'),
+    company: t('conformite.rules.subject_scopes.company'),
+    asset: t('conformite.rules.subject_scopes.asset'),
+    cargo: t('conformite.rules.subject_scopes.cargo'),
+    all: t('conformite.rules.subject_scopes.all'),
+  })
   const verificationStatusLabels = useDictionaryLabels('compliance_verification_status', {
     pending: t('conformite.verifications.pending'),
     verified: t('conformite.verifications.verified'),
@@ -155,6 +163,8 @@ export function useConformiteDictionaryState() {
     exemptionStatusLabels,
     ruleTargetOptions,
     ruleTargetLabels,
+    ruleSubjectScopeOptions,
+    ruleSubjectScopeLabels,
     verificationStatusOptions,
     verificationStatusLabels,
     rulePriorityOptions,

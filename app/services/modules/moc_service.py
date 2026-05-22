@@ -26,7 +26,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.common import Project, ProjectTask, User
+from app.models.common import ComplianceAudit, Project, ProjectTask, User
 from app.models.moc import (
     MOC,
     MOCStatusHistory,
@@ -114,7 +114,7 @@ PROJECT_CHANGE_FSM: dict[str, dict[str, str]] = {
 
 
 def fsm_for_profile(workflow_profile: str | None) -> dict[str, dict[str, str]]:
-    if workflow_profile == "project_change":
+    if workflow_profile in {"project_change", "audit_validation"}:
         return PROJECT_CHANGE_FSM
     return FSM
 
@@ -176,6 +176,17 @@ async def resolve_moc_context_owner(
             raise HTTPException(404, "Context owner not found")
         return owner
 
+    if context_type == "compliance_audit":
+        owner = (await db.execute(
+            select(ComplianceAudit).where(
+                ComplianceAudit.id == context_id,
+                ComplianceAudit.entity_id == entity_id,
+            )
+        )).scalar_one_or_none()
+        if owner is None:
+            raise HTTPException(404, "Context owner not found")
+        return owner
+
     raise HTTPException(404, "Context owner not found")
 
 
@@ -233,7 +244,7 @@ async def create_contextual_moc(
             if context_module == "projets" or context_type in {"project", "project_task"}
             else "process_moc"
         )
-    initial_status = "draft" if workflow_profile == "project_change" else "created"
+    initial_status = "draft" if workflow_profile in {"project_change", "audit_validation"} else "created"
     context_payload_with_profile = dict(context_payload or {})
     context_payload_with_profile.setdefault("workflow_profile", workflow_profile)
     moc = MOC(
@@ -268,7 +279,11 @@ async def create_contextual_moc(
         old_status=None,
         new_status=initial_status,
         changed_by=actor.id,
-        note="Changement projet créé" if workflow_profile == "project_change" else "MOC créé",
+        note=(
+            "Validation audit créée"
+            if workflow_profile == "audit_validation"
+            else "Changement projet créé" if workflow_profile == "project_change" else "MOC créé"
+        ),
     ))
     for validator in (getattr(payload, "initial_validators", None) or []):
         target_user = await db.get(User, validator.user_id)
@@ -324,7 +339,7 @@ async def transition(
     # with a human-readable explanation) and only then mutates the record.
     # This mirrors the Daxium workflow: no step can be skipped without
     # filling the prerequisite fields that will be rendered on the PDF.
-    if workflow_profile == "project_change":
+    if workflow_profile in {"project_change", "audit_validation"}:
         if to_status == "approved":
             missing = [
                 v for v in (moc.validations or [])

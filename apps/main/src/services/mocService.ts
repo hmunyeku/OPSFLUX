@@ -28,7 +28,7 @@ export type MOCStatus =
   | 'executed_docs_pending'
   | 'closed'
 
-export type MOCWorkflowProfile = 'process_moc' | 'project_change'
+export type MOCWorkflowProfile = 'process_moc' | 'project_change' | 'audit_validation'
 export type MOCModificationType = 'permanent' | 'temporary'
 export type MOCPriority = '1' | '2' | '3'
 export type MOCCostBucket = 'lt_20' | '20_to_50' | '50_to_100' | 'gt_100'

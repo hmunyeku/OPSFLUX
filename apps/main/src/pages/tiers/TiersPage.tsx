@@ -62,6 +62,7 @@ import { PhoneManager } from '@/components/shared/PhoneManager'
 import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { LegalIdentifierManager } from '@/components/shared/LegalIdentifierManager'
 import { ReferentielManager } from '@/components/shared/ReferentielManager'
+import { SupplierAuditManager } from '@/components/shared/SupplierAuditManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
@@ -1302,6 +1303,9 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
       <PanelContentLayout>
         <FormSection title={t('nav.conformite')} collapsible defaultExpanded storageKey="tier-detail-conformite">
           <ReferentielManager ownerType="tier" ownerId={tier.id} compact />
+        </FormSection>
+        <FormSection title={t('conformite.rules.audits.title', 'Audits tiers')} collapsible defaultExpanded storageKey="tier-detail-audits">
+          <SupplierAuditManager tierId={tier.id} compact />
         </FormSection>
       </PanelContentLayout>
       )}

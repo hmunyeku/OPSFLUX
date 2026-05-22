@@ -1090,6 +1090,7 @@ export interface ComplianceRule {
   id: string
   entity_id: string
   compliance_type_id: string
+  subject_scope: string
   target_type: string
   target_value: string | null
   description: string | null
@@ -1111,6 +1112,7 @@ export interface ComplianceRule {
 
 export interface ComplianceRuleCreate {
   compliance_type_id: string
+  subject_scope?: string
   target_type: string
   target_value?: string | null
   description?: string | null
@@ -1126,6 +1128,7 @@ export interface ComplianceRuleCreate {
 }
 
 export interface ComplianceRuleUpdate {
+  subject_scope?: string | null
   target_type?: string | null
   target_value?: string | null
   description?: string | null
@@ -1150,6 +1153,88 @@ export interface ComplianceRuleHistory {
   change_reason: string | null
   changed_by: string | null
   changed_at: string
+}
+
+export interface ComplianceAuditQuestion {
+  id: string
+  theme_id: string
+  code: string | null
+  text: string
+  response_type: string
+  weight: number
+  required: boolean
+  attachment_required: boolean
+  options_json: Record<string, unknown> | null
+  position: number
+}
+
+export interface ComplianceAuditTheme {
+  id: string
+  template_id: string
+  title: string
+  description: string | null
+  weight: number
+  position: number
+  questions: ComplianceAuditQuestion[]
+}
+
+export interface ComplianceAuditTemplate {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  audit_type: string
+  target_scope: string
+  description: string | null
+  passing_score: number
+  validity_days: number | null
+  active: boolean
+  created_at: string
+  updated_at: string
+  themes: ComplianceAuditTheme[]
+}
+
+export interface ComplianceAudit {
+  id: string
+  entity_id: string
+  template_id: string
+  target_type: string
+  target_id: string
+  reference: string
+  title: string
+  status: string
+  planned_at: string | null
+  started_at: string | null
+  submitted_at: string | null
+  validated_at: string | null
+  valid_until: string | null
+  score_percent: number | null
+  summary: string | null
+  validation_moc_id: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  template?: ComplianceAuditTemplate | null
+  answers?: Array<{
+    id: string
+    audit_id: string
+    question_id: string
+    response_value: Record<string, unknown> | null
+    score: number | null
+    notes: string | null
+    answered_by: string | null
+    answered_at: string | null
+  }>
+  target_name?: string | null
+}
+
+export interface ComplianceAuditCreate {
+  template_id: string
+  target_type?: 'tier'
+  target_id: string
+  title?: string | null
+  planned_at?: string | null
+  summary?: string | null
 }
 
 export interface ComplianceRecord {

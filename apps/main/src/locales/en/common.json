@@ -1732,6 +1732,7 @@
       "title": "Compliance rules",
       "create": "New rule",
       "target_type": "Target type",
+      "subject_scope_label": "Applies to",
       "mandatory": "Mandatory",
       "search": "Search by type, position, description...",
       "export": "Export rules",
@@ -1745,6 +1746,13 @@
         "department": "Department",
         "job_position": "Job position",
         "packlog_cargo": "PackLog cargo"
+      },
+      "subject_scopes": {
+        "person": "People",
+        "company": "Companies",
+        "asset": "Assets",
+        "cargo": "Cargo",
+        "all": "All scopes"
       },
       "packlog": {
         "scope_title": "PackLog scope",
@@ -1790,6 +1798,7 @@
       },
       "target_tabs": {
         "job_position": "By position",
+        "tier_type": "By tier type",
         "all": "Global",
         "packlog_cargo": "By PackLog cargo",
         "department": "By department",
@@ -1797,6 +1806,7 @@
       },
       "group_by": {
         "label": "Group by:",
+        "subject_scope": "Scope",
         "target_type": "Target",
         "category": "Category",
         "applicability": "Applicability",
@@ -1810,6 +1820,15 @@
       "applicability": {
         "permanent": "Permanent",
         "contextual": "Contextual"
+      },
+      "audits": {
+        "title": "Supplier audits",
+        "subtitle": "Supplier audits, score, evidence and validation.",
+        "select_template": "Audit template...",
+        "create": "Create audit",
+        "empty": "No supplier audit recorded.",
+        "valid_until": "Valid until",
+        "workflow": "Validation workflow linked"
       },
       "view": {
         "matrix": "Matrix view",

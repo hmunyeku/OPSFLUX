@@ -9,6 +9,7 @@ import type {
   ComplianceRecord, ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceCheckResult,
   ComplianceExemption, ComplianceExemptionCreate, ComplianceExemptionUpdate,
+  ComplianceAudit, ComplianceAuditCreate, ComplianceAuditTemplate,
   JobPosition, JobPositionCreate, JobPositionUpdate,
   TierContactTransfer, TierContactTransferCreate,
   PaginatedResponse, PaginationParams, Tier,
@@ -108,6 +109,22 @@ export const conformiteService = {
 
   getRuleHistory: async (ruleId: string): Promise<ComplianceRuleHistory[]> => {
     const { data } = await api.get(`/api/v1/conformite/rules/${ruleId}/history`)
+    return data
+  },
+
+  // ── Supplier audits ──
+  listAuditTemplates: async (): Promise<ComplianceAuditTemplate[]> => {
+    const { data } = await api.get('/api/v1/conformite/audit-templates')
+    return data
+  },
+
+  listAudits: async (params: { target_type?: string; target_id?: string } = {}): Promise<ComplianceAudit[]> => {
+    const { data } = await api.get('/api/v1/conformite/audits', { params })
+    return data
+  },
+
+  createAudit: async (payload: ComplianceAuditCreate): Promise<ComplianceAudit> => {
+    const { data } = await api.post('/api/v1/conformite/audits', payload)
     return data
   },
 

@@ -38,11 +38,20 @@ function CreateRulePanelInner() {
   const { data: jpData } = useJobPositions({ page_size: 200 })
 
   const preType = dynamicPanel?.meta?.prefill_type_id ?? ''
+  const preSubjectScope = dynamicPanel?.meta?.prefill_subject_scope
   const preTarget = dynamicPanel?.meta?.prefill_target_type ?? 'job_position'
   const preTargetValue = dynamicPanel?.meta?.prefill_target_value ?? ''
+  const defaultSubjectScope = preTarget === 'tier_type'
+    ? 'company'
+    : preTarget === 'asset'
+      ? 'asset'
+      : preTarget === 'packlog_cargo'
+        ? 'cargo'
+        : 'person'
 
   const [form, setForm] = useState<Record<string, any>>({
     compliance_type_id: preType,
+    subject_scope: preSubjectScope ?? defaultSubjectScope,
     target_type: preTarget,
     target_value: preTargetValue,
     description: '',
@@ -65,6 +74,7 @@ function CreateRulePanelInner() {
     try {
       const created = await createRule.mutateAsync({
         compliance_type_id: form.compliance_type_id,
+        subject_scope: form.subject_scope ?? 'person',
         target_type: form.target_type,
         target_value: form.target_value || undefined,
         description: form.description || undefined,

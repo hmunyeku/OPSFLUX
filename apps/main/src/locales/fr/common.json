@@ -1865,6 +1865,7 @@
       "title": "Règles de conformité",
       "create": "Nouvelle règle",
       "target_type": "Type de cible",
+      "subject_scope_label": "S'applique à",
       "mandatory": "Obligatoire",
       "search": "Rechercher par type, poste, description...",
       "export": "Exporter les règles",
@@ -1878,6 +1879,13 @@
         "department": "Département",
         "job_position": "Fiche de poste",
         "packlog_cargo": "Colis PackLog"
+      },
+      "subject_scopes": {
+        "person": "Personnes",
+        "company": "Entreprises",
+        "asset": "Assets",
+        "cargo": "Colis",
+        "all": "Tous les périmètres"
       },
       "packlog": {
         "scope_title": "Cadrage PackLog",
@@ -1923,6 +1931,7 @@
       },
       "target_tabs": {
         "job_position": "Par poste",
+        "tier_type": "Par type de tiers",
         "all": "Globales",
         "packlog_cargo": "Par colis PackLog",
         "department": "Par département",
@@ -1930,6 +1939,7 @@
       },
       "group_by": {
         "label": "Grouper par :",
+        "subject_scope": "Périmètre",
         "target_type": "Cible",
         "category": "Catégorie",
         "applicability": "Applicabilité",
@@ -1943,6 +1953,15 @@
       "applicability": {
         "permanent": "Permanente",
         "contextual": "Contextuelle"
+      },
+      "audits": {
+        "title": "Audits tiers",
+        "subtitle": "Audits fournisseur, score, preuves et validation.",
+        "select_template": "Modèle d’audit...",
+        "create": "Créer un audit",
+        "empty": "Aucun audit tiers enregistré.",
+        "valid_until": "Valide jusqu’au",
+        "workflow": "Workflow validation lié"
       },
       "view": {
         "matrix": "Vue matrice",

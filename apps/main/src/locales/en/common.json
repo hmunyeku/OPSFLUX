@@ -1250,6 +1250,8 @@
       "not_provided": "Not provided",
       "email_missing": "Email missing",
       "phone_missing": "Phone missing",
+      "emails_count": "{{count}} emails",
+      "phones_count": "{{count}} phones",
       "block_type": "Block type",
       "block_purchasing": "Purchasing",
       "block_payment": "Payments",

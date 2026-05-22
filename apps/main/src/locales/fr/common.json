@@ -1347,6 +1347,8 @@
       "not_provided": "Non renseigné",
       "email_missing": "Email absent",
       "phone_missing": "Téléphone absent",
+      "emails_count": "{{count}} emails",
+      "phones_count": "{{count}} téléphones",
       "block_type": "Type de blocage",
       "block_purchasing": "Achats",
       "block_payment": "Paiements",
@@ -1414,12 +1416,12 @@
     },
     "contact_form": {
       "errors": {
-        "name_required": "Nom required"
+        "name_required": "Prénom et nom requis"
       },
-      "is_primary": "Est primary",
+      "is_primary": "Référent",
       "placeholders": {
-        "first_name": "Premier nom",
-        "last_name": "Dernier nom"
+        "first_name": "Prénom",
+        "last_name": "Nom"
       }
     },
     "select_company": "Sélectionner entreprise",

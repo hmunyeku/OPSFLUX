@@ -254,7 +254,7 @@ function CreateTierPanel() {
       setFormErrors(errors)
       const firstError = Object.values(errors)[0]
       toast({
-        title: 'Formulaire incomplet',
+        title: t('tiers.ui.incomplete_form'),
         description: firstError,
         variant: 'error',
       })

@@ -253,8 +253,8 @@ export function ContactListSection({
         )}
         {contacts.length > 0 && (
           <div className="flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
-            <span className="rounded border border-border/60 px-1.5 py-0.5">{contactStats.withEmail} emails</span>
-            <span className="rounded border border-border/60 px-1.5 py-0.5">{contactStats.withPhone} téléphones</span>
+            <span className="rounded border border-border/60 px-1.5 py-0.5">{t('tiers.ui.emails_count', { count: contactStats.withEmail })}</span>
+            <span className="rounded border border-border/60 px-1.5 py-0.5">{t('tiers.ui.phones_count', { count: contactStats.withPhone })}</span>
           </div>
         )}
         {canEdit && (

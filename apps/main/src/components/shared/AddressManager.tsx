@@ -51,12 +51,12 @@ const LABEL_BADGE_STYLES: Record<string, string> = {
 }
 
 const FALLBACK_LABEL_OPTIONS = [
-  { value: 'home', label: 'Domicile' },
-  { value: 'office', label: 'Bureau' },
-  { value: 'site', label: 'Site' },
-  { value: 'headquarters', label: 'Siège' },
-  { value: 'pickup', label: 'Ramassage' },
-  { value: 'other', label: 'Autre' },
+  { value: 'home', labelKey: 'shared.addresses.labels.home' },
+  { value: 'office', labelKey: 'shared.addresses.labels.office' },
+  { value: 'site', labelKey: 'shared.addresses.labels.site' },
+  { value: 'headquarters', labelKey: 'shared.addresses.labels.headquarters' },
+  { value: 'pickup', labelKey: 'shared.addresses.labels.pickup' },
+  { value: 'other', labelKey: 'shared.addresses.labels.other' },
 ]
 
 function getLabelBadge(label: string, dictLabels?: Record<string, string>) {
@@ -120,7 +120,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
   // Browser geolocation (GPS device position)
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) {
-      toast({ title: 'Non supporté', description: 'La géolocalisation n\'est pas disponible sur cet appareil.', variant: 'warning' })
+      toast({ title: t('shared.addresses.geolocation_unsupported'), description: t('shared.addresses.geolocation_unavailable'), variant: 'warning' })
       return
     }
     setGeoLoading(true)
@@ -129,21 +129,21 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
         setLatitude(String(pos.coords.latitude))
         setLongitude(String(pos.coords.longitude))
         setGeoLoading(false)
-        toast({ title: 'Position obtenue', variant: 'success' })
+        toast({ title: t('shared.addresses.position_found'), variant: 'success' })
       },
       (err) => {
         setGeoLoading(false)
-        toast({ title: 'Erreur GPS', description: err.message, variant: 'error' })
+        toast({ title: t('shared.addresses.error_gps'), description: err.message, variant: 'error' })
       },
       { enableHighAccuracy: true, timeout: 10000 },
     )
-  }, [toast])
+  }, [toast, t])
 
   // Forward geocoding: address text → GPS coordinates
   const handleGeocode = useCallback(async () => {
     const query = [addressLine1, city, stateProvince, postalCode, countryCodeToName(country)].filter(Boolean).join(', ')
     if (!query.trim()) {
-      toast({ title: 'Adresse vide', description: 'Remplissez l\'adresse pour géocoder.', variant: 'warning' })
+      toast({ title: t('shared.addresses.empty_geocode_title'), description: t('shared.addresses.empty_geocode_description'), variant: 'warning' })
       return
     }
     setGeocodeLoading(true)
@@ -152,16 +152,16 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
       if (result) {
         setLatitude(String(result.lat))
         setLongitude(String(result.lng))
-        toast({ title: 'Coordonnées trouvées', variant: 'success' })
+        toast({ title: t('shared.addresses.coordinates_found'), variant: 'success' })
       } else {
-        toast({ title: 'Introuvable', description: 'Aucune coordonnée trouvée pour cette adresse.', variant: 'warning' })
+        toast({ title: t('shared.addresses.not_found_title'), description: t('shared.addresses.geocode_not_found'), variant: 'warning' })
       }
     } catch {
-      toast({ title: t('common.error'), description: 'Échec du géocodage.', variant: 'error' })
+      toast({ title: t('common.error'), description: t('shared.addresses.geocode_error'), variant: 'error' })
     } finally {
       setGeocodeLoading(false)
     }
-  }, [addressLine1, city, stateProvince, postalCode, country, toast])
+  }, [addressLine1, city, stateProvince, postalCode, country, toast, t])
 
   // Map picker callback
   const handleMapSelect = useCallback((lat: number, lng: number) => {
@@ -188,18 +188,18 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
     try {
       if (initial) {
         await updateAddress.mutateAsync({ id: initial.id, payload: addressData })
-        toast({ title: 'Adresse modifiée', variant: 'success' })
+        toast({ title: t('shared.addresses.updated'), variant: 'success' })
       } else {
         await createAddress.mutateAsync({
           owner_type: ownerType,
           owner_id: ownerId,
           ...addressData,
         } as AddressCreate)
-        toast({ title: 'Adresse créée', variant: 'success' })
+        toast({ title: t('shared.addresses.created'), variant: 'success' })
       }
       onClose()
     } catch {
-      toast({ title: t('common.error'), description: 'Impossible d\'enregistrer l\'adresse.', variant: 'error' })
+      toast({ title: t('common.error'), description: t('shared.addresses.error_save'), variant: 'error' })
     }
   }
 
@@ -213,14 +213,14 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
           </select>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap cursor-pointer">
             <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="h-3.5 w-3.5 accent-primary" />
-            Par défaut
+            {t('common.default')}
           </label>
         </div>
 
         {/* Row 2: Address + City on same line */}
         <div className="grid grid-cols-2 gap-2">
-          <input type="text" required className={`${panelInputClass} !text-xs !h-8`} placeholder="Adresse *" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
-          <input type="text" required className={`${panelInputClass} !text-xs !h-8`} placeholder="Ville *" value={city} onChange={(e) => setCity(e.target.value)} />
+          <input type="text" required className={`${panelInputClass} !text-xs !h-8`} placeholder={t('shared.addresses.address_required')} value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
+          <input type="text" required className={`${panelInputClass} !text-xs !h-8`} placeholder={t('shared.addresses.city_required')} value={city} onChange={(e) => setCity(e.target.value)} />
         </div>
 
         {/* Row 3: Country */}
@@ -233,7 +233,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
           className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
         >
           <ChevronsUpDown size={12} />
-          {expanded ? 'Moins d\'options' : 'Plus d\'options'}
+          {expanded ? t('shared.addresses.less_options') : t('shared.addresses.more_options')}
         </button>
 
         {expanded && (
@@ -242,12 +242,12 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
               <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('shared.ligne_2_batiment')} value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
               <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('settings.etat_province')} value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} />
             </div>
-            <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder="Code postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+            <input type="text" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('shared.addresses.postal_code')} value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
 
             {/* GPS compact */}
             <div className="space-y-1.5">
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" step="any" className={`${panelInputClass} !text-xs !h-8`} placeholder="Latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
+                <input type="number" step="any" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('common.latitude')} value={latitude} onChange={(e) => setLatitude(e.target.value)} />
                 <input type="number" step="any" className={`${panelInputClass} !text-xs !h-8`} placeholder={t('common.longitude')} value={longitude} onChange={(e) => setLongitude(e.target.value)} />
               </div>
               <div className="flex flex-wrap items-center gap-1">
@@ -255,10 +255,10 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
                   {geoLoading ? <Loader2 size={10} className="animate-spin" /> : <LocateFixed size={10} />} GPS
                 </button>
                 <button type="button" onClick={handleGeocode} disabled={geocodeLoading} className="btn btn-primary text-emerald-700 bg-emerald-50 border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:border-emerald-700">
-                  {geocodeLoading ? <Loader2 size={10} className="animate-spin" /> : <Search size={10} />} Géocoder
+                  {geocodeLoading ? <Loader2 size={10} className="animate-spin" /> : <Search size={10} />} {t('shared.addresses.geocode')}
                 </button>
                 <button type="button" onClick={() => setShowMapPicker(true)} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:border-amber-700 transition-all">
-                  <Map size={10} /> Carte
+                  <Map size={10} /> {t('shared.addresses.map')}
                 </button>
               </div>
             </div>
@@ -268,7 +268,7 @@ function AddressForm({ ownerType, ownerId, initial, onClose, labelOptions }: Add
         <div className="flex items-center justify-end gap-1.5 pt-1">
           <button type="button" onClick={onClose} className="btn-sm btn-secondary text-xs">{t('common.cancel')}</button>
           <button type="submit" disabled={!canSubmit} className="btn-sm btn-primary text-xs">
-            {isPending ? <Loader2 size={10} className="animate-spin" /> : initial ? 'Enregistrer' : 'Ajouter'}
+            {isPending ? <Loader2 size={10} className="animate-spin" /> : initial ? t('common.save') : t('common.add')}
           </button>
         </div>
       </form>
@@ -292,7 +292,7 @@ interface AddressManagerProps {
   /** UUID of the owning object */
   ownerId: string | undefined
   /** Optional: restrict label options */
-  labelOptions?: typeof FALLBACK_LABEL_OPTIONS
+  labelOptions?: { value: string; label: string }[]
   /** Compact mode (for detail panels) */
   compact?: boolean
   /** If true, opens the add form immediately on mount */
@@ -308,7 +308,9 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
   const { data, isLoading } = useAddresses(ownerType, ownerId)
   const deleteAddress = useDeleteAddress()
   const dictLabelOptions = useDictionaryOptions('address_type')
-  const labelOptions = dictLabelOptions.length > 0 ? dictLabelOptions : FALLBACK_LABEL_OPTIONS
+  const labelOptions = dictLabelOptions.length > 0
+    ? dictLabelOptions
+    : FALLBACK_LABEL_OPTIONS.map((item) => ({ value: item.value, label: t(item.labelKey) }))
   const dictLabels: Record<string, string> = {}
   for (const o of labelOptions) dictLabels[o.value] = o.label
 
@@ -326,9 +328,9 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
     try {
       await deleteAddress.mutateAsync(id)
       setConfirmDeleteId(null)
-      toast({ title: 'Adresse supprimée', variant: 'success' })
+      toast({ title: t('shared.addresses.deleted'), variant: 'success' })
     } catch {
-      toast({ title: t('common.error'), description: 'Impossible de supprimer l\'adresse.', variant: 'error' })
+      toast({ title: t('common.error'), description: t('shared.addresses.error_delete'), variant: 'error' })
     }
   }
 
@@ -342,7 +344,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
           <div>
             <h3 className="text-sm font-semibold text-foreground">{t('common.addresses')}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Gérez les adresses associées à cet enregistrement.
+              {t('shared.addresses.description')}
             </p>
           </div>
           {!hideAddButton && !showForm && !editingId && (
@@ -351,7 +353,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
               onClick={() => setShowForm(true)}
             >
               <Plus size={12} />
-              Ajouter
+              {t('common.add')}
             </button>
           )}
         </div>
@@ -364,7 +366,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
             onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
           >
-            <Plus size={12} /> Ajouter une adresse
+            <Plus size={12} /> {t('shared.addresses.add')}
           </button>
         </div>
       )}
@@ -423,7 +425,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
                   <span className={`chip ${badge.className}`}>{badge.text}</span>
                   {addr.is_default && (
                     <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-primary/10 text-primary">
-                      <Star size={9} /> Par défaut
+                      <Star size={9} /> {t('common.default')}
                     </span>
                   )}
                 </div>
@@ -447,25 +449,25 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
                   <button
                     className="btn-sm btn-secondary"
                     onClick={() => setEditingId(addr.id)}
-                    title="Modifier"
+                    title={t('common.edit')}
                   >
-                    <Pencil size={11} /> Modifier
+                    <Pencil size={11} /> {t('common.edit')}
                   </button>
 
                   {isConfirming ? (
                     <div className="flex items-center gap-1 ml-auto">
                       <button className="btn-sm btn-danger" onClick={() => handleDelete(addr.id)} disabled={deleteAddress.isPending}>
-                        Oui
+                        {t('common.yes')}
                       </button>
                       <button className="btn-sm btn-secondary" onClick={() => setConfirmDeleteId(null)}>
-                        Non
+                        {t('common.no')}
                       </button>
                     </div>
                   ) : (
                     <button
                       className="btn-sm btn-danger ml-auto"
                       onClick={() => setConfirmDeleteId(addr.id)}
-                      title="Supprimer"
+                      title={t('common.delete')}
                     >
                       <Trash2 size={11} />
                     </button>
@@ -490,7 +492,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
                 onClick={() => setShowForm(true)}
                 className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
               >
-                <Plus size={12} /> Ajouter
+                <Plus size={12} /> {t('common.add')}
               </button>
             )}
           </div>

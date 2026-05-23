@@ -1668,6 +1668,7 @@
       "no_reference": "No reference",
       "issuer_missing": "Issuer not provided",
       "no_configured_issuer": "No issuer configured for this reference.",
+      "no_applicable_type": "No applicable type in this context",
       "riseup_type_not_linked": "This reference type is not linked to RiseUp. In Compliance > Types, set the source to External or Mixed and the external provider to RiseUp.",
       "legacy": "legacy",
       "proof_required_inline": "Supporting file required for verification and approval",

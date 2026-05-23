@@ -1,7 +1,7 @@
 /**
  * ReferentielManager — Polymorphic compliance records manager.
  *
- * Displays compliance records (formations, certifications, habilitations, audits, EPI)
+ * Displays compliance records (formations, certifications, habilitations, EPI)
  * for any owner (user, tier_contact, tier, asset) with conformity status badge,
  * required/missing items from ComplianceRules, inline create/edit/delete.
  *
@@ -9,7 +9,7 @@
  *   <ReferentielManager ownerType="user" ownerId={user.id} />
  *   <ReferentielManager ownerType="tier_contact" ownerId={contact.id} category="certification" />
  */
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -25,10 +25,10 @@ import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import {
   useComplianceRecords, useCreateComplianceRecord, useUpdateComplianceRecord,
   useDeleteComplianceRecord, useComplianceCheck, useComplianceTypes, useAuthorizationCenters,
-  useVerifyComplianceRecordExternally,
+  useVerifyComplianceRecordExternally, useComplianceRules,
 } from '@/hooks/useConformite'
 import { useAttachments } from '@/hooks/useSettings'
-import type { ComplianceRecord } from '@/types/api'
+import type { ComplianceRecord, ComplianceType } from '@/types/api'
 
 interface ReferentielManagerProps {
   ownerType: 'user' | 'tier_contact' | 'tier' | 'asset'
@@ -38,7 +38,32 @@ interface ReferentielManagerProps {
   category?: string
 }
 
-const CATEGORY_ORDER = ['formation', 'certification', 'habilitation', 'audit', 'epi']
+const CATEGORY_ORDER = ['formation', 'certification', 'habilitation', 'medical', 'epi']
+const AUDIT_CATEGORY = 'audit'
+
+type ComplianceSubjectScope = 'person' | 'company' | 'asset' | 'cargo' | 'all'
+
+const ownerTypeToSubjectScope = (ownerType: ReferentielManagerProps['ownerType']): ComplianceSubjectScope => {
+  switch (ownerType) {
+    case 'tier':
+      return 'company'
+    case 'asset':
+      return 'asset'
+    case 'user':
+    case 'tier_contact':
+    default:
+      return 'person'
+  }
+}
+
+const isAuditComplianceType = (type: ComplianceType | null | undefined) => {
+  if (!type) return false
+  const category = String(type.category || '').toLowerCase()
+  const code = String(type.code || '').toLowerCase()
+  return category === AUDIT_CATEGORY || code.startsWith('audit-') || code.includes('-audit-')
+}
+
+const isAuditRecord = (record: ComplianceRecord) => String(record.type_category || '').toLowerCase() === AUDIT_CATEGORY
 
 const STATUS_STYLES: Record<string, string> = {
   valid: 'chip-success',
@@ -111,6 +136,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   })
   const { data: checkResult, isLoading: checkLoading } = useComplianceCheck(ownerType, ownerId)
   const { data: typesData } = useComplianceTypes({ page_size: 200 })
+  const { data: rules = [] } = useComplianceRules()
   const createRecord = useCreateComplianceRecord()
   const updateRecord = useUpdateComplianceRecord()
   const verifyExternalRecord = useVerifyComplianceRecordExternally()
@@ -135,10 +161,41 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   const stagedAttachmentCount = stagedAttachments?.length ?? 0
   const authorizationCenters = authorizationCentersData?.items ?? []
   const hasStructuredIssuers = authorizationCenters.length > 0
+  const subjectScope = ownerTypeToSubjectScope(ownerType)
+
+  const referentialTypeOptions = useMemo(() => {
+    const items = (typesData?.items ?? []).filter((item) => !isAuditComplianceType(item))
+
+    if (category) return items.filter((item) => item.category === category)
+
+    const ruleTypeIdsForScope = new Set(
+      rules
+        .filter((rule) => {
+          if (!rule.active) return false
+          if (rule.subject_scope !== subjectScope && rule.subject_scope !== 'all') return false
+          if (typeof rule.condition_json?.audit_template_id === 'string') return false
+          const linkedType = items.find((item) => item.id === rule.compliance_type_id)
+          return !!linkedType
+        })
+        .map((rule) => rule.compliance_type_id),
+    )
+
+    if (subjectScope === 'company' || subjectScope === 'asset' || subjectScope === 'cargo') {
+      return items.filter((item) => ruleTypeIdsForScope.has(item.id))
+    }
+
+    return items
+  }, [category, rules, subjectScope, typesData?.items])
+
+  const checkDetails = useMemo(() => (
+    (checkResult?.details ?? []).filter((detail: Record<string, unknown>) => (
+      String(detail.category || detail.type_category || '').toLowerCase() !== AUDIT_CATEGORY
+    ))
+  ), [checkResult?.details])
 
   // Group records by category
   const grouped = useMemo(() => {
-    const items = records?.items ?? []
+    const items = (records?.items ?? []).filter((record) => !isAuditRecord(record))
     const map: Record<string, ComplianceRecord[]> = {}
     for (const rec of items) {
       const cat = rec.type_category || 'autre'
@@ -151,8 +208,8 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
   // Visible categories (based on records + check details)
   const visibleCategories = useMemo(() => {
     const cats = new Set(Object.keys(grouped))
-    if (checkResult?.details) {
-      for (const d of checkResult.details) {
+    if (checkDetails.length) {
+      for (const d of checkDetails) {
         const cat = String(d.category || '')
         if (cat) cats.add(cat)
       }
@@ -162,21 +219,18 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
     return CATEGORY_ORDER.filter(c => cats.has(c)).concat(
       [...cats].filter(c => !CATEGORY_ORDER.includes(c))
     )
-  }, [grouped, checkResult, category])
+  }, [grouped, checkDetails, category])
 
   // Missing required types from check
   const missingTypes = useMemo(() => {
-    if (!checkResult?.details) return []
-    return checkResult.details.filter((d) => d.status === 'missing' || d.status === 'expired')
-  }, [checkResult])
+    return checkDetails.filter((d) => d.status === 'missing' || d.status === 'expired')
+  }, [checkDetails])
 
   // Types filtered for the form combobox
   const typeOptions = useMemo(() => {
-    const items = typesData?.items ?? []
-    if (activeCategory) return items.filter(t => t.category === activeCategory)
-    if (category) return items.filter(t => t.category === category)
-    return items
-  }, [typesData, activeCategory, category])
+    if (activeCategory) return referentialTypeOptions.filter(t => t.category === activeCategory)
+    return referentialTypeOptions
+  }, [activeCategory, referentialTypeOptions])
   const selectedComplianceType = useMemo(
     () => (typesData?.items ?? []).find((item) => item.id === form.compliance_type_id),
     [form.compliance_type_id, typesData?.items],
@@ -185,6 +239,13 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
     && ['external', 'both'].includes(selectedComplianceType.compliance_source)
   const issuerSelectValue = form.issuer_tier_id
     || (form.issuer === 'RiseUp' ? RISEUP_ISSUER_VALUE : form.issuer ? LEGACY_ISSUER_VALUE : '')
+
+  useEffect(() => {
+    if (!form.compliance_type_id) return
+    if (editingId) return
+    if (typeOptions.some((item) => item.id === form.compliance_type_id)) return
+    setForm((current) => ({ ...current, compliance_type_id: '', issuer_tier_id: '', issuer: '' }))
+  }, [editingId, form.compliance_type_id, typeOptions])
 
   const formatDate = (d: string | null | undefined) => {
     if (!d) return null
@@ -337,13 +398,19 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
 
   if (!ownerId) return null
 
-  const totalRecords = records?.items?.length ?? 0
-  const historyItems = historyRecords?.items ?? []
-  const exemptedCount = checkResult?.details?.filter((d: Record<string, unknown>) => d.status === 'exempted').length ?? 0
+  const totalRecords = Object.values(grouped).reduce((sum, items) => sum + items.length, 0)
+  const historyItems = (historyRecords?.items ?? []).filter((record) => !isAuditRecord(record))
+  const validCount = checkDetails.filter((d) => d.status === 'valid').length
+  const expiredCount = checkDetails.filter((d) => d.status === 'expired').length
+  const missingCount = checkDetails.filter((d) => d.status === 'missing').length
+  const unverifiedCount = checkDetails.filter((d) => d.status === 'unverified').length
+  const exemptedCount = checkDetails.filter((d: Record<string, unknown>) => d.status === 'exempted').length
+  const isReferenceCompliant = checkDetails.length === 0
+    || (missingCount === 0 && expiredCount === 0 && unverifiedCount === 0)
   const complianceSummaryParts = checkResult ? [
-    t('conformite.check.valid_count', { valid: checkResult.total_valid, total: checkResult.total_required }),
-    ...(checkResult.total_expired > 0 ? [t('conformite.check.expired_count', { count: checkResult.total_expired })] : []),
-    ...(checkResult.total_missing > 0 ? [t('conformite.check.missing_count', { count: checkResult.total_missing })] : []),
+    t('conformite.check.valid_count', { valid: validCount, total: checkDetails.length }),
+    ...(expiredCount > 0 ? [t('conformite.check.expired_count', { count: expiredCount })] : []),
+    ...(missingCount > 0 ? [t('conformite.check.missing_count', { count: missingCount })] : []),
     ...(exemptedCount > 0 ? [t('conformite.check.exempted_count', { count: exemptedCount })] : []),
   ] : []
 
@@ -353,15 +420,15 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
       {checkResult && !checkLoading && (
         <div className={cn(
           'flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs',
-          checkResult.is_compliant
+          isReferenceCompliant
             ? 'bg-green-500/5 border-green-500/20 text-green-700 dark:text-green-400'
             : 'bg-red-500/5 border-red-500/20 text-red-700 dark:text-red-400'
         )}>
-          {checkResult.is_compliant
+          {isReferenceCompliant
             ? <ShieldCheck size={14} />
             : <ShieldAlert size={14} />}
           <span className="font-medium">
-            {checkResult.is_compliant ? t('conformite.check.compliant') : t('conformite.check.non_compliant')}
+            {isReferenceCompliant ? t('conformite.check.compliant') : t('conformite.check.non_compliant')}
           </span>
           <span className="text-[10px] text-muted-foreground ml-auto">
             {complianceSummaryParts.join(' · ')}
@@ -392,9 +459,9 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
       )}
 
       {/* Exempted items (informational) */}
-      {checkResult?.details?.some((d: Record<string, unknown>) => d.status === 'exempted') && (
+      {checkDetails.some((d: Record<string, unknown>) => d.status === 'exempted') && (
         <div className="space-y-1">
-          {checkResult.details.filter((d: Record<string, unknown>) => d.status === 'exempted').map((detail: Record<string, unknown>, i: number) => (
+          {checkDetails.filter((d: Record<string, unknown>) => d.status === 'exempted').map((detail: Record<string, unknown>, i: number) => (
             <div key={i} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded bg-blue-500/5 border border-blue-500/20 text-left">
               <ShieldCheck size={10} className="text-blue-500 shrink-0" />
               <span className="flex-1 truncate">{String(detail.type_name || '?')}</span>
@@ -606,6 +673,11 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
               className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
             >
               <option value="">{t('shared.selectionner_un_type')}</option>
+              {typeOptions.length === 0 && (
+                <option value="" disabled>
+                  {t('conformite.records.no_applicable_type', 'Aucun type applicable dans ce contexte')}
+                </option>
+              )}
               {typeOptions.map(t => (
                 <option key={t.id} value={t.id}>
                   [{getCategoryLabel(t.category)}] {t.code} — {t.name}

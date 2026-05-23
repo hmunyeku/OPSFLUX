@@ -1605,7 +1605,7 @@ class ComplianceRuleRead(OpsFluxSchema):
 class ComplianceRuleCreate(BaseModel):
     compliance_type_id: UUID
     subject_scope: str = Field("person", pattern=r'^(person|company|asset|cargo|all)$')
-    target_type: str = Field(..., pattern=r'^(tier_type|asset|department|job_position|packlog_cargo|all)$')
+    target_type: str = Field(..., pattern=r'^(tier|tier_type|tier_country|tier_industry|asset|department|job_position|packlog_cargo|all)$')
     target_value: str | None = None
     description: str | None = None
     # V2 optional fields
@@ -1622,7 +1622,7 @@ class ComplianceRuleCreate(BaseModel):
 
 class ComplianceRuleUpdate(BaseModel):
     subject_scope: str | None = Field(None, pattern=r'^(person|company|asset|cargo|all)$')
-    target_type: str | None = Field(None, pattern=r'^(tier_type|asset|department|job_position|packlog_cargo|all)$')
+    target_type: str | None = Field(None, pattern=r'^(tier|tier_type|tier_country|tier_industry|asset|department|job_position|packlog_cargo|all)$')
     target_value: str | None = None
     description: str | None = None
     active: bool | None = None

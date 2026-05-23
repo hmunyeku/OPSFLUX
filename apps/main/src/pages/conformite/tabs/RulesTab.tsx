@@ -7,6 +7,7 @@ import type { DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { ExportWizard } from '@/components/shared/ExportWizard'
 import { SubTabBar } from '@/components/ui/Tabs'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
+import { useTiers } from '@/hooks/useTiers'
 import type { ComplianceRule, ComplianceType, JobPosition } from '@/types/api'
 import {
   useConformiteDictionaryState,
@@ -16,7 +17,7 @@ import {
 } from '../shared'
 import { formatDate } from '@/lib/i18n'
 
-type TargetTab = 'job_position' | 'tier_type' | 'department' | 'asset' | 'packlog_cargo' | 'all'
+type TargetTab = 'job_position' | 'tier_type' | 'tier' | 'tier_country' | 'tier_industry' | 'department' | 'asset' | 'packlog_cargo' | 'all'
 
 export function RulesMatrixView({
   rules,
@@ -48,6 +49,7 @@ export function RulesMatrixView({
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
   const [listGroupBy, setListGroupBy] = useState<'subject_scope' | 'target_type' | 'category' | 'applicability' | 'none'>('subject_scope')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const { data: tiersData } = useTiers({ page_size: 500, active: true })
   const {
     categoryLabels,
     ruleTargetOptions,
@@ -63,6 +65,9 @@ export function RulesMatrixView({
   const targetTabs = useMemo<{ id: TargetTab; label: string }[]>(() => [
     { id: 'job_position', label: t('conformite.rules.target_tabs.job_position') },
     { id: 'tier_type', label: t('conformite.rules.target_tabs.tier_type') },
+    { id: 'tier', label: t('conformite.rules.targets.tier') },
+    { id: 'tier_country', label: t('conformite.rules.targets.tier_country') },
+    { id: 'tier_industry', label: t('conformite.rules.targets.tier_industry') },
     { id: 'all', label: t('conformite.rules.target_tabs.all') },
     { id: 'packlog_cargo', label: t('conformite.rules.target_tabs.packlog_cargo') },
     { id: 'department', label: t('conformite.rules.target_tabs.department') },
@@ -130,7 +135,7 @@ export function RulesMatrixView({
   }, [rules])
 
   const subjectScopeForTarget = useCallback((targetType: string) => {
-    if (targetType === 'tier_type') return 'company'
+    if (targetType === 'tier_type' || targetType === 'tier' || targetType === 'tier_country' || targetType === 'tier_industry') return 'company'
     if (targetType === 'asset') return 'asset'
     if (targetType === 'packlog_cargo') return 'cargo'
     return 'person'
@@ -152,6 +157,36 @@ export function RulesMatrixView({
     if (activeTargetTab === 'packlog_cargo') {
       return packlogCargoTypeOptions.map(option => ({ id: option.value, label: option.label, sub: '' }))
     }
+    if (activeTargetTab === 'tier') {
+      const allTiers = tiersData?.items ?? []
+      const filtered = searchFilter
+        ? allTiers.filter((tier: any) =>
+            tier.code?.toLowerCase().includes(searchFilter.toLowerCase()) ||
+            tier.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
+            tier.type?.toLowerCase().includes(searchFilter.toLowerCase())
+          )
+        : allTiers
+      return filtered.map((tier: any) => ({ id: tier.id, label: tier.code || tier.name, sub: tier.code ? tier.name : (tier.type ?? '') }))
+    }
+    if (activeTargetTab === 'tier_country' || activeTargetTab === 'tier_industry') {
+      const key = activeTargetTab === 'tier_country' ? 'country' : 'industry'
+      const values = new Set<string>()
+      for (const tier of tiersData?.items ?? []) {
+        if (tier[key]) values.add(tier[key])
+      }
+      for (const r of rules) {
+        if (r.target_type === activeTargetTab && r.target_value) {
+          for (const value of r.target_value.split(',')) {
+            if (value.trim()) values.add(value.trim())
+          }
+        }
+      }
+      const items = Array.from(values).sort()
+      const filtered = searchFilter
+        ? items.filter(v => v.toLowerCase().includes(searchFilter.toLowerCase()))
+        : items
+      return filtered.map(v => ({ id: v, label: v, sub: '' }))
+    }
     const vals = new Set<string>()
     for (const r of rules) {
       if (r.target_type === activeTargetTab && r.target_value) vals.add(r.target_value)
@@ -161,10 +196,10 @@ export function RulesMatrixView({
       ? items.filter(v => v.toLowerCase().includes(searchFilter.toLowerCase()))
       : items
     return filtered.map(v => ({ id: v, label: v, sub: '' }))
-  }, [activeTargetTab, jobPositions, rules, searchFilter, packlogCargoTypeOptions])
+  }, [activeTargetTab, jobPositions, rules, searchFilter, packlogCargoTypeOptions, tiersData])
 
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = { job_position: 0, tier_type: 0, all: 0, department: 0, asset: 0, packlog_cargo: 0 }
+    const counts: Record<string, number> = { job_position: 0, tier_type: 0, tier: 0, tier_country: 0, tier_industry: 0, all: 0, department: 0, asset: 0, packlog_cargo: 0 }
     for (const r of rules) {
       if (r.target_type in counts) counts[r.target_type]++
     }

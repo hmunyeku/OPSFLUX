@@ -104,6 +104,21 @@ export function useConformiteDictionaryState() {
   const verificationStatusOptions = useDictionaryOptions('compliance_verification_status')
   const rulePriorityOptions = useDictionaryOptions('compliance_rule_priority')
   const ruleApplicabilityOptions = useDictionaryOptions('compliance_rule_applicability')
+  const defaultRuleTargetOptions = useMemo(() => ([
+    { value: 'all', label: t('conformite.rules.targets.all') },
+    { value: 'tier_type', label: t('conformite.rules.targets.tier_type') },
+    { value: 'tier', label: t('conformite.rules.targets.tier') },
+    { value: 'tier_country', label: t('conformite.rules.targets.tier_country') },
+    { value: 'tier_industry', label: t('conformite.rules.targets.tier_industry') },
+    { value: 'asset', label: t('conformite.rules.targets.asset') },
+    { value: 'department', label: t('conformite.rules.targets.department') },
+    { value: 'job_position', label: t('conformite.rules.targets.job_position') },
+    { value: 'packlog_cargo', label: t('conformite.rules.targets.packlog_cargo') },
+  ]), [t])
+  const mergedRuleTargetOptions = useMemo(() => {
+    const seen = new Set(ruleTargetOptions.map(option => option.value))
+    return [...ruleTargetOptions, ...defaultRuleTargetOptions.filter(option => !seen.has(option.value))]
+  }, [ruleTargetOptions, defaultRuleTargetOptions])
 
   const categoryLabels = useDictionaryLabels('compliance_category', {
     formation: t('conformite.types.formation'),
@@ -128,6 +143,9 @@ export function useConformiteDictionaryState() {
   const ruleTargetLabels = useDictionaryLabels('compliance_rule_target', {
     all: t('conformite.rules.targets.all'),
     tier_type: t('conformite.rules.targets.tier_type'),
+    tier: t('conformite.rules.targets.tier'),
+    tier_country: t('conformite.rules.targets.tier_country'),
+    tier_industry: t('conformite.rules.targets.tier_industry'),
     asset: t('conformite.rules.targets.asset'),
     department: t('conformite.rules.targets.department'),
     job_position: t('conformite.rules.targets.job_position'),
@@ -162,7 +180,7 @@ export function useConformiteDictionaryState() {
     statusLabels,
     exemptionStatusOptions,
     exemptionStatusLabels,
-    ruleTargetOptions,
+    ruleTargetOptions: mergedRuleTargetOptions,
     ruleTargetLabels,
     ruleSubjectScopeOptions,
     ruleSubjectScopeLabels,

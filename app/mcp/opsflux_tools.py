@@ -1967,7 +1967,7 @@ async def _create_compliance_rule(args: dict) -> dict:
     target_type = (args.get("target_type") or "").strip()
     if not ct_ref or not target_type:
         raise ValueError("compliance_type_id (ou code) et target_type requis")
-    if target_type not in {"tier_type", "asset", "department", "job_position", "all"}:
+    if target_type not in {"tier", "tier_type", "tier_country", "tier_industry", "asset", "department", "job_position", "all"}:
         raise ValueError("target_type invalide")
 
     async with async_session_factory() as session:

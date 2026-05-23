@@ -1807,11 +1807,22 @@
       "targets": {
         "all": "All",
         "tier_type": "Tier type",
+        "tier": "Company / companies",
+        "tier_country": "Company country",
+        "tier_industry": "Company industry",
         "asset": "Asset",
         "department": "Department",
         "job_position": "Job position",
         "packlog_cargo": "PackLog cargo"
       },
+      "audit_template": "Audit template",
+      "audit_template_placeholder": "Link a mandatory audit template...",
+      "target_companies": "Company / companies",
+      "target_companies_placeholder": "Select one or more companies...",
+      "target_countries": "Countries",
+      "target_countries_placeholder": "Select one or more countries...",
+      "target_industries": "Industries",
+      "target_industries_placeholder": "Select one or more industries...",
       "subject_scopes": {
         "person": "People",
         "company": "Companies",

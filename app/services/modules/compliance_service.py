@@ -14,6 +14,8 @@ from sqlalchemy import any_, func as sqla_func, literal, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.common import (
+    ComplianceAudit,
+    ComplianceAuditTemplate,
     ComplianceExemption,
     ComplianceRecord,
     ComplianceRule,
@@ -47,6 +49,33 @@ def _owner_subject_scope(owner_type: str) -> str:
     if owner_type == "packlog_cargo":
         return "cargo"
     return "all"
+
+
+def _split_rule_values(value: str | None) -> set[str]:
+    if not value:
+        return set()
+    return {part.strip() for part in value.split(",") if part.strip()}
+
+
+def _rule_matches_tier(rule: ComplianceRule, tier: Tier | None) -> bool:
+    """Return whether a company-scoped rule applies to a concrete tier."""
+    if rule.target_type == "all":
+        return True
+    if not tier:
+        return False
+
+    values = _split_rule_values(rule.target_value)
+    wildcard = not values or bool(values & {"*", "all"})
+
+    if rule.target_type == "tier":
+        return str(tier.id) in values
+    if rule.target_type == "tier_type":
+        return wildcard or (bool(tier.type) and tier.type in values)
+    if rule.target_type == "tier_country":
+        return wildcard or (bool(tier.country) and tier.country in values)
+    if rule.target_type == "tier_industry":
+        return wildcard or (bool(tier.industry) and tier.industry in values)
+    return False
 
 
 def _coerce_number(value):
@@ -485,14 +514,19 @@ async def check_owner_compliance(
         ComplianceRule.subject_scope == "all",
     )
 
+    applicable_rules_by_type: dict[UUID, list[ComplianceRule]] = {}
+
     all_rules = await db.execute(
-        select(ComplianceRule.compliance_type_id)
+        select(ComplianceRule)
         .where(ComplianceRule.entity_id == entity_id, ComplianceRule.active == True)  # noqa: E712
         .where(ComplianceRule.target_type == "all")
         .where(subject_scope_filter)
         .where(applicability_filter)
     )
-    required_type_ids = set(row[0] for row in all_rules.all())
+    all_rule_items = all_rules.scalars().all()
+    required_type_ids = {rule.compliance_type_id for rule in all_rule_items}
+    for rule in all_rule_items:
+        applicable_rules_by_type.setdefault(rule.compliance_type_id, []).append(rule)
 
     job_position_id = None
     if owner_type == "tier_contact":
@@ -516,27 +550,23 @@ async def check_owner_compliance(
         )
         required_type_ids |= set(row[0] for row in jp_rules.all())
 
+    owner_tier: Tier | None = None
     if owner_type == "tier":
-        tier_result = await db.execute(select(Tier.type).where(Tier.id == owner_id, Tier.entity_id == entity_id))
-        tier_type = tier_result.scalar()
-        tier_type_values = {"all", "*"}
-        if tier_type:
-            tier_type_values.add(tier_type)
+        tier_result = await db.execute(select(Tier).where(Tier.id == owner_id, Tier.entity_id == entity_id))
+        owner_tier = tier_result.scalar_one_or_none()
         company_rules = await db.execute(
-            select(ComplianceRule.compliance_type_id).where(
+            select(ComplianceRule).where(
                 ComplianceRule.entity_id == entity_id,
                 ComplianceRule.active == True,  # noqa: E712
                 subject_scope_filter,
-                ComplianceRule.target_type == "tier_type",
-                or_(
-                    ComplianceRule.target_value.is_(None),
-                    ComplianceRule.target_value == "",
-                    ComplianceRule.target_value.in_(tier_type_values),
-                ),
+                ComplianceRule.target_type.in_(["tier_type", "tier", "tier_country", "tier_industry"]),
                 applicability_filter,
             )
         )
-        required_type_ids |= set(row[0] for row in company_rules.all())
+        matching_company_rules = [rule for rule in company_rules.scalars().all() if _rule_matches_tier(rule, owner_tier)]
+        required_type_ids |= {rule.compliance_type_id for rule in matching_company_rules}
+        for rule in matching_company_rules:
+            applicable_rules_by_type.setdefault(rule.compliance_type_id, []).append(rule)
 
     records_result = await db.execute(
         select(ComplianceRecord).where(
@@ -654,6 +684,51 @@ async def check_owner_compliance(
                 except Exception:
                     logger.exception("External compliance check failed for provider %s", provider_id)
 
+    audit_valid_type_ids: set = set()
+    audit_results: dict[str, dict] = {}
+    if owner_type == "tier" and required_type_ids:
+        today = now.date()
+        for type_id, type_obj in type_objects.items():
+            if type_obj.category != "audit":
+                continue
+            rules_for_type = applicable_rules_by_type.get(type_id, [])
+            template_ids = {
+                str((rule.condition_json or {}).get("audit_template_id"))
+                for rule in rules_for_type
+                if (rule.condition_json or {}).get("audit_template_id")
+            }
+            if not template_ids:
+                continue
+
+            audits_result = await db.execute(
+                select(ComplianceAudit, ComplianceAuditTemplate)
+                .join(ComplianceAuditTemplate, ComplianceAuditTemplate.id == ComplianceAudit.template_id)
+                .where(
+                    ComplianceAudit.entity_id == entity_id,
+                    ComplianceAudit.target_type == "tier",
+                    ComplianceAudit.target_id == owner_id,
+                    ComplianceAudit.template_id.in_([UUID(template_id) for template_id in template_ids]),
+                    ComplianceAudit.status.in_(["validated", "closed"]),
+                    or_(
+                        ComplianceAudit.valid_until.is_(None),
+                        ComplianceAudit.valid_until >= today,
+                    ),
+                    ComplianceAudit.deleted_at.is_(None),
+                )
+                .order_by(ComplianceAudit.validated_at.desc().nullslast(), ComplianceAudit.updated_at.desc())
+            )
+            for audit, template in audits_result.all():
+                if audit.score_percent is None or audit.score_percent >= template.passing_score:
+                    audit_valid_type_ids.add(type_id)
+                    audit_results[str(type_id)] = {
+                        "audit_id": str(audit.id),
+                        "audit_template_id": str(audit.template_id),
+                        "audit_status": audit.status,
+                        "audit_score": float(audit.score_percent) if audit.score_percent is not None else None,
+                        "audit_valid_until": audit.valid_until.isoformat() if audit.valid_until else None,
+                    }
+                    break
+
     details: list[dict] = []
     for type_id in required_type_ids:
         type_obj = type_objects.get(type_id) or await db.get(ComplianceType, type_id)
@@ -675,13 +750,14 @@ async def check_owner_compliance(
 
         ext_status = external_results.get(str(type_id))
         ext_valid = type_id in external_valid_type_ids
+        audit_valid = type_id in audit_valid_type_ids
 
         if source == "external":
             valid_match = ext_valid
         elif source == "both":
-            valid_match = local_valid or ext_valid
+            valid_match = local_valid or ext_valid or audit_valid
         else:
-            valid_match = local_valid
+            valid_match = local_valid or audit_valid
 
         if is_exempted:
             detail_status = "exempted"
@@ -710,10 +786,12 @@ async def check_owner_compliance(
         }
         if ext_status:
             detail["external_status"] = ext_status
+        if str(type_id) in audit_results:
+            detail.update(audit_results[str(type_id)])
         details.append(detail)
 
-    compliant_type_ids = (valid_type_ids | external_valid_type_ids | exempted_type_ids) & required_type_ids
-    missing_type_ids = required_type_ids - valid_type_ids - external_valid_type_ids - exempted_type_ids - unverified_type_ids
+    compliant_type_ids = (valid_type_ids | external_valid_type_ids | audit_valid_type_ids | exempted_type_ids) & required_type_ids
+    missing_type_ids = required_type_ids - valid_type_ids - external_valid_type_ids - audit_valid_type_ids - exempted_type_ids - unverified_type_ids
     await db.commit()
 
     return {

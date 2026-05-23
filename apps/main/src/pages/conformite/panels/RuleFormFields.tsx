@@ -15,6 +15,8 @@ import {
 } from '@/components/layout/SmartForm'
 import { ConditionBuilder } from '@/components/shared/ConditionBuilder'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
+import { useTiers } from '@/hooks/useTiers'
+import { useComplianceAuditTemplates } from '@/hooks/useConformite'
 import {
   useConformiteDictionaryState,
   buildPackLogConditionBuilderValue,
@@ -230,6 +232,8 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
 }) {
   const { t } = useTranslation()
   const { ruleTargetOptions, ruleSubjectScopeOptions, rulePriorityOptions, ruleApplicabilityOptions } = useConformiteDictionaryState()
+  const { data: tiersData } = useTiers({ page_size: 500, active: true })
+  const { data: auditTemplates = [] } = useComplianceAuditTemplates()
   const typeOptions = useMemo(() =>
     (typesData?.items ?? []).map((t: any) => ({ value: t.id, label: `${t.code} — ${t.name}`, group: t.category })),
   [typesData])
@@ -238,12 +242,53 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
     (jpData?.items ?? []).map((jp: any) => ({ value: jp.id, label: `${jp.code} — ${jp.name}`, group: jp.department })),
   [jpData])
 
+  const tierOptions = useMemo(() =>
+    (tiersData?.items ?? []).map((tier: any) => ({
+      value: tier.id,
+      label: `${tier.code ? `${tier.code} - ` : ''}${tier.name}`,
+      group: tier.type ?? undefined,
+    })),
+  [tiersData])
+
+  const countryOptions = useMemo(() => {
+    const values = new Set<string>()
+    for (const tier of tiersData?.items ?? []) {
+      if (tier.country) values.add(tier.country)
+    }
+    return Array.from(values).sort().map(value => ({ value, label: value }))
+  }, [tiersData])
+
+  const industryOptions = useMemo(() => {
+    const values = new Set<string>()
+    for (const tier of tiersData?.items ?? []) {
+      if (tier.industry) values.add(tier.industry)
+    }
+    return Array.from(values).sort().map(value => ({ value, label: value }))
+  }, [tiersData])
+
+  const auditTemplateOptions = useMemo(() =>
+    auditTemplates
+      .filter((template: any) => template.active)
+      .map((template: any) => ({ value: template.id, label: `${template.code} - ${template.name}`, group: template.audit_type })),
+  [auditTemplates])
+
   const ct = typesData?.items?.find((t: any) => t.id === form.compliance_type_id)
   const inferSubjectScope = (targetType: string) => {
-    if (targetType === 'tier_type') return 'company'
+    if (targetType === 'tier_type' || targetType === 'tier' || targetType === 'tier_country' || targetType === 'tier_industry') return 'company'
     if (targetType === 'asset') return 'asset'
     if (targetType === 'packlog_cargo') return 'cargo'
     return 'person'
+  }
+  const selectedTargetValues = (form.target_value || '').split(',').filter(Boolean)
+  const selectedAuditTemplateId = typeof form.condition_json?.audit_template_id === 'string'
+    ? form.condition_json.audit_template_id
+    : ''
+  const setAuditTemplateId = (value: string) => {
+    const current = (form.condition_json && typeof form.condition_json === 'object') ? form.condition_json : {}
+    const next = { ...current }
+    if (value) next.audit_template_id = value
+    else delete next.audit_template_id
+    setForm({ ...form, condition_json: Object.keys(next).length > 0 ? next : null })
   }
 
   // SmartForm context is optional — when rendered inside a
@@ -310,10 +355,50 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
           {form.target_type === 'job_position' && (
             <DynamicPanelField label="Fiche(s) de poste" span="full">
               <MultiSearchableSelect
-                values={(form.target_value || '').split(',').filter(Boolean)}
+                values={selectedTargetValues}
                 onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
                 options={jpOptions}
                 placeholder="Rechercher et ajouter des postes..."
+              />
+            </DynamicPanelField>
+          )}
+          {form.target_type === 'tier' && (
+            <DynamicPanelField label={t('conformite.rules.target_companies')} span="full">
+              <MultiSearchableSelect
+                values={selectedTargetValues}
+                onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
+                options={tierOptions}
+                placeholder={t('conformite.rules.target_companies_placeholder')}
+              />
+            </DynamicPanelField>
+          )}
+          {form.target_type === 'tier_country' && (
+            <DynamicPanelField label={t('conformite.rules.target_countries')} span="full">
+              <MultiSearchableSelect
+                values={selectedTargetValues}
+                onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
+                options={countryOptions}
+                placeholder={t('conformite.rules.target_countries_placeholder')}
+              />
+            </DynamicPanelField>
+          )}
+          {form.target_type === 'tier_industry' && (
+            <DynamicPanelField label={t('conformite.rules.target_industries')} span="full">
+              <MultiSearchableSelect
+                values={selectedTargetValues}
+                onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
+                options={industryOptions}
+                placeholder={t('conformite.rules.target_industries_placeholder')}
+              />
+            </DynamicPanelField>
+          )}
+          {ct?.category === 'audit' && (
+            <DynamicPanelField label={t('conformite.rules.audit_template')} span="full">
+              <SearchableSelect
+                value={selectedAuditTemplateId}
+                onChange={setAuditTemplateId}
+                options={auditTemplateOptions}
+                placeholder={t('conformite.rules.audit_template_placeholder')}
               />
             </DynamicPanelField>
           )}

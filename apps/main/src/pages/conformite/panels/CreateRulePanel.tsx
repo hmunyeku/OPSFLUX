@@ -41,7 +41,7 @@ function CreateRulePanelInner() {
   const preSubjectScope = dynamicPanel?.meta?.prefill_subject_scope
   const preTarget = dynamicPanel?.meta?.prefill_target_type ?? 'job_position'
   const preTargetValue = dynamicPanel?.meta?.prefill_target_value ?? ''
-  const defaultSubjectScope = preTarget === 'tier_type'
+  const defaultSubjectScope = preTarget === 'tier_type' || preTarget === 'tier' || preTarget === 'tier_country' || preTarget === 'tier_industry'
     ? 'company'
     : preTarget === 'asset'
       ? 'asset'

@@ -1940,11 +1940,22 @@
       "targets": {
         "all": "Tous",
         "tier_type": "Type de tiers",
+        "tier": "Entreprise(s)",
+        "tier_country": "Pays entreprise",
+        "tier_industry": "Secteur entreprise",
         "asset": "Asset",
         "department": "Département",
         "job_position": "Fiche de poste",
         "packlog_cargo": "Colis PackLog"
       },
+      "audit_template": "Modèle d'audit",
+      "audit_template_placeholder": "Associer un modèle d'audit obligatoire...",
+      "target_companies": "Entreprise(s)",
+      "target_companies_placeholder": "Choisir une ou plusieurs entreprises...",
+      "target_countries": "Pays",
+      "target_countries_placeholder": "Choisir un ou plusieurs pays...",
+      "target_industries": "Secteurs",
+      "target_industries_placeholder": "Choisir un ou plusieurs secteurs...",
       "subject_scopes": {
         "person": "Personnes",
         "company": "Entreprises",

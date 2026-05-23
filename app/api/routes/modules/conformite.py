@@ -1267,6 +1267,16 @@ async def create_compliance_rule(
         snapshot=_snapshot_rule(rule),
         changed_by=current_user.id,
     ))
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="compliance_rule", resource_id=rule.id,
+        details={
+            "subject_scope": rule.subject_scope,
+            "target_type": rule.target_type,
+            "target_value": rule.target_value,
+            "description": (rule.description or "")[:120],
+        },
+    )
     await db.commit()
     await db.refresh(rule)
 
@@ -1317,6 +1327,15 @@ async def update_compliance_rule(
     rule.version += 1
     rule.changed_by = current_user.id
     rule.change_reason = body.change_reason
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="compliance_rule", resource_id=rule.id,
+        details={
+            "version": rule.version,
+            "fields_changed": sorted(update_data.keys()),
+            "change_reason": (body.change_reason or "")[:200],
+        },
+    )
     await db.commit()
     await db.refresh(rule)
 
@@ -1360,6 +1379,11 @@ async def delete_compliance_rule(
     if is_draft or force:
         # Draft/force: hard delete — no history needed for unused errors/drafts
         await delete_entity(rule, db, "compliance_rule", entity_id=rule.id, user_id=current_user.id)
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="hard_delete", resource_type="compliance_rule", resource_id=rule.id,
+            details={"version": rule.version, "is_draft": is_draft, "force": force},
+        )
         await db.commit()
         return {"detail": "Rule deleted"}
 
@@ -1375,6 +1399,11 @@ async def delete_compliance_rule(
         ))
         await db.flush()
         await delete_entity(rule, db, "compliance_rule", entity_id=rule.id, user_id=current_user.id)
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="hard_delete_with_history", resource_type="compliance_rule", resource_id=rule.id,
+            details={"version": rule.version, "policy_mode": mode},
+        )
         await db.commit()
         return {"detail": "Rule deleted (with history snapshot)"}
     else:
@@ -1387,6 +1416,11 @@ async def delete_compliance_rule(
         rule.effective_to = datetime.now(timezone.utc).date()
         rule.changed_by = current_user.id
         rule.change_reason = "Archived"
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="archive", resource_type="compliance_rule", resource_id=rule.id,
+            details={"version": rule.version, "policy_mode": mode},
+        )
         await db.commit()
         return {"detail": "Rule archived"}
 
@@ -2285,6 +2319,18 @@ async def create_audit_template(
                 options_json=question_in.options_json,
                 position=question_in.position,
             ))
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="compliance_audit_template", resource_id=template.id,
+        details={
+            "code": template.code,
+            "name": template.name[:120],
+            "audit_type": template.audit_type,
+            "theme_count": len(body.themes),
+            "question_count": sum(len(t.questions) for t in body.themes),
+            "passing_score": float(template.passing_score),
+        },
+    )
     await db.commit()
     result = await db.execute(
         select(ComplianceAuditTemplate)
@@ -2568,6 +2614,15 @@ async def upsert_audit_answers(
     audit.started_at = audit.started_at or now
     await db.flush()
     await _recompute_audit_score(db, audit)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update_answers", resource_type="compliance_audit", resource_id=audit.id,
+        details={
+            "answers_count": len(answers),
+            "status": audit.status,
+            "score_percent": float(audit.score_percent) if audit.score_percent is not None else None,
+        },
+    )
     await db.commit()
     return await _load_audit_for_read(db, audit.id, entity_id)
 
@@ -2813,6 +2868,11 @@ async def delete_job_position(
             message="Job position not found",
         )
     await delete_entity(jp, db, "job_position", entity_id=jp.id, user_id=current_user.id)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="archive", resource_type="job_position", resource_id=jp.id,
+        details={"code": jp.code, "name": (jp.name or "")[:120], "department": jp.department},
+    )
     await db.commit()
     return {"detail": "Job position archived"}
 
@@ -3167,6 +3227,16 @@ async def create_exemption(
         **body.model_dump(),
     )
     db.add(exemption)
+    await db.flush()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="compliance_exemption", resource_id=exemption.id,
+        details={
+            "compliance_record_id": str(exemption.compliance_record_id),
+            "start_date": exemption.start_date.isoformat() if exemption.start_date else None,
+            "end_date": exemption.end_date.isoformat() if exemption.end_date else None,
+        },
+    )
     await db.commit()
     await db.refresh(exemption)
     return await _enrich_exemption(db, exemption)
@@ -3339,6 +3409,14 @@ async def delete_exemption(
             message="Exemption not found",
         )
     await delete_entity(exemption, db, "compliance_exemption", entity_id=exemption.id, user_id=current_user.id)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="archive", resource_type="compliance_exemption", resource_id=exemption.id,
+        details={
+            "compliance_record_id": str(exemption.compliance_record_id),
+            "previous_status": exemption.status,
+        },
+    )
     await db.commit()
     return {"detail": "Exemption archived"}
 
@@ -3847,6 +3925,16 @@ async def verify_record(
             "rejected_by": str(current_user.id), "reason": body.rejection_reason,
             "entity_id": str(entity_id),
         })
+
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="verify" if body.action == "verify" else "reject",
+        resource_type=record_type, resource_id=record_id,
+        details={
+            "verification_status": record.verification_status,
+            "rejection_reason": (body.rejection_reason or "")[:200] if body.action != "verify" else None,
+        },
+    )
 
     await db.commit()
 

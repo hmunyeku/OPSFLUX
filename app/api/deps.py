@@ -441,6 +441,46 @@ async def _assert_owner_row_exists(
         )
 
 
+async def _assert_compliance_audit_owner_editable(
+    owner_type: str,
+    owner_id: UUID,
+    entity_id: UUID | None,
+    db: AsyncSession,
+) -> None:
+    """Block proof attachment changes once a supplier audit is locked."""
+    if owner_type == "compliance_audit":
+        from app.models.common import ComplianceAudit
+
+        query = select(ComplianceAudit.status).where(ComplianceAudit.id == owner_id)
+        if entity_id is not None:
+            query = query.where(ComplianceAudit.entity_id == entity_id)
+    elif owner_type == "compliance_audit_answer":
+        from app.models.common import ComplianceAudit, ComplianceAuditAnswer
+
+        query = (
+            select(ComplianceAudit.status)
+            .join(ComplianceAuditAnswer, ComplianceAuditAnswer.audit_id == ComplianceAudit.id)
+            .where(ComplianceAuditAnswer.id == owner_id)
+        )
+        if entity_id is not None:
+            query = query.where(ComplianceAudit.entity_id == entity_id)
+    else:
+        return
+
+    result = await db.execute(query.limit(1))
+    audit_status = result.scalar_one_or_none()
+    if audit_status is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{owner_type} not found",
+        )
+    if audit_status in {"submitted", "in_review", "validated", "closed"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This audit report is locked. Proof attachments cannot be changed.",
+        )
+
+
 _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # owner_type: (read_permission, write_permission)
     "tier": ("tiers.read", "tiers.update"),
@@ -615,6 +655,9 @@ async def check_polymorphic_owner_access(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied",
         )
+
+    if write and owner_type in {"compliance_audit", "compliance_audit_answer"}:
+        await _assert_compliance_audit_owner_editable(owner_type, owner_id, entity_id, db)
 
     # Now that permissions pass, verify the target row actually exists.
     # This closes the orphan-attachment loophole (CONC-003) where a

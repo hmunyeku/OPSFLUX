@@ -58,6 +58,25 @@ router = APIRouter(
     tags=["conformite"],
     dependencies=[require_module_enabled("conformite")],
 )
+
+AUDIT_EDITABLE_STATUSES = {"draft", "in_progress", "rejected"}
+AUDIT_LOCKED_STATUSES = {"submitted", "in_review", "validated", "closed"}
+
+
+def _ensure_audit_can_be_edited(audit: ComplianceAudit) -> None:
+    if audit.status not in AUDIT_EDITABLE_STATUSES:
+        raise HTTPException(
+            409,
+            "This audit report is locked. Only draft, in-progress or rejected audits can be edited.",
+        )
+
+
+def _ensure_audit_can_be_submitted(audit: ComplianceAudit) -> None:
+    if audit.status in AUDIT_LOCKED_STATUSES:
+        raise HTTPException(
+            409,
+            "This audit report is already submitted, validated or closed.",
+        )
 def _snapshot_rule(rule: ComplianceRule) -> dict:
     """Create a JSON snapshot of a rule's current state for history."""
     return {
@@ -3000,7 +3019,11 @@ async def update_compliance_audit(
     audit = result.scalars().unique().one_or_none()
     if not audit:
         raise HTTPException(404, "Audit not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    _ensure_audit_can_be_edited(audit)
+    payload = body.model_dump(exclude_unset=True)
+    if payload.get("status") in AUDIT_LOCKED_STATUSES:
+        raise HTTPException(409, "Use the audit submission and validation workflow to lock this report")
+    for key, value in payload.items():
         setattr(audit, key, value)
     await db.commit()
     return await _load_audit_for_read(db, audit.id, entity_id)
@@ -3028,6 +3051,7 @@ async def upsert_audit_answers(
     audit = result.scalars().unique().one_or_none()
     if not audit:
         raise HTTPException(404, "Audit not found")
+    _ensure_audit_can_be_edited(audit)
     question_ids = {
         question.id
         for theme in (audit.template.themes if audit.template else [])
@@ -3090,6 +3114,7 @@ async def submit_compliance_audit(
     audit = result.scalars().unique().one_or_none()
     if not audit:
         raise HTTPException(404, "Audit not found")
+    _ensure_audit_can_be_submitted(audit)
     if audit.validation_moc_id:
         raise HTTPException(409, "Audit validation workflow already exists")
 

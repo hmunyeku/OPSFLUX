@@ -17,13 +17,14 @@
  * QuestionCard exporte depuis l'ancienne modal.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2, Save, Send } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2, Lock, Pencil, Save, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DynamicPanelShell, FormSection } from '@/components/layout/DynamicPanel'
 import { QuestionCard, scoreColor } from '@/components/shared/ComplianceAuditDetailModal'
 import { RichTextField } from '@/components/shared/RichTextField'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { useToast } from '@/components/ui/Toast'
+import { usePermission } from '@/hooks/usePermission'
 import {
   buildAuditAnswerDrafts,
   draftsToUpsertPayload,
@@ -49,6 +50,7 @@ export function ComplianceAuditDetailPanel({
 }: ComplianceAuditDetailPanelProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const { hasPermission } = usePermission()
   const updateAnswers = useUpdateComplianceAuditAnswers()
   const submitAudit = useSubmitComplianceAudit()
   const [drafts, setDrafts] = useState<ComplianceAuditAnswerDraft[]>([])
@@ -64,8 +66,18 @@ export function ComplianceAuditDetailPanel({
   }, [audit.id, audit.updated_at])
 
   const progress = useMemo(() => getDraftProgress(drafts), [drafts])
-  const readOnly = ['submitted', 'in_review', 'validated', 'closed'].includes(audit.status)
-  const canSubmit = progress.canSubmit && validators.length > 0 && !readOnly && !audit.validation_moc_id
+  const isLockedByStatus = ['submitted', 'in_review', 'validated', 'closed'].includes(audit.status)
+  const canEditReport = hasPermission('conformite.audit.update')
+  const canSubmitAudit = hasPermission('conformite.audit.submit')
+  const readOnly = isLockedByStatus || !canEditReport
+  const canSave = canEditReport && !isLockedByStatus
+  const canPrepareSubmission = canSubmitAudit && !isLockedByStatus && !audit.validation_moc_id
+  const canSubmit = progress.canSubmit && validators.length > 0 && canPrepareSubmission
+  const readOnlyReason = isLockedByStatus
+    ? t('conformite.rules.audits.readonly_locked', 'Rapport verrouille par son statut : soumis, en validation, valide ou cloture.')
+    : !canEditReport
+      ? t('conformite.rules.audits.readonly_permission', 'Vous avez la lecture du rapport, mais pas la permission de le completer.')
+      : null
 
   // Group drafts by theme for FormSection-per-theme rendering.
   // ComplianceAuditQuestion ne porte que theme_id : on resout via template.themes.
@@ -106,6 +118,7 @@ export function ComplianceAuditDetailPanel({
   }
 
   const save = async () => {
+    if (!canSave) return
     await updateAnswers.mutateAsync({ id: audit.id, payload: draftsToUpsertPayload(drafts) })
     toast({ title: t('conformite.rules.audits.saved', 'Reponses enregistrees'), variant: 'success' })
   }
@@ -157,17 +170,19 @@ export function ComplianceAuditDetailPanel({
             <ArrowLeft size={13} />
             <span>{t('common.back', 'Retour')}</span>
           </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={readOnly || updateAnswers.isPending}
-            className="btn-sm btn-secondary inline-flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-50"
-            title={t('conformite.rules.audits.save', 'Enregistrer')}
-          >
-            {updateAnswers.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-            <span>{t('conformite.rules.audits.save', 'Enregistrer')}</span>
-          </button>
-          {!readOnly && (
+          {canEditReport && (
+            <button
+              type="button"
+              onClick={save}
+              disabled={!canSave || updateAnswers.isPending}
+              className="btn-sm btn-secondary inline-flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-50"
+              title={canSave ? t('conformite.rules.audits.save', 'Enregistrer') : (readOnlyReason ?? t('common.read_only', 'Lecture seule'))}
+            >
+              {updateAnswers.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              <span>{t('conformite.rules.audits.save', 'Enregistrer')}</span>
+            </button>
+          )}
+          {canPrepareSubmission && (
             <button
               type="button"
               onClick={submit}
@@ -212,6 +227,22 @@ export function ComplianceAuditDetailPanel({
           <p className={cn(kpiValueClass, 'text-foreground')}>{auditStatusLabel}</p>
         </div>
       </div>
+      <div className={cn(
+        'mx-1 flex min-w-0 items-start gap-2 rounded-md border px-2.5 py-2 text-xs',
+        readOnly ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200' : 'border-primary/25 bg-primary/10 text-primary',
+      )}>
+        {readOnly ? <Lock size={14} className="mt-0.5 shrink-0" /> : <Pencil size={14} className="mt-0.5 shrink-0" />}
+        <div className="min-w-0">
+          <p className="font-semibold">
+            {readOnly
+              ? t('conformite.rules.audits.mode_readonly', 'Mode lecture seule')
+              : t('conformite.rules.audits.mode_edit', 'Mode edition du rapport')}
+          </p>
+          <p className="mt-0.5 leading-snug text-muted-foreground">
+            {readOnlyReason ?? t('conformite.rules.audits.mode_edit_help', 'Vous pouvez completer les reponses, joindre les preuves puis soumettre le rapport selon vos permissions.')}
+          </p>
+        </div>
+      </div>
 
       {/* Questions groupées par thème via FormSection collapsibles */}
       {draftsByTheme.length === 0 ? (
@@ -243,7 +274,7 @@ export function ComplianceAuditDetailPanel({
       )}
 
       {/* Section validation : validateurs + commentaire (visible si pas readOnly) */}
-      {!readOnly && (
+      {canPrepareSubmission && (
         <FormSection
           title={t('conformite.rules.audits.validation_section', 'Soumission pour validation')}
           collapsible

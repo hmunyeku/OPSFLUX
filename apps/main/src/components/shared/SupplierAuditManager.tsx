@@ -214,7 +214,7 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
         )}
       </div>
 
-      <div className="grid gap-2">
+      <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
         {isLoading ? (
           <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
             {t('conformite.rules.audits.loading')}
@@ -230,10 +230,10 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
           const statusChip = statusToChip(audit.status)
           const scoreChip = scoreToChip(audit.score_percent, audit.template?.passing_score)
           return (
-            <article key={audit.id} className="rounded-md border border-border bg-card/40 p-3 transition-colors hover:border-border/80">
-              <div className="flex flex-wrap items-start justify-between gap-2">
+            <article key={audit.id} className="flex min-h-[136px] flex-col rounded-md border border-border bg-card/40 p-3 transition-colors hover:border-border/80">
+              <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="truncate text-sm font-semibold text-foreground">{audit.title}</span>
                     <span className={statusChip.cls} title={t('conformite.rules.audits.status', 'Statut')}>{statusChip.label}</span>
                   </div>
@@ -266,11 +266,13 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
                 </div>
               </div>
 
-              <div className="mt-2.5 space-y-1.5">
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="tabular-nums font-medium text-foreground/70">{answered}/{totalQuestions}</span>
-                  <span>{t('conformite.rules.audits.questions', 'questions')}</span>
-                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+              <div className="mt-auto space-y-1.5 pt-3">
+                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                  <span className="whitespace-nowrap tabular-nums">
+                    <span className="font-medium text-foreground/80">{answered}/{totalQuestions}</span>{' '}
+                    {t('conformite.rules.audits.questions', 'questions')}
+                  </span>
+                  <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-muted">
                     <div
                       className={`h-full rounded-full transition-all ${
                         progressPct >= 100 ? 'bg-success' : progressPct >= 50 ? 'bg-primary' : 'bg-muted-foreground/40'
@@ -278,7 +280,7 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
-                  <span className="w-10 text-right tabular-nums text-foreground/60">{progressPct}%</span>
+                  <span className="w-9 text-right tabular-nums text-foreground/60">{progressPct}%</span>
                 </div>
 
                 {(audit.validated_at || audit.valid_until || audit.validation_moc_id) && (() => {

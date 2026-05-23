@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
-import { CheckCircle2, ClipboardCheck, Download, Eye, Plus } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CalendarDays, CheckCircle2, ClipboardCheck, Download, Eye, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/components/ui/Toast'
 import { useComplianceAudits, useComplianceAuditTemplates, useComplianceRules, useCreateComplianceAudit } from '@/hooks/useConformite'
 import { usePermission } from '@/hooks/usePermission'
-import { SearchableSelect } from '@/pages/conformite/components'
 import { conformiteService } from '@/services/conformiteService'
 import type { ComplianceAudit, ComplianceAuditTemplate } from '@/types/api'
 
@@ -40,12 +39,23 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
   const { data: templates = [] } = useComplianceAuditTemplates()
   const { data: rules = [] } = useComplianceRules()
   const createAudit = useCreateComplianceAudit()
-  const [templateId, setTemplateId] = useState('')
+  const createMenuRef = useRef<HTMLDivElement>(null)
+  const [showCreateMenu, setShowCreateMenu] = useState(false)
+  const [templateSearch, setTemplateSearch] = useState('')
   const [downloadingAuditId, setDownloadingAuditId] = useState<string | null>(null)
 
   const canCreate = hasPermission('conformite.audit.create')
-  const selectedTemplate = templates.find(template => template.id === templateId)
   const today = new Date().toISOString().slice(0, 10)
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
+        setShowCreateMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const requiredAudits = useMemo<RequiredAuditItem[]>(() => {
     const templatesById = new Map(templates.map(template => [template.id, template]))
@@ -110,6 +120,15 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
       return a.label.localeCompare(b.label)
     }), [requiredByTemplateId, templates, t])
 
+  const filteredTemplateOptions = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase()
+    if (!query) return templateOptions
+    return templateOptions.filter(option =>
+      option.label.toLowerCase().includes(query) ||
+      option.group?.toLowerCase().includes(query)
+    )
+  }, [templateOptions, templateSearch])
+
   const statusToChip = (status: string): { cls: string; label: string } => {
     switch (status) {
       case 'validated':
@@ -135,15 +154,26 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
     return { cls: 'chip chip-danger', label: `${rounded}%` }
   }
 
-  const handleCreate = async () => {
-    if (!selectedTemplate || createAudit.isPending) return
+  const formatAuditDate = (audit: ComplianceAudit) => {
+    const rawDate = audit.planned_at || audit.started_at || audit.submitted_at || audit.validated_at || audit.created_at
+    if (!rawDate) return '—'
+    try {
+      return new Intl.DateTimeFormat(i18n.language, { day: '2-digit', month: 'short', year: '2-digit' }).format(new Date(rawDate))
+    } catch {
+      return rawDate.slice(0, 10)
+    }
+  }
+
+  const handleCreate = async (template: ComplianceAuditTemplate | undefined) => {
+    if (!template || createAudit.isPending) return
     await createAudit.mutateAsync({
-      template_id: selectedTemplate.id,
+      template_id: template.id,
       target_type: 'tier',
       target_id: tierId,
-      title: selectedTemplate.name,
+      title: template.name,
     })
-    setTemplateId('')
+    setShowCreateMenu(false)
+    setTemplateSearch('')
   }
 
   const handleDownloadReport = async (auditId: string) => {
@@ -177,25 +207,58 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
         </div>
 
         {canCreate && (
-          <div className="flex min-w-0 items-center gap-2 sm:max-w-xl">
-            <div className="min-w-0 sm:w-80">
-              <SearchableSelect
-                value={templateId}
-                onChange={setTemplateId}
-                options={templateOptions}
-                placeholder={t('conformite.rules.audits.select_template', 'Modele d audit...')}
-              />
-            </div>
+          <div ref={createMenuRef} className="relative flex shrink-0 justify-end">
             <button
               type="button"
-              onClick={handleCreate}
-              disabled={!templateId || createAudit.isPending}
+              onClick={() => setShowCreateMenu(open => !open)}
+              disabled={createAudit.isPending || templateOptions.length === 0}
               className="btn btn-sm btn-primary inline-flex shrink-0 items-center gap-1.5"
               title={t('conformite.rules.audits.create', 'Creer un audit')}
             >
               <Plus size={14} />
               <span>{t('common.create', 'Creer')}</span>
             </button>
+
+            {showCreateMenu && (
+              <div className="absolute right-0 top-full z-50 mt-1 w-[min(88vw,28rem)] overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+                <div className="border-b border-border p-2">
+                  <label className="sr-only">{t('conformite.rules.audits.select_template', 'Modele d audit...')}</label>
+                  <div className="flex h-8 items-center gap-2 rounded-md border border-border bg-background px-2">
+                    <Search size={14} className="shrink-0 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={templateSearch}
+                      onChange={(event) => setTemplateSearch(event.target.value)}
+                      placeholder={t('conformite.rules.audits.select_template', 'Modele d audit...')}
+                      className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="max-h-72 overflow-y-auto py-1">
+                  {filteredTemplateOptions.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">{t('common.no_results')}</div>
+                  ) : filteredTemplateOptions.map(option => {
+                    const template = templates.find(item => item.id === option.value)
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleCreate(template)}
+                        disabled={createAudit.isPending}
+                        className="flex w-full min-w-0 items-start gap-2 px-3 py-2 text-left text-xs hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+                      >
+                        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-foreground">{option.label}</span>
+                          {option.group && <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{option.group}</span>}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -220,6 +283,10 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded bg-muted px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                      <CalendarDays size={10} />
+                      {formatAuditDate(audit)}
+                    </span>
                     <span className="min-w-0 max-w-full flex-1 truncate text-sm font-semibold text-foreground">{audit.title}</span>
                     <span className={statusChip.cls} title={t('conformite.rules.audits.status', 'Statut')}>{statusChip.label}</span>
                   </div>

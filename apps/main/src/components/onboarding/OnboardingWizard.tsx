@@ -9,7 +9,7 @@
  * - Steps disponibles dependent des permissions effectives du user :
  *   1. Profile          — toujours (self-service)
  *   2. Entity info      — uniquement si core.entity.update
- *   3. First user(s)    — uniquement si core.users.create
+ *   3. First user(s)    — uniquement si core.user.create
  *   4. Modules          — uniquement si core.settings.manage
  *   5. First Tier       — uniquement si tier.create (avec bouton import en masse)
  *   6. First Asset      — uniquement si asset.create (avec bouton import en masse)
@@ -165,7 +165,7 @@ export function OnboardingWizard({ open, onClose }: Props) {
   const allowedSteps = useMemo<OnboardingStepId[]>(() => {
     const steps: OnboardingStepId[] = [1] // Profile toujours
     if (hasPermission('core.entity.update')) steps.push(2)
-    if (hasPermission('core.users.create')) steps.push(3)
+    if (hasPermission('core.user.create')) steps.push(3)
     if (hasPermission('core.settings.manage')) steps.push(4)
     if (hasPermission('tier.tier.create')) steps.push(5)
     if (hasPermission('asset.asset.create')) steps.push(6)

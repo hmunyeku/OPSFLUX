@@ -3,7 +3,7 @@
  *
  * Full-featured: preview panel, multi-select, context menu, drag & drop,
  * grid/list views, sort/filter, keyboard navigation, responsive mobile.
- * Permission-gated: requires admin.fs or core.settings.manage.
+ * Permission-gated: requires core.settings.manage.
  */
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -33,7 +33,7 @@ import { NameDialog } from './components/NameDialog'
 export default function FileManagerPage() {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
-  const canManage = hasPermission('admin.fs') || hasPermission('core.settings.manage')
+  const canManage = hasPermission('core.settings.manage')
 
   const fm = useFileManager()
   const selection = useFileSelection(fm.items)

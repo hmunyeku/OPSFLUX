@@ -3,13 +3,13 @@
  *
  * Replaces the ubiquitous pattern:
  *
- *   const canFoo = hasPermission('foo.bar.manage')
+ *   const canEditTier = hasPermission('tier.tier.update')
  *   ...
- *   {canFoo && <Button>...</Button>}
+ *   {canEditTier && <Button>...</Button>}
  *
  * with the more declarative:
  *
- *   <IfPerm code="foo.bar.manage">
+ *   <IfPerm code="tier.tier.update">
  *     <Button>...</Button>
  *   </IfPerm>
  *

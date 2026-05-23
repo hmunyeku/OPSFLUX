@@ -1967,7 +1967,7 @@ async def _create_compliance_rule(args: dict) -> dict:
     target_type = (args.get("target_type") or "").strip()
     if not ct_ref or not target_type:
         raise ValueError("compliance_type_id (ou code) et target_type requis")
-    if target_type not in {"tier", "tier_type", "tier_country", "tier_industry", "asset", "department", "job_position", "all"}:
+    if target_type not in {"tier", "tier_type", "tier_country", "tier_industry", "tier_tag", "person_tag", "asset", "department", "job_position", "all"}:
         raise ValueError("target_type invalide")
 
     async with async_session_factory() as session:
@@ -3372,7 +3372,7 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
 
     ("list_compliance_rules",
      "Liste les règles de conformité (qui doit avoir quel type). "
-     "Filtres: compliance_type_id, target_type (tier_type|asset|department|job_position|all), target_value.",
+     "Filtres: compliance_type_id, target_type (tier|tier_type|tier_country|tier_industry|tier_tag|person_tag|asset|department|job_position|all), target_value.",
      _s({
          "compliance_type_id": {"type": "string"},
          "target_type": {"type": "string"},
@@ -3385,7 +3385,7 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
     ("create_compliance_rule",
      "Crée une règle de conformité: tel ComplianceType est obligatoire pour telle cible. "
      "Accepte compliance_type_id (UUID) ou compliance_type_code. "
-     "target_type: tier_type|asset|department|job_position|all. "
+     "target_type: tier|tier_type|tier_country|tier_industry|tier_tag|person_tag|asset|department|job_position|all. "
      "target_value: ex 'client', asset_id, 'Operations'.",
      _s({
          "compliance_type_id": {"type": "string"},

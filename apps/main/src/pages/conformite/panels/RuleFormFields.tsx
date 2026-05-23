@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
@@ -223,6 +223,62 @@ function RuleTargetSpecificDesigner({ form, setForm }: {
   }
 }
 
+function TagRuleValueInput({
+  values,
+  onChange,
+  placeholder,
+}: {
+  values: string[]
+  onChange: (values: string[]) => void
+  placeholder: string
+}) {
+  const { t } = useTranslation()
+  const [draft, setDraft] = useState('')
+
+  const addDraft = useCallback(() => {
+    const nextValue = draft.trim()
+    if (!nextValue) return
+    const existing = new Set(values.map(value => value.toLowerCase()))
+    if (!existing.has(nextValue.toLowerCase())) {
+      onChange([...values, nextValue])
+    }
+    setDraft('')
+  }, [draft, onChange, values])
+
+  return (
+    <div className={cn(panelInputClass, 'min-h-[32px] h-auto flex flex-wrap items-center gap-1 py-1')}>
+      {values.map(value => (
+        <span key={value} className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+          <span className="max-w-[160px] truncate">{value}</span>
+          <button
+            type="button"
+            onClick={() => onChange(values.filter(item => item !== value))}
+            className="text-primary/70 hover:text-destructive"
+            aria-label={`${t('common.remove', 'Remove')} ${value}`}
+          >
+            x
+          </button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={addDraft}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ',') {
+            event.preventDefault()
+            addDraft()
+          } else if (event.key === 'Backspace' && !draft && values.length > 0) {
+            onChange(values.slice(0, -1))
+          }
+        }}
+        className="min-w-[140px] flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+        placeholder={values.length === 0 ? placeholder : ''}
+      />
+    </div>
+  )
+}
+
 export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
   form: Record<string, any>
   setForm: (f: Record<string, any>) => void
@@ -274,7 +330,7 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
 
   const ct = typesData?.items?.find((t: any) => t.id === form.compliance_type_id)
   const inferSubjectScope = (targetType: string) => {
-    if (targetType === 'tier_type' || targetType === 'tier' || targetType === 'tier_country' || targetType === 'tier_industry') return 'company'
+    if (targetType === 'tier_type' || targetType === 'tier' || targetType === 'tier_country' || targetType === 'tier_industry' || targetType === 'tier_tag') return 'company'
     if (targetType === 'asset') return 'asset'
     if (targetType === 'packlog_cargo') return 'cargo'
     return 'person'
@@ -389,6 +445,24 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
                 onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
                 options={industryOptions}
                 placeholder={t('conformite.rules.target_industries_placeholder')}
+              />
+            </DynamicPanelField>
+          )}
+          {form.target_type === 'tier_tag' && (
+            <DynamicPanelField label={t('conformite.rules.target_company_tags')} span="full">
+              <TagRuleValueInput
+                values={selectedTargetValues}
+                onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
+                placeholder={t('conformite.rules.target_company_tags_placeholder')}
+              />
+            </DynamicPanelField>
+          )}
+          {form.target_type === 'person_tag' && (
+            <DynamicPanelField label={t('conformite.rules.target_person_tags')} span="full">
+              <TagRuleValueInput
+                values={selectedTargetValues}
+                onChange={(vs) => setForm({ ...form, target_value: vs.join(',') })}
+                placeholder={t('conformite.rules.target_person_tags_placeholder')}
               />
             </DynamicPanelField>
           )}

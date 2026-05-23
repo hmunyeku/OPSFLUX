@@ -1635,7 +1635,7 @@ class ComplianceRule(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base)
         server_default="person",
         nullable=False,
     )  # person, company, asset, cargo, all
-    target_type: Mapped[str] = mapped_column(String(30), nullable=False)  # tier_type, asset, department, job_position, all
+    target_type: Mapped[str] = mapped_column(String(30), nullable=False)  # tier_type, tier_tag, person_tag, asset, department, job_position, all
     target_value: Mapped[str | None] = mapped_column(String(200))  # e.g. 'client', asset_id, 'Operations'
     description: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

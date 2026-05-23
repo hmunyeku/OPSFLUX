@@ -22,6 +22,7 @@ from app.models.common import (
     ComplianceType,
     Phone,
     Setting,
+    Tag,
     Tier,
     TierContact,
     User,
@@ -55,6 +56,17 @@ def _split_rule_values(value: str | None) -> set[str]:
     if not value:
         return set()
     return {part.strip() for part in value.split(",") if part.strip()}
+
+
+def _normalize_rule_values(value: str | None) -> set[str]:
+    return {part.lower() for part in _split_rule_values(value)}
+
+
+def _rule_matches_tag_names(rule: ComplianceRule, tag_names: set[str]) -> bool:
+    values = _normalize_rule_values(rule.target_value)
+    if not values or bool(values & {"*", "all"}):
+        return True
+    return bool(values & {name.lower() for name in tag_names})
 
 
 def _rule_matches_tier(rule: ComplianceRule, tier: Tier | None) -> bool:
@@ -550,6 +562,32 @@ async def check_owner_compliance(
         )
         required_type_ids |= set(row[0] for row in jp_rules.all())
 
+    if owner_type in {"user", "tier_contact"}:
+        tag_rows = await db.execute(
+            select(Tag.name).where(
+                Tag.owner_type == owner_type,
+                Tag.owner_id == owner_id,
+            )
+        )
+        owner_tag_names = {row[0] for row in tag_rows.all() if row[0]}
+        if owner_tag_names:
+            person_tag_rules = await db.execute(
+                select(ComplianceRule).where(
+                    ComplianceRule.entity_id == entity_id,
+                    ComplianceRule.active == True,  # noqa: E712
+                    subject_scope_filter,
+                    ComplianceRule.target_type == "person_tag",
+                    applicability_filter,
+                )
+            )
+            matching_person_tag_rules = [
+                rule for rule in person_tag_rules.scalars().all()
+                if _rule_matches_tag_names(rule, owner_tag_names)
+            ]
+            required_type_ids |= {rule.compliance_type_id for rule in matching_person_tag_rules}
+            for rule in matching_person_tag_rules:
+                applicable_rules_by_type.setdefault(rule.compliance_type_id, []).append(rule)
+
     owner_tier: Tier | None = None
     if owner_type == "tier":
         tier_result = await db.execute(select(Tier).where(Tier.id == owner_id, Tier.entity_id == entity_id))
@@ -567,6 +605,31 @@ async def check_owner_compliance(
         required_type_ids |= {rule.compliance_type_id for rule in matching_company_rules}
         for rule in matching_company_rules:
             applicable_rules_by_type.setdefault(rule.compliance_type_id, []).append(rule)
+
+        tag_rows = await db.execute(
+            select(Tag.name).where(
+                Tag.owner_type == "tier",
+                Tag.owner_id == owner_id,
+            )
+        )
+        owner_tag_names = {row[0] for row in tag_rows.all() if row[0]}
+        if owner_tag_names:
+            tier_tag_rules = await db.execute(
+                select(ComplianceRule).where(
+                    ComplianceRule.entity_id == entity_id,
+                    ComplianceRule.active == True,  # noqa: E712
+                    subject_scope_filter,
+                    ComplianceRule.target_type == "tier_tag",
+                    applicability_filter,
+                )
+            )
+            matching_tier_tag_rules = [
+                rule for rule in tier_tag_rules.scalars().all()
+                if _rule_matches_tag_names(rule, owner_tag_names)
+            ]
+            required_type_ids |= {rule.compliance_type_id for rule in matching_tier_tag_rules}
+            for rule in matching_tier_tag_rules:
+                applicable_rules_by_type.setdefault(rule.compliance_type_id, []).append(rule)
 
     records_result = await db.execute(
         select(ComplianceRecord).where(

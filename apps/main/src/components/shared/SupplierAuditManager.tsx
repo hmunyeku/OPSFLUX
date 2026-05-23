@@ -216,11 +216,11 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
           const statusChip = statusToChip(audit.status)
           const scoreChip = scoreToChip(audit.score_percent, audit.template?.passing_score)
           return (
-            <article key={audit.id} className="flex min-h-[136px] flex-col rounded-md border border-border bg-card/40 p-3 transition-colors hover:border-border/80">
+            <article key={audit.id} className="flex min-h-[136px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card/40 p-3 transition-colors hover:border-border/80">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-semibold text-foreground">{audit.title}</span>
+                    <span className="min-w-0 max-w-full flex-1 truncate text-sm font-semibold text-foreground">{audit.title}</span>
                     <span className={statusChip.cls} title={t('conformite.rules.audits.status', 'Statut')}>{statusChip.label}</span>
                   </div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground">
@@ -229,26 +229,30 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-0.5 self-end sm:self-auto sm:gap-1.5">
-                  {scoreChip && <span className={scoreChip.cls} title={t('conformite.rules.audits.score', 'Score')}>{scoreChip.label}</span>}
-                  {audit.score_category && !scoreChip && <span className="chip chip-info">{audit.score_category.label}</span>}
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadReport(audit.id)}
-                    disabled={downloadingAuditId === audit.id}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50 sm:h-7 sm:w-7"
-                    title={t('conformite.rules.audits.report_pdf', 'Telecharger PDF')}
-                  >
-                    <Download size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onOpenAudit?.(audit)}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:h-7 sm:w-7"
-                    title={t('conformite.rules.audits.details', 'Details')}
-                  >
-                    <Eye size={14} />
-                  </button>
+                <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                  <div className="min-w-0">
+                    {scoreChip && <span className={scoreChip.cls} title={t('conformite.rules.audits.score', 'Score')}>{scoreChip.label}</span>}
+                    {audit.score_category && !scoreChip && <span className="chip chip-info">{audit.score_category.label}</span>}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadReport(audit.id)}
+                      disabled={downloadingAuditId === audit.id}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50 sm:h-7 sm:w-7"
+                      title={t('conformite.rules.audits.report_pdf', 'Telecharger PDF')}
+                    >
+                      <Download size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenAudit?.(audit)}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:h-7 sm:w-7"
+                      title={t('conformite.rules.audits.details', 'Details')}
+                    >
+                      <Eye size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
 

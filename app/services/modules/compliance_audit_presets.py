@@ -286,3 +286,12 @@ def get_audit_template_preset(code: str) -> dict | None:
         if preset["code"] == normalized:
             return deepcopy(preset)
     return None
+
+
+def missing_audit_template_preset_codes(existing_codes: set[str]) -> list[str]:
+    normalized_existing = {code.strip().upper() for code in existing_codes}
+    return [
+        preset["code"]
+        for preset in AUDIT_TEMPLATE_PRESETS
+        if preset["code"] not in normalized_existing
+    ]

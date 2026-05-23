@@ -1760,7 +1760,8 @@
         "passing_score": "Threshold (%)",
         "required": "Required",
         "validity_days": "Validity (days)",
-        "weight": "Weight"
+        "weight": "Weight",
+        "options": "Possible choices"
       },
       "types": {
         "administrative": "Administrative",
@@ -1779,8 +1780,11 @@
         "options": "Comma-separated options",
         "question": "Question or control point...",
         "theme": "Audited theme",
-        "theme_description": "Theme description..."
-      }
+        "theme_description": "Theme description...",
+        "option": "Choice label"
+      },
+      "add_option": "Add choice",
+      "option_count": "{{count}} choices"
     },
     "types_panel": {
       "tabs": {

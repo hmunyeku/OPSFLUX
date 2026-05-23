@@ -21,7 +21,8 @@ type DraftQuestion = {
   weight: number
   required: boolean
   attachment_required: boolean
-  options: string
+  options: string[]
+  optionDraft: string
 }
 
 type DraftTheme = {
@@ -51,7 +52,8 @@ function createQuestion(): DraftQuestion {
     weight: 1,
     required: true,
     attachment_required: false,
-    options: '',
+    options: [],
+    optionDraft: '',
   }
 }
 
@@ -127,6 +129,58 @@ export function CreateAuditTemplatePanel() {
     }))
   }
 
+  const updateChoiceOption = (themeIndex: number, questionIndex: number, optionIndex: number, value: string) => {
+    setDraft(prev => ({
+      ...prev,
+      themes: prev.themes.map((theme, index) => index === themeIndex
+        ? {
+            ...theme,
+            questions: theme.questions.map((question, qIndex) => qIndex === questionIndex
+              ? {
+                  ...question,
+                  options: question.options.map((option, oIndex) => oIndex === optionIndex ? value : option),
+                }
+              : question),
+          }
+        : theme),
+    }))
+  }
+
+  const addChoiceOption = (themeIndex: number, questionIndex: number) => {
+    setDraft(prev => ({
+      ...prev,
+      themes: prev.themes.map((theme, index) => index === themeIndex
+        ? {
+            ...theme,
+            questions: theme.questions.map((question, qIndex) => {
+              if (qIndex !== questionIndex) return question
+              const nextOption = question.optionDraft.trim()
+              if (!nextOption) return question
+              return {
+                ...question,
+                options: [...question.options, nextOption],
+                optionDraft: '',
+              }
+            }),
+          }
+        : theme),
+    }))
+  }
+
+  const removeChoiceOption = (themeIndex: number, questionIndex: number, optionIndex: number) => {
+    setDraft(prev => ({
+      ...prev,
+      themes: prev.themes.map((theme, index) => index === themeIndex
+        ? {
+            ...theme,
+            questions: theme.questions.map((question, qIndex) => qIndex === questionIndex
+              ? { ...question, options: question.options.filter((_, oIndex) => oIndex !== optionIndex) }
+              : question),
+          }
+        : theme),
+    }))
+  }
+
   const buildPayload = (): ComplianceAuditTemplateCreate | null => {
     const code = draft.code.trim()
     const name = draft.name.trim()
@@ -147,7 +201,11 @@ export function CreateAuditTemplatePanel() {
             required: question.required,
             attachment_required: question.attachment_required,
             options_json: question.response_type === 'choice'
-              ? { options: question.options.split(',').map(item => item.trim()).filter(Boolean) }
+              ? {
+                  options: [...question.options, question.optionDraft]
+                    .map(item => item.trim())
+                    .filter(Boolean),
+                }
               : null,
             position: questionIndex,
           }))
@@ -296,7 +354,60 @@ export function CreateAuditTemplatePanel() {
                           </div>
                         </div>
                         {question.response_type === 'choice' && (
-                          <input value={question.options} onChange={(e) => updateQuestion(themeIndex, questionIndex, { options: e.target.value })} className={cn(compactInputClass, 'mt-2')} placeholder={t('conformite.audit_templates.placeholders.options')} />
+                          <div className="mt-2 rounded-md border border-border/70 bg-card/60 p-2">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {t('conformite.audit_templates.fields.options')}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {t('conformite.audit_templates.option_count', { count: question.options.length })}
+                              </span>
+                            </div>
+                            {question.options.length > 0 && (
+                              <div className="mb-2 space-y-1.5">
+                                {question.options.map((option, optionIndex) => (
+                                  <div key={`${themeIndex}-${questionIndex}-${optionIndex}`} className="grid gap-1.5 @2xl:grid-cols-[minmax(0,1fr)_2rem]">
+                                    <input
+                                      value={option}
+                                      onChange={(e) => updateChoiceOption(themeIndex, questionIndex, optionIndex, e.target.value)}
+                                      className={compactInputClass}
+                                      placeholder={t('conformite.audit_templates.placeholders.option')}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeChoiceOption(themeIndex, questionIndex, optionIndex)}
+                                      className="inline-flex h-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                      title={t('common.delete')}
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="grid gap-1.5 @2xl:grid-cols-[minmax(0,1fr)_2rem]">
+                              <input
+                                value={question.optionDraft}
+                                onChange={(e) => updateQuestion(themeIndex, questionIndex, { optionDraft: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    addChoiceOption(themeIndex, questionIndex)
+                                  }
+                                }}
+                                className={compactInputClass}
+                                placeholder={t('conformite.audit_templates.placeholders.option')}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => addChoiceOption(themeIndex, questionIndex)}
+                                className="inline-flex h-8 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                                title={t('conformite.audit_templates.add_option')}
+                              >
+                                <Plus size={13} />
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     ))}

@@ -18,6 +18,7 @@ from app.services.modules import compliance_service
 from app.services.modules.compliance_audit_presets import (
     get_audit_template_preset,
     list_audit_template_presets,
+    missing_audit_template_preset_codes,
 )
 from app.services.modules.moc_service import create_contextual_moc, transition as transition_moc
 from app.services.connectors.compliance_connector import create_connector
@@ -2068,6 +2069,17 @@ async def _create_audit_template_from_preset(
     return await _read_audit_template(db, template.id)
 
 
+async def _ensure_default_audit_template_presets(db: AsyncSession, entity_id: UUID) -> None:
+    existing_result = await db.execute(
+        select(ComplianceAuditTemplate.code).where(ComplianceAuditTemplate.entity_id == entity_id)
+    )
+    missing_codes = missing_audit_template_preset_codes(set(existing_result.scalars().all()))
+    for code in missing_codes:
+        preset = get_audit_template_preset(code)
+        if preset:
+            await _create_audit_template_from_preset(db, entity_id, preset)
+
+
 @router.get(
     "/audit-template-presets",
     dependencies=[require_permission("conformite.audit.template.read")],
@@ -2136,6 +2148,7 @@ async def list_audit_templates(
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
+    await _ensure_default_audit_template_presets(db, entity_id)
     conditions = [ComplianceAuditTemplate.entity_id == entity_id]
     if not include_inactive:
         conditions.append(ComplianceAuditTemplate.active == True)  # noqa: E712

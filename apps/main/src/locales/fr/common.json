@@ -1893,7 +1893,8 @@
         "passing_score": "Seuil (%)",
         "required": "Requis",
         "validity_days": "Validité (jours)",
-        "weight": "Poids"
+        "weight": "Poids",
+        "options": "Choix possibles"
       },
       "types": {
         "administrative": "Administratif",
@@ -1912,8 +1913,11 @@
         "options": "Options séparées par des virgules",
         "question": "Question ou point de contrôle...",
         "theme": "Thème audité",
-        "theme_description": "Description du thème..."
-      }
+        "theme_description": "Description du thème...",
+        "option": "Libellé du choix"
+      },
+      "add_option": "Ajouter un choix",
+      "option_count": "{{count}} choix"
     },
     "types_panel": {
       "tabs": {

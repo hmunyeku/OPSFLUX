@@ -269,22 +269,47 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
                   <span className="w-10 text-right tabular-nums text-foreground/60">{progressPct}%</span>
                 </div>
 
-                {(audit.valid_until || audit.validation_moc_id) && (
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                    {audit.valid_until && (
-                      <span>
-                        {t('conformite.rules.audits.valid_until', 'Valide jusqu au')}{' '}
-                        <span className="font-medium text-foreground/70">{audit.valid_until}</span>
-                      </span>
-                    )}
-                    {audit.validation_moc_id && (
-                      <span className="inline-flex items-center gap-1">
-                        <CheckCircle2 size={11} className="text-primary" />
-                        {t('conformite.rules.audits.workflow', 'Workflow validation lie')}
-                      </span>
-                    )}
-                  </div>
-                )}
+                {(audit.validated_at || audit.valid_until || audit.validation_moc_id) && (() => {
+                  // Calcul jours restants si valid_until presente. Inputs date format YYYY-MM-DD.
+                  let daysRemaining: number | null = null
+                  let validityChip: { cls: string; label: string } | null = null
+                  if (audit.valid_until) {
+                    const dueMs = new Date(audit.valid_until + 'T23:59:59').getTime()
+                    const nowMs = Date.now()
+                    daysRemaining = Math.floor((dueMs - nowMs) / 86_400_000)
+                    if (daysRemaining < 0) {
+                      validityChip = { cls: 'chip chip-danger', label: t('conformite.rules.audits.expired', 'Expiré il y a {{n}}j', { n: Math.abs(daysRemaining) }) }
+                    } else if (daysRemaining <= 30) {
+                      validityChip = { cls: 'chip chip-warn', label: t('conformite.rules.audits.expires_soon', 'Expire dans {{n}}j', { n: daysRemaining }) }
+                    } else {
+                      validityChip = { cls: 'chip', label: t('conformite.rules.audits.valid_n_days', '{{n}}j restants', { n: daysRemaining }) }
+                    }
+                  }
+                  return (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                      {audit.validated_at && (
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircle2 size={11} className="text-success" />
+                          {t('conformite.rules.audits.validated_on', 'Validé le')}{' '}
+                          <span className="font-medium text-foreground/80">{audit.validated_at.slice(0, 10)}</span>
+                        </span>
+                      )}
+                      {audit.valid_until && (
+                        <span className="inline-flex items-center gap-1">
+                          {t('conformite.rules.audits.valid_until', 'Valide jusqu’au')}{' '}
+                          <span className="font-medium text-foreground/80">{audit.valid_until}</span>
+                          {validityChip && <span className={validityChip.cls}>{validityChip.label}</span>}
+                        </span>
+                      )}
+                      {audit.validation_moc_id && (
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircle2 size={11} className="text-primary" />
+                          {t('conformite.rules.audits.workflow', 'Workflow validation lié')}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             </article>
           )

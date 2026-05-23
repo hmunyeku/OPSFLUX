@@ -3136,6 +3136,69 @@ async def submit_compliance_audit(
     return await _load_audit_for_read(db, audit.id, entity_id)
 
 
+@router.post("/audits/{audit_id}/mark-validated", response_model=ComplianceAuditRead)
+async def mark_audit_validated(
+    audit_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.audit.submit"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Marque manuellement un audit comme validé et calcule sa fenêtre de validité.
+
+    En attendant un event-bus MOC -> module qui propagerait
+    automatiquement la transition `validated` à l'audit source quand le
+    MOC `audit_validation` est approuvé, cet endpoint expose la
+    transition manuelle. Idempotent : si l'audit est déjà validé, on
+    ne change rien (retour 200 avec l'état actuel).
+
+    Auto-calcul :
+      - validated_at = now (UTC)
+      - valid_until  = validated_at.date() + template.validity_days
+        (skipped si template.validity_days est null)
+      - status        = 'validated'
+    """
+    result = await db.execute(
+        select(ComplianceAudit)
+        .options(selectinload(ComplianceAudit.template))
+        .where(ComplianceAudit.id == audit_id, ComplianceAudit.entity_id == entity_id)
+    )
+    audit = result.scalars().unique().one_or_none()
+    if not audit:
+        raise StructuredHTTPException(404, code="AUDIT_NOT_FOUND", message="Audit not found")
+    # Idempotent : déjà validé -> no-op
+    if audit.status == "validated" and audit.validated_at:
+        return await _load_audit_for_read(db, audit.id, entity_id)
+    # Garde-fou : l'audit doit avoir été au moins soumis avant validation
+    if audit.status not in {"submitted", "in_progress", "draft"}:
+        raise StructuredHTTPException(
+            409,
+            code="AUDIT_INVALID_STATUS_FOR_VALIDATION",
+            message="Cannot validate audit in status '{status}'",
+            params={"status": audit.status},
+        )
+
+    now = datetime.now(timezone.utc)
+    audit.status = "validated"
+    audit.validated_at = now
+    # valid_until = validated_at + validity_days. Skip si template.validity_days null.
+    if audit.template and audit.template.validity_days:
+        audit.valid_until = (now + timedelta(days=audit.template.validity_days)).date()
+
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="mark_validated", resource_type="compliance_audit", resource_id=audit.id,
+        details={
+            "validated_at": audit.validated_at.isoformat(),
+            "valid_until": audit.valid_until.isoformat() if audit.valid_until else None,
+            "validity_days": audit.template.validity_days if audit.template else None,
+            "previous_status": "submitted",
+        },
+    )
+    await db.commit()
+    return await _load_audit_for_read(db, audit.id, entity_id)
+
+
 @router.get(
     "/audits/{audit_id}/report.pdf",
     dependencies=[require_permission("conformite.audit.read")],

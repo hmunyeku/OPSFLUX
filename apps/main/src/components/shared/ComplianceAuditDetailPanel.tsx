@@ -247,9 +247,9 @@ export function ComplianceAuditDetailPanel({
           defaultExpanded
           storageKey={`audit-${audit.id}-validation`}
         >
-          <div className="space-y-3">
-            <div className="grid gap-2 md:grid-cols-[minmax(12rem,24rem)_1fr] md:items-start">
-              <div>
+          <div className="min-w-0 max-w-full space-y-3 overflow-hidden">
+            <div className="grid min-w-0 max-w-full gap-2 @[720px]:grid-cols-[minmax(12rem,20rem)_minmax(0,1fr)] @[720px]:items-start">
+              <div className="min-w-0">
                 <label className="block text-xs font-medium text-muted-foreground mb-1">
                   {t('conformite.rules.audits.add_validator', 'Ajouter un validateur')}
                 </label>
@@ -257,6 +257,7 @@ export function ComplianceAuditDetailPanel({
                   value={validatorId}
                   onChange={addValidator}
                   placeholder={t('conformite.rules.audits.add_validator', 'Ajouter un validateur')}
+                  className="min-w-0 max-w-full"
                 />
               </div>
               <div className="min-w-0">
@@ -269,7 +270,7 @@ export function ComplianceAuditDetailPanel({
                       key={validator.id}
                       type="button"
                       onClick={() => setValidators((prev) => prev.filter((row) => row.id !== validator.id))}
-                      className="chip chip-info inline-flex items-center gap-1 hover:opacity-80"
+                      className="chip chip-info inline-flex max-w-full items-center gap-1 hover:opacity-80"
                       title={t('common.remove', 'Retirer')}
                     >
                       <span className="truncate">{validator.label}</span>
@@ -284,7 +285,7 @@ export function ComplianceAuditDetailPanel({
                 </div>
               </div>
             </div>
-            <div>
+            <div className="min-w-0 max-w-full overflow-hidden">
               <label className="block text-xs font-medium text-muted-foreground mb-1">
                 {t('conformite.rules.audits.submit_comment', 'Commentaire de soumission (optionnel)')}
               </label>
@@ -293,15 +294,18 @@ export function ComplianceAuditDetailPanel({
                 onChange={setSubmitComment}
                 placeholder={t('conformite.rules.audits.submit_comment', 'Commentaire de soumission (optionnel)')}
                 rows={3}
+                className="min-w-0 max-w-full overflow-hidden"
               />
             </div>
             {!progress.canSubmit && (
-              <p className="flex items-center gap-1 text-xs text-destructive">
-                <AlertTriangle size={13} />
-                {t('conformite.rules.audits.submit_blocked', 'Reponses obligatoires/preuves manquantes ou aucun validateur', {
-                  missing: progress.missingRequired,
-                  evidence: progress.missingEvidence,
-                })}
+              <p className="flex min-w-0 max-w-full items-start gap-1 text-xs text-destructive">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                <span className="min-w-0 break-words">
+                  {t('conformite.rules.audits.submit_blocked', 'Reponses obligatoires/preuves manquantes ou aucun validateur', {
+                    missing: progress.missingRequired,
+                    evidence: progress.missingEvidence,
+                  })}
+                </span>
               </p>
             )}
           </div>

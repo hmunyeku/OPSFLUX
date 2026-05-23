@@ -250,77 +250,602 @@ async def _build_audit_report_variables(
 _SUPPLIER_AUDIT_REPORT_FALLBACK_HTML = """
 <html>
 <head>
+  <meta charset="utf-8">
   <style>
-    body { font-family: Arial, sans-serif; color:#111827; font-size:12px; }
-    h1 { font-size:22px; margin:0 0 4px; }
-    h2 { font-size:15px; margin:18px 0 8px; }
-    .muted { color:#64748b; }
-    .header { display:flex; justify-content:space-between; border-bottom:2px solid #1d4ed8; padding-bottom:10px; margin-bottom:14px; }
-    .badge { display:inline-block; padding:4px 8px; border:1px solid #cbd5e1; border-radius:999px; font-weight:700; }
-    .grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:12px 0; }
-    .card { border:1px solid #dbe3ef; border-radius:8px; padding:8px; }
-    .label { font-size:9px; text-transform:uppercase; color:#64748b; letter-spacing:.04em; }
-    .value { font-size:15px; font-weight:700; margin-top:3px; }
-    table { width:100%; border-collapse:collapse; margin-top:8px; }
-    th, td { border-bottom:1px solid #e5e7eb; padding:7px 6px; vertical-align:top; text-align:left; }
-    th { background:#f8fafc; font-size:10px; color:#475569; text-transform:uppercase; }
-    .question { font-weight:700; }
-    .footer { margin-top:20px; padding-top:8px; border-top:1px solid #e5e7eb; color:#64748b; font-size:10px; }
+    /* Page setup : pagination + marges pro + cover page sans header */
+    @page {
+      size: A4;
+      margin: 18mm 16mm 22mm 16mm;
+      @bottom-left {
+        content: "OpsFlux — Audit fournisseur " counter(page) "/" counter(pages);
+        font-family: Arial, sans-serif;
+        font-size: 8.5pt;
+        color: #94a3b8;
+      }
+      @bottom-right {
+        content: "{{ audit.reference }} · {{ supplier.name }}";
+        font-family: Arial, sans-serif;
+        font-size: 8.5pt;
+        color: #94a3b8;
+      }
+    }
+    @page :first {
+      margin: 0;
+      @bottom-left { content: ""; }
+      @bottom-right { content: ""; }
+    }
+
+    /* Charte 3-tons : brand / neutre / sémantique */
+    :root { /* indicatif — WeasyPrint ignore mais utile à la lecture */
+      --brand: #1e40af;
+      --brand-dark: #1e3a8a;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --bg-soft: #f8fafc;
+      --success: #15803d;
+      --warning: #b45309;
+      --danger: #b91c1c;
+    }
+
+    body {
+      font-family: Arial, "Helvetica Neue", sans-serif;
+      color: #0f172a;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    /* ─── Cover page ─── */
+    .cover {
+      page: cover;
+      page-break-after: always;
+      height: 297mm;
+      width: 210mm;
+      box-sizing: border-box;
+      padding: 0;
+      position: relative;
+      background: linear-gradient(180deg, #ffffff 60%, #f1f5f9 100%);
+    }
+    .cover-band {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 60%, #2563eb 100%);
+      color: #ffffff;
+      padding: 28mm 18mm 18mm;
+    }
+    .cover-eyebrow {
+      font-size: 9pt;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin-bottom: 4mm;
+    }
+    .cover-title {
+      font-size: 32pt;
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      line-height: 1.05;
+      margin: 0 0 5mm 0;
+    }
+    .cover-subtitle {
+      font-size: 13pt;
+      font-weight: 400;
+      opacity: 0.92;
+    }
+    .cover-body {
+      padding: 14mm 18mm;
+    }
+    .cover-supplier-label {
+      font-size: 8.5pt;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 3mm;
+    }
+    .cover-supplier-name {
+      font-size: 22pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 2mm 0;
+    }
+    .cover-supplier-meta {
+      font-size: 10pt;
+      color: #475569;
+      margin-bottom: 12mm;
+    }
+
+    .cover-score-row {
+      display: table;
+      width: 100%;
+      margin: 8mm 0 6mm;
+    }
+    .cover-score-cell {
+      display: table-cell;
+      vertical-align: middle;
+      padding-right: 8mm;
+    }
+    .cover-score-cell.right {
+      width: 50%;
+      padding-right: 0;
+      padding-left: 8mm;
+    }
+    .score-gauge {
+      width: 55mm;
+      height: 55mm;
+    }
+    .score-verdict {
+      font-size: 9pt;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 2mm;
+    }
+    .score-category {
+      display: inline-block;
+      padding: 2.5mm 4.5mm;
+      border-radius: 999px;
+      font-size: 11pt;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #ffffff;
+      margin-bottom: 4mm;
+    }
+    .score-category.ok { background: #15803d; }
+    .score-category.warn { background: #b45309; }
+    .score-category.bad { background: #b91c1c; }
+    .score-category.unk { background: #475569; }
+
+    .cover-meta-grid {
+      display: table;
+      width: 100%;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 6mm;
+      margin-top: 6mm;
+    }
+    .cover-meta-cell {
+      display: table-cell;
+      width: 33.33%;
+      padding-right: 4mm;
+      font-size: 9pt;
+    }
+    .cover-meta-label {
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      font-size: 7.5pt;
+      margin-bottom: 1mm;
+    }
+    .cover-meta-value {
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .cover-footer {
+      position: absolute;
+      bottom: 16mm;
+      left: 18mm;
+      right: 18mm;
+      display: table;
+      width: calc(100% - 36mm);
+      font-size: 8pt;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 4mm;
+    }
+    .cover-footer-left { display: table-cell; }
+    .cover-footer-right { display: table-cell; text-align: right; }
+
+    /* ─── Pages internes ─── */
+    h1.section {
+      font-size: 16pt;
+      font-weight: 800;
+      color: #1e3a8a;
+      margin: 0 0 4mm 0;
+      padding-bottom: 2mm;
+      border-bottom: 2px solid #1e40af;
+    }
+    h2.theme {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 8mm 0 3mm 0;
+      padding: 2mm 3mm;
+      background: #f1f5f9;
+      border-left: 3px solid #1e40af;
+    }
+    h2.theme .weight {
+      font-size: 8.5pt;
+      font-weight: 500;
+      color: #64748b;
+      margin-left: 3mm;
+    }
+    .muted { color: #64748b; }
+    .small { font-size: 8.5pt; }
+
+    /* Synthèse exécutive — bande KPI */
+    .kpi-strip {
+      display: table;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 3mm 0;
+      margin: 4mm 0 6mm;
+    }
+    .kpi {
+      display: table-cell;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 4mm;
+      text-align: left;
+      width: 25%;
+    }
+    .kpi-label {
+      font-size: 7.5pt;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 2mm;
+    }
+    .kpi-value {
+      font-size: 18pt;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1;
+    }
+    .kpi.kpi-success .kpi-value { color: #15803d; }
+    .kpi.kpi-warning .kpi-value { color: #b45309; }
+    .kpi.kpi-danger  .kpi-value { color: #b91c1c; }
+
+    /* Workflow timeline */
+    .timeline {
+      margin: 4mm 0 6mm;
+      padding: 4mm;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+    }
+    .timeline-row { display: table; width: 100%; border-spacing: 2mm 0; }
+    .timeline-step {
+      display: table-cell;
+      width: 20%;
+      text-align: center;
+      vertical-align: top;
+      position: relative;
+    }
+    .timeline-dot {
+      width: 4mm;
+      height: 4mm;
+      border-radius: 50%;
+      background: #cbd5e1;
+      margin: 0 auto 1.5mm;
+      border: 2px solid #ffffff;
+    }
+    .timeline-dot.done { background: #1e40af; }
+    .timeline-step-label {
+      font-size: 8pt;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.5mm;
+    }
+    .timeline-step-date {
+      font-size: 9pt;
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    /* Table questions */
+    table.q {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2mm;
+      font-size: 9pt;
+    }
+    table.q thead { display: table-header-group; }
+    table.q th {
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2.5mm 2mm;
+      text-align: left;
+      border-bottom: 1px solid #cbd5e1;
+    }
+    table.q td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 2.5mm 2mm;
+      vertical-align: top;
+    }
+    table.q tr { page-break-inside: avoid; }
+    .qcode {
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 8pt;
+      color: #64748b;
+    }
+    .qtext { font-weight: 600; color: #0f172a; }
+    .qrequired {
+      display: inline-block;
+      font-size: 7pt;
+      padding: 0.3mm 1.5mm;
+      background: #fef3c7;
+      color: #92400e;
+      border-radius: 2px;
+      margin-left: 2mm;
+      letter-spacing: 0.04em;
+    }
+    .score-badge {
+      display: inline-block;
+      padding: 0.5mm 2mm;
+      border-radius: 3px;
+      font-weight: 700;
+      font-size: 9pt;
+    }
+    .score-badge.ok { background: #dcfce7; color: #15803d; }
+    .score-badge.warn { background: #fef3c7; color: #92400e; }
+    .score-badge.bad { background: #fee2e2; color: #b91c1c; }
+    .score-badge.unk { background: #f1f5f9; color: #64748b; }
+    .evidence-ok { color: #15803d; font-weight: 600; }
+    .evidence-missing { color: #b91c1c; font-weight: 600; }
+
+    /* Summary block */
+    .summary-block {
+      background: #eff6ff;
+      border-left: 3px solid #1e40af;
+      padding: 4mm 5mm;
+      margin: 4mm 0;
+      font-size: 10pt;
+      color: #1e3a8a;
+    }
+
+    /* Signature block (fin de doc) */
+    .signatures {
+      margin-top: 12mm;
+      page-break-inside: avoid;
+    }
+    .sig-row { display: table; width: 100%; border-spacing: 6mm 0; }
+    .sig-box {
+      display: table-cell;
+      width: 50%;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 4mm;
+      height: 28mm;
+      vertical-align: top;
+    }
+    .sig-label {
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #64748b;
+      margin-bottom: 1mm;
+    }
+    .sig-name { font-size: 11pt; font-weight: 700; color: #0f172a; }
+    .sig-date { font-size: 9pt; color: #64748b; margin-top: 1mm; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div>
-      <h1>Rapport audit fournisseur</h1>
-      <div class="muted">{{ audit.reference }} - {{ template.audit_type }}</div>
+
+  {# ───────── COVER PAGE ───────── #}
+  {%- set score_num = audit.score|replace('%','')|trim -%}
+  {%- set passing_num = template.passing_score|replace('%','')|trim -%}
+  {%- if score_num and score_num != '-' -%}
+    {%- set score_f = score_num|float -%}
+    {%- set passing_f = passing_num|float if passing_num and passing_num != '-' else 70.0 -%}
+    {%- if score_f >= passing_f -%}{%- set verdict_class = 'ok' -%}
+    {%- elif score_f >= passing_f - 15 -%}{%- set verdict_class = 'warn' -%}
+    {%- else -%}{%- set verdict_class = 'bad' -%}
+    {%- endif -%}
+    {%- set arc_color = '#15803d' if verdict_class == 'ok' else ('#b45309' if verdict_class == 'warn' else '#b91c1c') -%}
+    {%- set arc_pct = score_f -%}
+  {%- else -%}
+    {%- set verdict_class = 'unk' -%}
+    {%- set arc_color = '#64748b' -%}
+    {%- set arc_pct = 0 -%}
+    {%- set score_f = 0 -%}
+  {%- endif -%}
+
+  <div class="cover">
+    <div class="cover-band">
+      <div class="cover-eyebrow">{{ entity.name or 'OpsFlux' }} · Conformité fournisseurs</div>
+      <h1 class="cover-title">Rapport d'audit</h1>
+      <div class="cover-subtitle">{{ template.name or template.audit_type or 'Audit fournisseur' }}</div>
     </div>
-    <div style="text-align:right">
-      <div class="badge">{{ audit.status }}</div>
-      <div class="muted" style="margin-top:6px">{{ entity.name }} {{ entity.code }}</div>
+
+    <div class="cover-body">
+      <div class="cover-supplier-label">Fournisseur audité</div>
+      <h2 class="cover-supplier-name">{{ supplier.name }}</h2>
+      <div class="cover-supplier-meta">
+        {% if supplier.code %}{{ supplier.code }}{% endif %}
+        {% if supplier.type %}{% if supplier.code %} · {% endif %}{{ supplier.type|capitalize }}{% endif %}
+        {% if supplier.country %}{% if supplier.code or supplier.type %} · {% endif %}{{ supplier.country }}{% endif %}
+      </div>
+
+      <div class="cover-score-row">
+        <div class="cover-score-cell">
+          {# Jauge SVG circulaire : circonférence = 2 * PI * r = 2 * 3.14159 * 70 = ~439.82
+             stroke-dasharray = pct/100 * circumference #}
+          {%- set circ = 439.82 -%}
+          {%- set dash = (arc_pct / 100.0) * circ -%}
+          <svg class="score-gauge" viewBox="0 0 160 160">
+            <circle cx="80" cy="80" r="70" fill="none" stroke="#e2e8f0" stroke-width="14"/>
+            <circle cx="80" cy="80" r="70" fill="none" stroke="{{ arc_color }}" stroke-width="14"
+                    stroke-dasharray="{{ '%.2f'|format(dash) }} {{ '%.2f'|format(circ) }}"
+                    stroke-linecap="round"
+                    transform="rotate(-90 80 80)"/>
+            <text x="80" y="78" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="800" fill="#0f172a">{{ audit.score }}</text>
+            <text x="80" y="100" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#64748b">/ seuil {{ template.passing_score }}</text>
+          </svg>
+        </div>
+        <div class="cover-score-cell right">
+          <div class="score-verdict">Verdict</div>
+          <div class="score-category {{ verdict_class }}">
+            {{ audit.score_category if audit.score_category else ('Conforme' if verdict_class == 'ok' else ('À surveiller' if verdict_class == 'warn' else ('Non conforme' if verdict_class == 'bad' else 'En attente'))) }}
+          </div>
+          <div class="small muted">
+            <strong>{{ metrics.answered_questions }} / {{ metrics.total_questions }}</strong> questions traitées
+            {% if metrics.missing_required %}· <span style="color:#b91c1c">{{ metrics.missing_required }} obligatoire(s) manquante(s)</span>{% endif %}
+            {% if metrics.missing_evidence %}· <span style="color:#b45309">{{ metrics.missing_evidence }} preuve(s) manquante(s)</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="cover-meta-grid">
+        <div class="cover-meta-cell">
+          <div class="cover-meta-label">Référence</div>
+          <div class="cover-meta-value">{{ audit.reference }}</div>
+        </div>
+        <div class="cover-meta-cell">
+          <div class="cover-meta-label">Type d'audit</div>
+          <div class="cover-meta-value">{{ template.audit_type|capitalize }}</div>
+        </div>
+        <div class="cover-meta-cell">
+          <div class="cover-meta-label">Statut</div>
+          <div class="cover-meta-value">{{ audit.status|capitalize }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <div class="cover-footer-left">Document confidentiel — réservé aux destinataires habilités</div>
+      <div class="cover-footer-right">Généré le {{ generated_at }} par OpsFlux</div>
     </div>
   </div>
 
-  <h2>{{ audit.title }}</h2>
-  <div class="muted">{{ supplier.name }}{% if supplier.code %} - {{ supplier.code }}{% endif %}</div>
+  {# ───────── PAGE 2 : synthèse exécutive + timeline ───────── #}
+  <h1 class="section">Synthèse exécutive</h1>
 
-  <div class="grid">
-    <div class="card"><div class="label">Score</div><div class="value">{{ audit.score }}</div></div>
-    <div class="card"><div class="label">Seuil validation</div><div class="value">{{ template.passing_score }}</div></div>
-    <div class="card"><div class="label">Questions</div><div class="value">{{ metrics.answered_questions }}/{{ metrics.total_questions }}</div></div>
-    <div class="card"><div class="label">Catégorie</div><div class="value">{{ audit.score_category or '-' }}</div></div>
+  <div class="kpi-strip">
+    <div class="kpi {{ 'kpi-success' if verdict_class == 'ok' else ('kpi-warning' if verdict_class == 'warn' else ('kpi-danger' if verdict_class == 'bad' else '')) }}">
+      <div class="kpi-label">Score global</div>
+      <div class="kpi-value">{{ audit.score }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Seuil de validation</div>
+      <div class="kpi-value">{{ template.passing_score }}</div>
+    </div>
+    <div class="kpi {{ 'kpi-warning' if metrics.missing_required > 0 else '' }}">
+      <div class="kpi-label">Questions traitées</div>
+      <div class="kpi-value">{{ metrics.answered_questions }}<span style="font-size:11pt; color:#94a3b8; font-weight:500"> / {{ metrics.total_questions }}</span></div>
+    </div>
+    <div class="kpi {{ 'kpi-danger' if metrics.missing_evidence > 0 else 'kpi-success' }}">
+      <div class="kpi-label">Preuves manquantes</div>
+      <div class="kpi-value">{{ metrics.missing_evidence }}</div>
+    </div>
   </div>
 
-  <div class="card">
-    <div class="label">Workflow validation</div>
-    <div>{{ audit.validation_workflow_id or '-' }}</div>
-    <div class="label" style="margin-top:8px">Dates</div>
-    <div>Planifie: {{ audit.planned_at }} - Demarre: {{ audit.started_at }} - Soumis: {{ audit.submitted_at }} - Valide: {{ audit.validated_at }}</div>
+  {% if audit.summary %}
+    <div class="summary-block">{{ audit.summary }}</div>
+  {% endif %}
+
+  <h1 class="section" style="margin-top:6mm">Cycle de validation</h1>
+  <div class="timeline">
+    <div class="timeline-row">
+      <div class="timeline-step">
+        <div class="timeline-dot {{ 'done' if audit.planned_at and audit.planned_at != '-' else '' }}"></div>
+        <div class="timeline-step-label">Planifié</div>
+        <div class="timeline-step-date">{{ audit.planned_at or '—' }}</div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot {{ 'done' if audit.started_at and audit.started_at != '-' else '' }}"></div>
+        <div class="timeline-step-label">Démarré</div>
+        <div class="timeline-step-date">{{ audit.started_at or '—' }}</div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot {{ 'done' if audit.submitted_at and audit.submitted_at != '-' else '' }}"></div>
+        <div class="timeline-step-label">Soumis</div>
+        <div class="timeline-step-date">{{ audit.submitted_at or '—' }}</div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot {{ 'done' if audit.validated_at and audit.validated_at != '-' else '' }}"></div>
+        <div class="timeline-step-label">Validé</div>
+        <div class="timeline-step-date">{{ audit.validated_at or '—' }}</div>
+      </div>
+      <div class="timeline-step">
+        <div class="timeline-dot {{ 'done' if audit.valid_until and audit.valid_until != '-' else '' }}"></div>
+        <div class="timeline-step-label">Échéance</div>
+        <div class="timeline-step-date">{{ audit.valid_until or '—' }}</div>
+      </div>
+    </div>
   </div>
 
-  {% if audit.summary %}<p>{{ audit.summary }}</p>{% endif %}
+  {# ───────── Sections par thème ───────── #}
+  <h1 class="section" style="margin-top:8mm">Détail par thème</h1>
 
   {% for theme in themes %}
-    <h2>{{ theme.title }}</h2>
-    {% if theme.description %}<p class="muted">{{ theme.description }}</p>{% endif %}
-    <table>
-      <thead><tr><th style="width:42%">Question</th><th>Reponse</th><th>Score</th><th>Preuves</th><th>Notes</th></tr></thead>
+    <h2 class="theme">
+      {{ theme.title }}
+      {% if theme.weight %}<span class="weight">poids {{ '%g'|format(theme.weight) }}</span>{% endif %}
+    </h2>
+    {% if theme.description %}<p class="muted small" style="margin:0 0 2mm">{{ theme.description }}</p>{% endif %}
+    <table class="q">
+      <thead>
+        <tr>
+          <th style="width:45%">Question</th>
+          <th style="width:20%">Réponse</th>
+          <th style="width:10%; text-align:center">Score</th>
+          <th style="width:10%; text-align:center">Preuves</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
       <tbody>
       {% for q in theme.questions %}
+        {%- set q_score_num = q.score|replace('%','')|trim -%}
+        {%- if q_score_num and q_score_num != '-' -%}
+          {%- set qsf = q_score_num|float -%}
+          {%- if qsf >= 80 -%}{%- set q_class = 'ok' -%}
+          {%- elif qsf >= 50 -%}{%- set q_class = 'warn' -%}
+          {%- else -%}{%- set q_class = 'bad' -%}
+          {%- endif -%}
+        {%- else -%}{%- set q_class = 'unk' -%}
+        {%- endif -%}
         <tr>
-          <td><div class="question">{{ q.code }} {{ q.text }}</div>{% if q.required %}<div class="muted">Obligatoire</div>{% endif %}</td>
-          <td>{{ q.answer }}</td>
-          <td>{{ q.score }}</td>
-          <td>{{ q.attachment_count }}{% if q.attachment_required %} requis{% endif %}</td>
-          <td>{{ q.notes or '-' }}</td>
+          <td>
+            {% if q.code %}<span class="qcode">{{ q.code }}</span> {% endif %}
+            <span class="qtext">{{ q.text }}</span>
+            {% if q.required %}<span class="qrequired">obligatoire</span>{% endif %}
+          </td>
+          <td>{{ q.answer or '—' }}</td>
+          <td style="text-align:center">
+            <span class="score-badge {{ q_class }}">{{ q.score }}</span>
+          </td>
+          <td style="text-align:center">
+            {% if q.attachment_required %}
+              {% if q.attachment_count > 0 %}
+                <span class="evidence-ok">✓ {{ q.attachment_count }}</span>
+              {% else %}
+                <span class="evidence-missing">✗ manque</span>
+              {% endif %}
+            {% else %}
+              {% if q.attachment_count > 0 %}{{ q.attachment_count }}{% else %}—{% endif %}
+            {% endif %}
+          </td>
+          <td class="small muted">{{ q.notes or '—' }}</td>
         </tr>
       {% endfor %}
       </tbody>
     </table>
   {% endfor %}
 
-  <div class="footer">
-    Rapport genere automatiquement par OpsFlux le {{ generated_at }}. Les preuves jointes restent archivees sur les reponses d'audit.
+  {# ───────── Signatures ───────── #}
+  <div class="signatures">
+    <h1 class="section">Validation</h1>
+    <div class="sig-row">
+      <div class="sig-box">
+        <div class="sig-label">Auditeur</div>
+        <div class="sig-name">&nbsp;</div>
+        <div class="sig-date">Date : ___________________</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-label">Validateur</div>
+        <div class="sig-name">&nbsp;</div>
+        <div class="sig-date">Date : ___________________</div>
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:4mm">
+      Référence workflow : {{ audit.validation_workflow_id or '—' }}
+      &nbsp;·&nbsp; Document confidentiel — diffusion restreinte selon politique interne.
+    </p>
   </div>
+
 </body>
 </html>
 """

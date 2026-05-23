@@ -13,6 +13,7 @@ from sqlalchemy.orm import aliased, selectinload
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.database import get_db
 from app.core.references import generate_reference
+from app.services.core.audit_service import add_event as add_audit_event
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.services.modules import compliance_service
 from app.services.modules.compliance_audit_scoring import (
@@ -1640,6 +1641,17 @@ async def create_compliance_record(
             uploader_id=current_user.id,
             entity_id=entity_id,
         )
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="compliance_record", resource_id=rec.id,
+        details={
+            "compliance_type_id": str(rec.compliance_type_id),
+            "owner_type": rec.owner_type,
+            "owner_id": str(rec.owner_id),
+            "status": rec.status,
+            "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
+        },
+    )
     await db.commit()
     await db.refresh(rec)
     # Enrich with type info
@@ -1706,6 +1718,15 @@ async def update_compliance_record(
         if new_expires is None or new_expires > now:
             # Date corrected to future — restore to valid (if verified) or pending
             rec.status = "valid" if rec.verification_status == "verified" else "pending"
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="compliance_record", resource_id=rec.id,
+        details={
+            "status": rec.status,
+            "fields_changed": sorted(updates.keys()),
+            "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
+        },
+    )
     await db.commit()
     await db.refresh(rec)
     ct = await db.get(ComplianceType, rec.compliance_type_id)
@@ -1762,6 +1783,15 @@ async def verify_compliance_record_with_external_issuer(
         checked_by=current_user.id,
         checked_at=datetime.now(timezone.utc),
     )
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="external_verify", resource_type="compliance_record", resource_id=rec.id,
+        details={
+            "provider": ct.external_provider,
+            "external_id": rec.external_verification_id,
+            "result_status": rec.status,
+        },
+    )
     await db.commit()
     await db.refresh(rec)
     issuer_tier = await db.get(Tier, rec.issuer_tier_id) if rec.issuer_tier_id else None
@@ -1801,6 +1831,15 @@ async def delete_compliance_record(
         owner_id=rec.owner_id,
     )
     await delete_entity(rec, db, "compliance_record", entity_id=rec.id, user_id=current_user.id)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="archive", resource_type="compliance_record", resource_id=rec.id,
+        details={
+            "compliance_type_id": str(rec.compliance_type_id),
+            "owner_type": rec.owner_type,
+            "owner_id": str(rec.owner_id),
+        },
+    )
     await db.commit()
     return {"detail": "Record archived"}
 
@@ -2623,6 +2662,18 @@ async def submit_compliance_audit(
     audit.validation_moc_id = moc.id
     audit.status = "submitted"
     audit.submitted_at = datetime.now(timezone.utc)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="submit", resource_type="compliance_audit", resource_id=audit.id,
+        details={
+            "reference": audit.reference,
+            "target_type": audit.target_type,
+            "target_id": str(audit.target_id),
+            "score_percent": float(audit.score_percent) if audit.score_percent is not None else None,
+            "validators_count": len(validator_ids),
+            "validation_moc_id": str(moc.id),
+        },
+    )
     await db.commit()
     return await _load_audit_for_read(db, audit.id, entity_id)
 
@@ -2951,6 +3002,18 @@ async def create_transfer(
     # (tier or job position changed → compliance requirements may differ)
     await _invalidate_compliance_on_transfer(db, contact.id)
 
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="tier_contact_transfer", resource_id=transfer.id,
+        details={
+            "contact_id": str(transfer.contact_id),
+            "from_tier_id": str(transfer.from_tier_id),
+            "to_tier_id": str(transfer.to_tier_id),
+            "new_job_position_id": str(transfer.new_job_position_id) if transfer.new_job_position_id else None,
+            "transfer_date": transfer.transfer_date.isoformat() if transfer.transfer_date else None,
+        },
+    )
+
     await db.commit()
     await db.refresh(transfer)
 
@@ -3171,6 +3234,15 @@ async def approve_exemption(
         )
     exemption.status = "approved"
     exemption.approved_by = current_user.id
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="approve", resource_type="compliance_exemption", resource_id=exemption.id,
+        details={
+            "compliance_record_id": str(exemption.compliance_record_id),
+            "start_date": exemption.start_date.isoformat() if exemption.start_date else None,
+            "end_date": exemption.end_date.isoformat() if exemption.end_date else None,
+        },
+    )
     await db.commit()
     await db.refresh(exemption)
 
@@ -3223,6 +3295,14 @@ async def reject_exemption(
     exemption.status = "rejected"
     exemption.approved_by = current_user.id
     exemption.rejection_reason = body.reason
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="reject", resource_type="compliance_exemption", resource_id=exemption.id,
+        details={
+            "compliance_record_id": str(exemption.compliance_record_id),
+            "reason": body.reason[:200],  # Cap to avoid bloated audit payloads
+        },
+    )
     await db.commit()
     await db.refresh(exemption)
 

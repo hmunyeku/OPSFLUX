@@ -13,23 +13,25 @@ import {
   useSmartForm,
 } from '@/components/layout/SmartForm'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
+import type { DynamicPanelView } from '@/stores/uiStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useComplianceTypes, useJobPositions, useCreateComplianceRule } from '@/hooks/useConformite'
 import { RuleFormFields } from './RuleFormFields'
 
-export function CreateRulePanel() {
+export function CreateRulePanel({ view }: { view?: DynamicPanelView }) {
   return (
     <SmartFormProvider panelId="create-compliance-rule" defaultMode="simple">
-      <CreateRulePanelInner />
+      <CreateRulePanelInner view={view} />
     </SmartFormProvider>
   )
 }
 
-function CreateRulePanelInner() {
+function CreateRulePanelInner({ view }: { view?: DynamicPanelView }) {
   const _ctx = useSmartForm()
   const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const panelView = view ?? dynamicPanel
   const createRule = useCreateComplianceRule()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -37,10 +39,10 @@ function CreateRulePanelInner() {
   const { data: typesData } = useComplianceTypes({ page_size: 200 })
   const { data: jpData } = useJobPositions({ page_size: 200 })
 
-  const preType = dynamicPanel?.meta?.prefill_type_id ?? ''
-  const preSubjectScope = dynamicPanel?.meta?.prefill_subject_scope
-  const preTarget = dynamicPanel?.meta?.prefill_target_type ?? 'job_position'
-  const preTargetValue = dynamicPanel?.meta?.prefill_target_value ?? ''
+  const preType = panelView?.meta?.prefill_type_id ?? ''
+  const preSubjectScope = panelView?.meta?.prefill_subject_scope
+  const preTarget = panelView?.meta?.prefill_target_type ?? 'job_position'
+  const preTargetValue = panelView?.meta?.prefill_target_value ?? ''
   const defaultSubjectScope = preTarget === 'tier_type' || preTarget === 'tier' || preTarget === 'tier_country' || preTarget === 'tier_industry' || preTarget === 'tier_tag'
     ? 'company'
     : preTarget === 'asset'

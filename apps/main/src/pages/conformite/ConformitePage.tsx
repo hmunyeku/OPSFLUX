@@ -481,8 +481,8 @@ registerPanelRenderer('conformite', (view) => {
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'record') return <ComplianceRecordDetailPanel id={view.id} />
   if (view.type === 'create' && view.meta?.subtype === 'job-position') return <CreateJobPositionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'job-position') return <JobPositionDetailPanel id={view.id} />
-  if (view.type === 'create' && view.meta?.subtype === 'rule') return <CreateRulePanel />
-  if (view.type === 'edit' && view.meta?.subtype === 'rule') return <EditRulePanel />
+  if (view.type === 'create' && view.meta?.subtype === 'rule') return <CreateRulePanel view={view} />
+  if (view.type === 'edit' && view.meta?.subtype === 'rule') return <EditRulePanel view={view} />
   if (view.type === 'create' && view.meta?.subtype === 'exemption') return <CreateExemptionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'exemption') return <ExemptionDetailPanel id={view.id} />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'verification') return <VerificationDetailPanel id={view.id} recordType={view.meta?.record_type as string || ''} />

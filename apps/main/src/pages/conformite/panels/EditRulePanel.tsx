@@ -9,6 +9,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import type { DynamicPanelView } from '@/stores/uiStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { usePermission } from '@/hooks/usePermission'
@@ -38,9 +39,10 @@ function buildRuleForm(rule?: ComplianceRule): Record<string, any> {
   }
 }
 
-export function EditRulePanel() {
+export function EditRulePanel({ view }: { view?: DynamicPanelView }) {
   const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const panelView = view ?? dynamicPanel
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const updateRule = useUpdateComplianceRule()
   const deleteRule = useDeleteComplianceRule()
@@ -51,10 +53,10 @@ export function EditRulePanel() {
   const { data: typesData } = useComplianceTypes({ page_size: 200 })
   const { data: jpData } = useJobPositions({ page_size: 200 })
   const { data: rules = [] } = useComplianceRules()
-  const panelRule = dynamicPanel?.data?.rule as ComplianceRule | undefined
+  const panelRule = panelView?.data?.rule as ComplianceRule | undefined
   const ruleId = panelRule?.id ?? (
-    dynamicPanel?.type === 'edit' && dynamicPanel?.meta?.subtype === 'rule'
-      ? dynamicPanel.id
+    panelView?.type === 'edit' && panelView?.meta?.subtype === 'rule'
+      ? panelView.id
       : undefined
   )
   const rule = panelRule ?? rules.find((item) => item.id === ruleId)

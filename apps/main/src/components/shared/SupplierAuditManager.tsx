@@ -217,7 +217,7 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
           const scoreChip = scoreToChip(audit.score_percent, audit.template?.passing_score)
           return (
             <article key={audit.id} className="flex min-h-[136px] flex-col rounded-md border border-border bg-card/40 p-3 transition-colors hover:border-border/80">
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="truncate text-sm font-semibold text-foreground">{audit.title}</span>
@@ -229,14 +229,14 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="flex shrink-0 items-center gap-0.5 self-end sm:self-auto sm:gap-1.5">
                   {scoreChip && <span className={scoreChip.cls} title={t('conformite.rules.audits.score', 'Score')}>{scoreChip.label}</span>}
                   {audit.score_category && !scoreChip && <span className="chip chip-info">{audit.score_category.label}</span>}
                   <button
                     type="button"
                     onClick={() => handleDownloadReport(audit.id)}
                     disabled={downloadingAuditId === audit.id}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50 sm:h-7 sm:w-7"
                     title={t('conformite.rules.audits.report_pdf', 'Telecharger PDF')}
                   >
                     <Download size={14} />
@@ -244,7 +244,7 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
                   <button
                     type="button"
                     onClick={() => onOpenAudit?.(audit)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:h-7 sm:w-7"
                     title={t('conformite.rules.audits.details', 'Details')}
                   >
                     <Eye size={14} />

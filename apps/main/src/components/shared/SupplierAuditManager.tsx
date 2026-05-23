@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CheckCircle2, ClipboardCheck, Download, Eye, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ComplianceAuditDetailModal } from '@/components/shared/ComplianceAuditDetailModal'
+import { ComplianceAuditDetailPanel } from '@/components/shared/ComplianceAuditDetailPanel'
 import { useToast } from '@/components/ui/Toast'
 import { useComplianceAudits, useComplianceAuditTemplates, useComplianceRules, useCreateComplianceAudit } from '@/hooks/useConformite'
 import { usePermission } from '@/hooks/usePermission'
@@ -160,6 +160,18 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
     }
   }
 
+  // Si un audit est selectionne, on bascule en mode "drill-down" : le panel
+  // detail prend la place de la liste, l'utilisateur garde le contexte tier
+  // ouvert et revient via le bouton "Retour" du panel.
+  if (selectedAudit) {
+    return (
+      <ComplianceAuditDetailPanel
+        audit={selectedAudit}
+        onClose={() => setSelectedAuditId(null)}
+      />
+    )
+  }
+
   return (
     <section className={compact ? 'space-y-3' : 'space-y-4'}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -316,11 +328,6 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
         })}
       </div>
 
-      <ComplianceAuditDetailModal
-        audit={selectedAudit}
-        open={!!selectedAudit}
-        onClose={() => setSelectedAuditId(null)}
-      />
     </section>
   )
 }

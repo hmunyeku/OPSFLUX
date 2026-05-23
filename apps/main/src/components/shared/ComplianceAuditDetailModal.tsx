@@ -31,7 +31,7 @@ interface ComplianceAuditDetailModalProps {
   onClose: () => void
 }
 
-function scoreColor(score: number | null | undefined) {
+export function scoreColor(score: number | null | undefined) {
   if (score === null || score === undefined) return 'text-muted-foreground'
   if (score >= 80) return 'text-emerald-600 dark:text-emerald-400'
   if (score >= 50) return 'text-amber-600 dark:text-amber-400'
@@ -270,7 +270,10 @@ export function ComplianceAuditDetailModal({ audit, open, onClose }: ComplianceA
   )
 }
 
-function QuestionCard({
+// Exporte pour reutilisation dans ComplianceAuditDetailPanel (refonte DetailPanel
+// en remplacement de la modal). Garde le composant unique pour ne pas dupliquer
+// la logique de rendu/saisie des reponses + attachments.
+export function QuestionCard({
   index,
   draft,
   readOnly,

@@ -292,7 +292,7 @@ export function QuestionCard({
 
   return (
     <article className="rounded-md border border-border bg-background">
-      <div className="flex flex-col gap-2 border-b border-border/70 px-3 py-3 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-2 border-b border-border/70 px-3 py-3 @[480px]:flex-row @[480px]:items-start @[480px]:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex h-6 min-w-6 items-center justify-center rounded bg-muted px-1.5 text-xs font-semibold text-muted-foreground">
@@ -310,7 +310,7 @@ export function QuestionCard({
         </div>
       </div>
 
-      <div className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)]">
+      <div className="grid gap-3 p-3 @[540px]:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)]">
         <div className="min-w-0 space-y-3">
           {draft.question.response_type === 'yes_no' ? (
             <div className="flex flex-wrap gap-2">

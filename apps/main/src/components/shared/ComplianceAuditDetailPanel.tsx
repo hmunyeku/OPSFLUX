@@ -135,8 +135,8 @@ export function ComplianceAuditDetailPanel({
     audit.status === 'draft' ? 'Brouillon' : audit.status,
   )
   const kpiCardClass = 'min-w-0 rounded-md border border-border bg-card px-2 py-1.5'
-  const kpiLabelClass = 'truncate text-[9px] font-semibold uppercase leading-none tracking-wide text-muted-foreground sm:text-[10px]'
-  const kpiValueClass = 'mt-1 truncate text-sm font-bold leading-none tabular-nums sm:text-base'
+  const kpiLabelClass = 'text-[9px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground break-all'
+  const kpiValueClass = 'mt-1 truncate text-sm font-bold leading-none tabular-nums'
 
   return (
     <DynamicPanelShell
@@ -185,7 +185,7 @@ export function ComplianceAuditDetailPanel({
       }
     >
       {/* KPI strip cohérent avec patterns paxlog/projets */}
-      <div className="grid grid-cols-3 gap-1.5 px-1 sm:grid-cols-5">
+      <div className="grid grid-cols-3 gap-1.5 px-1 @[420px]:grid-cols-5">
         <div className={kpiCardClass}>
           <p className={kpiLabelClass}>{t('conformite.rules.audits.score', 'Score')}</p>
           <p className={cn(kpiValueClass, scoreColor(audit.score_percent))}>{audit.score_percent ?? '—'}%</p>

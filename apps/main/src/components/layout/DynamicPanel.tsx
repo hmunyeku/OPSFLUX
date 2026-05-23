@@ -792,7 +792,7 @@ export function FormSection({
         // Solution: full-opacity border + ring shadow at low opacity
         // (the ring reads as a 1px outline rather than a drop shadow,
         // so 5+ sections stack cleanly).
-        'min-w-0 w-full max-w-full [min-inline-size:0] border border-border rounded-lg bg-card shadow-[0_1px_3px_rgba(20,30,55,0.06)] transition-colors px-3 py-3 sm:px-5 sm:py-4',
+        'min-w-0 w-full max-w-full [min-inline-size:0] border border-border rounded-lg bg-card shadow-[0_1px_3px_rgba(20,30,55,0.06)] transition-colors px-3 py-3 @[540px]:px-5 @[540px]:py-4',
         // Slightly more bottom padding when content is shown.
         collapsible && expanded && 'pb-4 space-y-2',
         !collapsible && 'pb-4 space-y-2',

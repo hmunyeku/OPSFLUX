@@ -455,6 +455,7 @@ export function ExportWizard({
             <div className="flex items-center gap-3">
               <Download size={18} className="text-primary" />
               <Dialog.Title className="text-sm font-semibold">{t('export.wizard_title')}</Dialog.Title>
+              <Dialog.Description className="sr-only">{t('export.wizard_description', 'Assistant d\'export multi-formats : CSV, XLSX, PDF')}</Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <button className="btn btn-secondary"><X size={16} /></button>

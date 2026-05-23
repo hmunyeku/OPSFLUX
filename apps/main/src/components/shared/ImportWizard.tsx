@@ -717,6 +717,7 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
             <div className="flex items-center gap-3">
               <FileSpreadsheet size={18} className="text-primary" />
               <Dialog.Title className="text-sm font-semibold">{t('import.wizard_title')}</Dialog.Title>
+              <Dialog.Description className="sr-only">{t('import.wizard_description', 'Assistant d\'import CSV par étapes : upload, mapping colonnes, validation, exécution')}</Dialog.Description>
               <span className="text-xs text-muted-foreground">— {t(`import.targets.${targetObject}`)}</span>
             </div>
             <Dialog.Close asChild>

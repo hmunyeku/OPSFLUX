@@ -129,6 +129,7 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <Dialog.Title className="text-sm font-semibold">{title}</Dialog.Title>
+            <Dialog.Description className="sr-only">Sélection multi-projets avec recherche et pagination</Dialog.Description>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''} · {projects.length}{hasMore ? `/${totalAvailable}` : ''} affichés</span>
               <Dialog.Close asChild>

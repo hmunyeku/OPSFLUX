@@ -257,9 +257,9 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
           <div className="flex min-w-0 items-start justify-between gap-2 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3 shrink-0">
             <div className="min-w-0">
               <Dialog.Title className="truncate text-sm font-semibold">{t('projets.planner_modal.title')}</Dialog.Title>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              <Dialog.Description className="mt-0.5 truncate text-xs text-muted-foreground">
                 {t('projets.planner_modal.subtitle', { projectCode })}
-              </p>
+              </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <button className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={t('common.close')}>

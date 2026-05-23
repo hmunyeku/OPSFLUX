@@ -1218,6 +1218,7 @@ export interface ComplianceAuditScoreThreshold {
 }
 
 export interface ComplianceAuditQuestionCreate {
+  id?: string | null
   code?: string | null
   text: string
   response_type?: 'score' | 'yes_no' | 'choice' | 'text'
@@ -1229,6 +1230,7 @@ export interface ComplianceAuditQuestionCreate {
 }
 
 export interface ComplianceAuditThemeCreate {
+  id?: string | null
   title: string
   description?: string | null
   weight?: number
@@ -1249,13 +1251,16 @@ export interface ComplianceAuditTemplateCreate {
 }
 
 export interface ComplianceAuditTemplateUpdate {
+  code?: string
   name?: string
   audit_type?: string
+  target_scope?: 'company'
   description?: string | null
   passing_score?: number
   score_thresholds?: ComplianceAuditScoreThreshold[]
   validity_days?: number | null
   active?: boolean
+  themes?: ComplianceAuditThemeCreate[]
 }
 
 export interface ComplianceAudit {

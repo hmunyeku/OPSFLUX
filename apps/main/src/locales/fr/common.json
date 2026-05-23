@@ -1927,7 +1927,10 @@
         "min_score": "Score min.",
         "blocks_assignment": "Bloquant",
         "count": "{{count}} seuils"
-      }
+      },
+      "edit_title": "Modifier le modèle d'audit",
+      "updated": "Modèle d'audit mis à jour",
+      "update_error": "Impossible de modifier le modèle d'audit"
     },
     "types_panel": {
       "tabs": {

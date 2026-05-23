@@ -1,6 +1,6 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ClipboardPenLine, Plus, ShieldCheck, Trash2 } from 'lucide-react'
+import { ClipboardPenLine, Plus, Save, ShieldCheck, Trash2 } from 'lucide-react'
 import {
   DynamicPanelShell,
   PanelContentLayout,
@@ -9,24 +9,32 @@ import {
   type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { useToast } from '@/components/ui/Toast'
-import { useCreateComplianceAuditTemplate } from '@/hooks/useConformite'
+import { useComplianceAuditTemplates, useCreateComplianceAuditTemplate, useUpdateComplianceAuditTemplate } from '@/hooks/useConformite'
 import { useUIStore } from '@/stores/uiStore'
-import type { ComplianceAuditScoreThreshold, ComplianceAuditTemplateCreate } from '@/types/api'
-import { DEFAULT_AUDIT_SCORE_THRESHOLDS } from '@/lib/complianceAudit'
+import type { ComplianceAuditQuestion, ComplianceAuditScoreThreshold, ComplianceAuditTemplate, ComplianceAuditTemplateCreate } from '@/types/api'
+import { DEFAULT_AUDIT_SCORE_THRESHOLDS, getAuditScoreThresholds } from '@/lib/complianceAudit'
 import { cn } from '@/lib/utils'
 
+type DraftChoice = {
+  value: string
+  label: string
+  score: number | null
+}
+
 type DraftQuestion = {
+  id?: string
   code: string
   text: string
   response_type: 'score' | 'yes_no' | 'choice' | 'text'
   weight: number
   required: boolean
   attachment_required: boolean
-  options: string[]
+  options: DraftChoice[]
   optionDraft: string
 }
 
 type DraftTheme = {
+  id?: string
   title: string
   description: string
   weight: number
@@ -81,13 +89,78 @@ function createDraft(): DraftTemplate {
   }
 }
 
-export function CreateAuditTemplatePanel() {
+function getQuestionChoiceOptions(question: ComplianceAuditQuestion): DraftChoice[] {
+  const choices = question.options_json?.choices
+  if (Array.isArray(choices)) {
+    return choices
+      .map((choice) => {
+        if (typeof choice === 'string') return { value: choice, label: choice, score: null }
+        if (!choice || typeof choice !== 'object') return null
+        const raw = choice as Record<string, unknown>
+        const value = String(raw.value ?? raw.label ?? '').trim()
+        const label = String(raw.label ?? raw.value ?? '').trim()
+        const score = typeof raw.score === 'number' ? raw.score : null
+        return value && label ? { value, label, score } : null
+      })
+      .filter((choice): choice is DraftChoice => !!choice)
+  }
+  const options = question.options_json?.options
+  if (Array.isArray(options)) {
+    return options.map(String).filter(Boolean).map((option) => ({ value: option, label: option, score: null }))
+  }
+  return []
+}
+
+function draftFromTemplate(template: ComplianceAuditTemplate): DraftTemplate {
+  return {
+    code: template.code,
+    name: template.name,
+    audit_type: template.audit_type,
+    description: template.description ?? '',
+    passing_score: template.passing_score,
+    score_thresholds: getAuditScoreThresholds(template.score_thresholds),
+    validity_days: template.validity_days ? String(template.validity_days) : '',
+    themes: template.themes
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((theme) => ({
+        id: theme.id,
+        title: theme.title,
+        description: theme.description ?? '',
+        weight: theme.weight,
+        questions: theme.questions
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((question) => ({
+            id: question.id,
+            code: question.code ?? '',
+            text: question.text,
+            response_type: question.response_type as DraftQuestion['response_type'],
+            weight: question.weight,
+            required: question.required,
+            attachment_required: question.attachment_required,
+            options: getQuestionChoiceOptions(question),
+            optionDraft: '',
+          })),
+      })),
+  }
+}
+
+export function CreateAuditTemplatePanel({ templateId }: { templateId?: string }) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const createTemplate = useCreateComplianceAuditTemplate()
+  const updateTemplate = useUpdateComplianceAuditTemplate()
+  const { data: templates = [] } = useComplianceAuditTemplates({ include_inactive: true })
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [draft, setDraft] = useState<DraftTemplate>(() => createDraft())
+  const template = templateId ? templates.find(item => item.id === templateId) : undefined
+  const isEdit = !!templateId
+
+  useEffect(() => {
+    if (template) setDraft(draftFromTemplate(template))
+  }, [template])
 
   const updateTheme = (themeIndex: number, patch: Partial<DraftTheme>) => {
     setDraft(prev => ({
@@ -141,7 +214,7 @@ export function CreateAuditTemplatePanel() {
             questions: theme.questions.map((question, qIndex) => qIndex === questionIndex
               ? {
                   ...question,
-                  options: question.options.map((option, oIndex) => oIndex === optionIndex ? value : option),
+                  options: question.options.map((option, oIndex) => oIndex === optionIndex ? { ...option, value, label: value } : option),
                 }
               : question),
           }
@@ -161,7 +234,7 @@ export function CreateAuditTemplatePanel() {
               if (!nextOption) return question
               return {
                 ...question,
-                options: [...question.options, nextOption],
+                options: [...question.options, { value: nextOption, label: nextOption, score: null }],
                 optionDraft: '',
               }
             }),
@@ -217,12 +290,14 @@ export function CreateAuditTemplatePanel() {
     if (!code || !name || !auditType) return null
     const themes = draft.themes
       .map((theme, themeIndex) => ({
+        id: theme.id ?? null,
         title: theme.title.trim(),
         description: theme.description.trim() || null,
         weight: Number(theme.weight) || 0,
         position: themeIndex,
         questions: theme.questions
           .map((question, questionIndex) => ({
+            id: question.id ?? null,
             code: question.code.trim() || null,
             text: question.text.trim(),
             response_type: question.response_type,
@@ -231,9 +306,18 @@ export function CreateAuditTemplatePanel() {
             attachment_required: question.attachment_required,
             options_json: question.response_type === 'choice'
               ? {
-                  options: [...question.options, question.optionDraft]
-                    .map(item => item.trim())
-                    .filter(Boolean),
+                  choices: [
+                    ...question.options,
+                    ...(question.optionDraft.trim()
+                      ? [{ value: question.optionDraft.trim(), label: question.optionDraft.trim(), score: null }]
+                      : []),
+                  ]
+                    .map(item => ({
+                      value: item.value.trim() || item.label.trim(),
+                      label: item.label.trim() || item.value.trim(),
+                      score: item.score,
+                    }))
+                    .filter(item => item.value && item.label),
                 }
               : null,
             position: questionIndex,
@@ -271,36 +355,40 @@ export function CreateAuditTemplatePanel() {
       return
     }
     try {
-      const created = await createTemplate.mutateAsync(payload)
-      toast({ title: t('conformite.audit_templates.created'), variant: 'success' })
-      openDynamicPanel({ type: 'detail', module: 'conformite', id: created.id, meta: { subtype: 'audit-template' } })
+      const saved = isEdit && templateId
+        ? await updateTemplate.mutateAsync({ id: templateId, payload })
+        : await createTemplate.mutateAsync(payload)
+      toast({ title: t(isEdit ? 'conformite.audit_templates.updated' : 'conformite.audit_templates.created'), variant: 'success' })
+      openDynamicPanel({ type: 'detail', module: 'conformite', id: saved.id, meta: { subtype: 'audit-template' } })
     } catch {
-      toast({ title: t('conformite.audit_templates.create_error'), variant: 'error' })
+      toast({ title: t(isEdit ? 'conformite.audit_templates.update_error' : 'conformite.audit_templates.create_error'), variant: 'error' })
     }
   }
 
+  const formId = isEdit ? 'edit-audit-template-form' : 'create-audit-template-form'
+  const isPending = createTemplate.isPending || updateTemplate.isPending
   const actionItems = useMemo<ActionItem[]>(() => [
     { id: 'cancel', label: t('common.cancel'), priority: 20, onClick: closeDynamicPanel },
     {
-      id: 'create',
-      label: t('conformite.audit_templates.save'),
-      icon: ShieldCheck,
+      id: isEdit ? 'save' : 'create',
+      label: t(isEdit ? 'common.save' : 'conformite.audit_templates.save'),
+      icon: isEdit ? Save : ShieldCheck,
       variant: 'primary',
       priority: 100,
-      loading: createTemplate.isPending,
-      disabled: createTemplate.isPending,
-      onClick: () => (document.getElementById('create-audit-template-form') as HTMLFormElement)?.requestSubmit(),
+      loading: isPending,
+      disabled: isPending,
+      onClick: () => (document.getElementById(formId) as HTMLFormElement)?.requestSubmit(),
     },
-  ], [closeDynamicPanel, createTemplate.isPending, t])
+  ], [closeDynamicPanel, formId, isEdit, isPending, t])
 
   return (
     <DynamicPanelShell
-      title={t('conformite.audit_templates.create_title')}
+      title={t(isEdit ? 'conformite.audit_templates.edit_title' : 'conformite.audit_templates.create_title')}
       subtitle={t('conformite.tabs.audit_templates')}
       icon={<ClipboardPenLine size={14} className="text-primary" />}
       actionItems={actionItems}
     >
-      <form id="create-audit-template-form" onSubmit={handleSubmit}>
+      <form id={formId} onSubmit={handleSubmit}>
         <PanelContentLayout>
           <FormSection title={t('common.information')}>
             <div className="grid gap-2 @2xl:grid-cols-6">
@@ -344,21 +432,28 @@ export function CreateAuditTemplatePanel() {
             )}
           >
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">{t('conformite.audit_templates.thresholds.help')}</p>
+              <p className="text-xs leading-snug text-muted-foreground">{t('conformite.audit_templates.thresholds.help')}</p>
+              <div className="hidden grid-cols-[6.5rem_minmax(0,1fr)_5rem_6rem_2rem] gap-1.5 px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground @2xl:grid">
+                <span>{t('conformite.audit_templates.fields.code')}</span>
+                <span>{t('conformite.audit_templates.thresholds.label')}</span>
+                <span>{t('conformite.audit_templates.thresholds.min_score')}</span>
+                <span>{t('conformite.audit_templates.thresholds.blocks_assignment')}</span>
+                <span />
+              </div>
               {draft.score_thresholds.map((threshold, thresholdIndex) => (
-                <div key={thresholdIndex} className="grid gap-2 rounded-md border border-border bg-card p-2 @2xl:grid-cols-[7rem_minmax(0,1fr)_6rem_8rem_2rem] @2xl:items-end">
-                  <Field label={t('conformite.audit_templates.fields.code')}>
+                <div key={thresholdIndex} className="grid gap-1.5 rounded-md border border-border/70 bg-card/70 p-1.5 @2xl:grid-cols-[6.5rem_minmax(0,1fr)_5rem_6rem_2rem] @2xl:items-center">
+                  <Field label={t('conformite.audit_templates.fields.code')} compact>
                     <input value={threshold.code} onChange={(e) => updateThreshold(thresholdIndex, { code: e.target.value })} className={compactInputClass} placeholder="qualified" />
                   </Field>
-                  <Field label={t('conformite.audit_templates.thresholds.label')}>
+                  <Field label={t('conformite.audit_templates.thresholds.label')} compact>
                     <input value={threshold.label} onChange={(e) => updateThreshold(thresholdIndex, { label: e.target.value })} className={compactInputClass} placeholder={t('conformite.audit_templates.thresholds.label_placeholder')} />
                   </Field>
-                  <Field label={t('conformite.audit_templates.thresholds.min_score')}>
+                  <Field label={t('conformite.audit_templates.thresholds.min_score')} compact>
                     <input type="number" min={0} max={100} value={threshold.min_score} onChange={(e) => updateThreshold(thresholdIndex, { min_score: Number(e.target.value) })} className={compactInputClass} />
                   </Field>
-                  <label className="flex h-8 items-center gap-2 text-xs text-muted-foreground">
+                  <label className="flex h-8 items-center gap-2 text-xs text-muted-foreground @2xl:justify-center">
                     <input type="checkbox" checked={!!threshold.blocks_assignment} onChange={(e) => updateThreshold(thresholdIndex, { blocks_assignment: e.target.checked })} />
-                    {t('conformite.audit_templates.thresholds.blocks_assignment')}
+                    <span className="@2xl:hidden">{t('conformite.audit_templates.thresholds.blocks_assignment')}</span>
                   </label>
                   <button type="button" onClick={() => removeThreshold(thresholdIndex)} className="inline-flex h-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                     <Trash2 size={13} />
@@ -440,7 +535,7 @@ export function CreateAuditTemplatePanel() {
                                 {question.options.map((option, optionIndex) => (
                                   <div key={`${themeIndex}-${questionIndex}-${optionIndex}`} className="grid gap-1.5 @2xl:grid-cols-[minmax(0,1fr)_2rem]">
                                     <input
-                                      value={option}
+                                      value={option.label}
                                       onChange={(e) => updateChoiceOption(themeIndex, questionIndex, optionIndex, e.target.value)}
                                       className={compactInputClass}
                                       placeholder={t('conformite.audit_templates.placeholders.option')}
@@ -498,10 +593,10 @@ export function CreateAuditTemplatePanel() {
   )
 }
 
-function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+function Field({ label, children, className, compact }: { label: string; children: ReactNode; className?: string; compact?: boolean }) {
   return (
     <label className={cn('block min-w-0', className)}>
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={cn('mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground', compact && '@2xl:sr-only')}>{label}</span>
       {children}
     </label>
   )

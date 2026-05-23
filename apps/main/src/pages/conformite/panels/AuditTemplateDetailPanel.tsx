@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, ClipboardPenLine, Loader2, Power } from 'lucide-react'
+import { CheckCircle2, ClipboardPenLine, Loader2, Pencil, Power } from 'lucide-react'
 import {
   DynamicPanelShell,
   DetailFieldGrid,
@@ -14,6 +14,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { useComplianceAuditTemplates, useUpdateComplianceAuditTemplate } from '@/hooks/useConformite'
 import { getAuditScoreThresholds } from '@/lib/complianceAudit'
 import { cn } from '@/lib/utils'
+import { useUIStore } from '@/stores/uiStore'
 
 export function AuditTemplateDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -21,12 +22,20 @@ export function AuditTemplateDetailPanel({ id }: { id: string }) {
   const { hasPermission } = usePermission()
   const { data: templates = [], isLoading } = useComplianceAuditTemplates({ include_inactive: true })
   const updateTemplate = useUpdateComplianceAuditTemplate()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const template = templates.find(item => item.id === id)
   const canUpdate = hasPermission('conformite.audit.template.update')
 
   const actionItems = useMemo<ActionItem[]>(() => {
     if (!template || !canUpdate) return []
     return [{
+      id: 'edit',
+      label: t('common.edit'),
+      icon: Pencil,
+      variant: 'primary',
+      priority: 100,
+      onClick: () => openDynamicPanel({ type: 'edit', module: 'conformite', id: template.id, meta: { subtype: 'audit-template' } }),
+    }, {
       id: 'toggle-active',
       label: template.active ? t('conformite.audit_templates.disable') : t('conformite.audit_templates.enable'),
       icon: template.active ? Power : CheckCircle2,
@@ -43,7 +52,7 @@ export function AuditTemplateDetailPanel({ id }: { id: string }) {
         }
       },
     }]
-  }, [canUpdate, template, t, toast, updateTemplate])
+  }, [canUpdate, openDynamicPanel, template, t, toast, updateTemplate])
 
   if (isLoading || !template) {
     return (

@@ -1785,6 +1785,10 @@ class ComplianceAuditQuestionCreate(BaseModel):
     position: int = 0
 
 
+class ComplianceAuditQuestionUpdate(ComplianceAuditQuestionCreate):
+    id: UUID | None = None
+
+
 class ComplianceAuditQuestionRead(OpsFluxSchema):
     id: UUID
     theme_id: UUID
@@ -1804,6 +1808,15 @@ class ComplianceAuditThemeCreate(BaseModel):
     weight: float = Field(1.0, ge=0)
     position: int = 0
     questions: list[ComplianceAuditQuestionCreate] = Field(default_factory=list)
+
+
+class ComplianceAuditThemeUpdate(BaseModel):
+    id: UUID | None = None
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    weight: float = Field(1.0, ge=0)
+    position: int = 0
+    questions: list[ComplianceAuditQuestionUpdate] = Field(default_factory=list)
 
 
 class ComplianceAuditThemeRead(OpsFluxSchema):
@@ -1837,13 +1850,16 @@ class ComplianceAuditTemplateCreate(BaseModel):
 
 
 class ComplianceAuditTemplateUpdate(BaseModel):
+    code: str | None = Field(None, min_length=1, max_length=50)
     name: str | None = Field(None, max_length=200)
     audit_type: str | None = Field(None, max_length=50)
+    target_scope: str | None = Field(None, pattern=r"^(company)$")
     description: str | None = None
     passing_score: float | None = Field(None, ge=0, le=100)
     score_thresholds: list[ComplianceAuditScoreThreshold] | None = None
     validity_days: int | None = Field(None, ge=1)
     active: bool | None = None
+    themes: list[ComplianceAuditThemeUpdate] | None = None
 
 
 class ComplianceAuditTemplateRead(OpsFluxSchema):

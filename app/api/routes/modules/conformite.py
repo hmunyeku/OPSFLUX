@@ -2255,6 +2255,100 @@ async def create_audit_template(
     return result.scalars().unique().one()
 
 
+async def _question_answer_count(db: AsyncSession, question_ids: set[UUID]) -> int:
+    if not question_ids:
+        return 0
+    result = await db.execute(
+        select(sqla_func.count(ComplianceAuditAnswer.id)).where(
+            ComplianceAuditAnswer.question_id.in_(question_ids)
+        )
+    )
+    return int(result.scalar_one() or 0)
+
+
+async def _replace_audit_template_themes(
+    db: AsyncSession,
+    template: ComplianceAuditTemplate,
+    themes_in: list,
+) -> None:
+    existing_themes = {theme.id: theme for theme in template.themes}
+    existing_questions = {
+        question.id: question
+        for theme in template.themes
+        for question in theme.questions
+    }
+    incoming_theme_ids = {theme_in.id for theme_in in themes_in if theme_in.id}
+    incoming_question_ids = {
+        question_in.id
+        for theme_in in themes_in
+        for question_in in theme_in.questions
+        if question_in.id
+    }
+
+    unknown_theme_ids = incoming_theme_ids - set(existing_themes)
+    if unknown_theme_ids:
+        raise HTTPException(400, "Unknown audit theme in template payload")
+    unknown_question_ids = incoming_question_ids - set(existing_questions)
+    if unknown_question_ids:
+        raise HTTPException(400, "Unknown audit question in template payload")
+
+    omitted_question_ids = set(existing_questions) - incoming_question_ids
+    used_omitted_count = await _question_answer_count(db, omitted_question_ids)
+    if used_omitted_count:
+        raise HTTPException(
+            409,
+            "Cannot remove audit questions already used by audit answers. Disable the template or create a new version.",
+        )
+
+    next_themes: list[ComplianceAuditTheme] = []
+    for theme_position, theme_in in enumerate(themes_in):
+        theme = existing_themes.get(theme_in.id) if theme_in.id else ComplianceAuditTheme(template_id=template.id)
+        theme.title = theme_in.title
+        theme.description = theme_in.description
+        theme.weight = Decimal(str(theme_in.weight))
+        theme.position = theme_in.position if theme_in.position is not None else theme_position
+        if not theme.id:
+            db.add(theme)
+            await db.flush()
+
+        theme_questions = {question.id: question for question in theme.questions}
+        next_questions: list[ComplianceAuditQuestion] = []
+        for question_position, question_in in enumerate(theme_in.questions):
+            question = (
+                existing_questions.get(question_in.id)
+                if question_in.id
+                else ComplianceAuditQuestion(theme_id=theme.id)
+            )
+            if question_in.id and question.theme_id != theme.id:
+                question.theme_id = theme.id
+            question.code = question_in.code
+            question.text = question_in.text
+            question.response_type = question_in.response_type
+            question.weight = Decimal(str(question_in.weight))
+            question.required = question_in.required
+            question.attachment_required = question_in.attachment_required
+            question.options_json = question_in.options_json
+            question.position = question_in.position if question_in.position is not None else question_position
+            if not question.id:
+                db.add(question)
+            next_questions.append(question)
+
+        removable_theme_questions = set(theme_questions) - {question.id for question in next_questions if question.id}
+        theme.questions = [
+            question
+            for question in next_questions
+            if question.id not in removable_theme_questions
+        ]
+        next_themes.append(theme)
+
+    removable_theme_ids = set(existing_themes) - incoming_theme_ids
+    template.themes = [
+        theme
+        for theme in next_themes
+        if theme.id not in removable_theme_ids
+    ]
+
+
 @router.patch(
     "/audit-templates/{template_id}",
     response_model=ComplianceAuditTemplateRead,
@@ -2274,15 +2368,32 @@ async def update_audit_template(
     template = result.scalars().unique().one_or_none()
     if not template:
         raise HTTPException(404, "Audit template not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    if body.code and body.code != template.code:
+        existing = await db.execute(
+            select(ComplianceAuditTemplate.id).where(
+                ComplianceAuditTemplate.entity_id == entity_id,
+                ComplianceAuditTemplate.code == body.code,
+                ComplianceAuditTemplate.id != template.id,
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(409, "Audit template code already exists")
+    payload = body.model_dump(exclude_unset=True, exclude={"themes"})
+    for key, value in payload.items():
         if key == "passing_score" and value is not None:
             value = Decimal(str(value))
         elif key == "score_thresholds" and value is not None:
             value = normalize_audit_score_thresholds(value)
         setattr(template, key, value)
+    if body.themes is not None:
+        await _replace_audit_template_themes(db, template, body.themes)
     await db.commit()
-    await db.refresh(template)
-    return template
+    result = await db.execute(
+        select(ComplianceAuditTemplate)
+        .options(selectinload(ComplianceAuditTemplate.themes).selectinload(ComplianceAuditTheme.questions))
+        .where(ComplianceAuditTemplate.id == template.id)
+    )
+    return result.scalars().unique().one()
 
 
 @router.get(

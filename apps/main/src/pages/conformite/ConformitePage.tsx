@@ -468,6 +468,7 @@ export function ConformitePage() {
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'transfer' && <CreateTransferPanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'transfer' && <TransferDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'audit-template' && <CreateAuditTemplatePanel />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'edit' && dynamicPanel.meta?.subtype === 'audit-template' && <CreateAuditTemplatePanel templateId={dynamicPanel.id} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'audit-template' && <AuditTemplateDetailPanel id={dynamicPanel.id} />}
     </div>
   )
@@ -488,6 +489,7 @@ registerPanelRenderer('conformite', (view) => {
   if (view.type === 'create' && view.meta?.subtype === 'transfer') return <CreateTransferPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'transfer') return <TransferDetailPanel id={view.id} />
   if (view.type === 'create' && view.meta?.subtype === 'audit-template') return <CreateAuditTemplatePanel />
+  if (view.type === 'edit' && 'id' in view && view.meta?.subtype === 'audit-template') return <CreateAuditTemplatePanel templateId={view.id} />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'audit-template') return <AuditTemplateDetailPanel id={view.id} />
   return null
 })

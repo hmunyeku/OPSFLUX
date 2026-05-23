@@ -1794,7 +1794,10 @@
         "min_score": "Min. score",
         "blocks_assignment": "Blocking",
         "count": "{{count}} thresholds"
-      }
+      },
+      "edit_title": "Edit audit template",
+      "updated": "Audit template updated",
+      "update_error": "Unable to update audit template"
     },
     "types_panel": {
       "tabs": {

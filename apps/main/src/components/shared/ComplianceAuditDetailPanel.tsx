@@ -37,9 +37,16 @@ import type { ComplianceAudit } from '@/types/api'
 interface ComplianceAuditDetailPanelProps {
   audit: ComplianceAudit
   onClose: () => void
+  inline?: boolean
+  inlineWidth?: number | string
 }
 
-export function ComplianceAuditDetailPanel({ audit, onClose }: ComplianceAuditDetailPanelProps) {
+export function ComplianceAuditDetailPanel({
+  audit,
+  onClose,
+  inline = true,
+  inlineWidth,
+}: ComplianceAuditDetailPanelProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const updateAnswers = useUpdateComplianceAuditAnswers()
@@ -125,7 +132,8 @@ export function ComplianceAuditDetailPanel({ audit, onClose }: ComplianceAuditDe
 
   return (
     <DynamicPanelShell
-      inline
+      inline={inline}
+      inlineWidth={inlineWidth}
       onClose={onClose}
       title={audit.title}
       subtitle={`${audit.reference} · ${audit.template?.name ?? audit.template?.audit_type ?? audit.status}`}

@@ -63,6 +63,7 @@ import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { LegalIdentifierManager } from '@/components/shared/LegalIdentifierManager'
 import { ReferentielManager } from '@/components/shared/ReferentielManager'
 import { SupplierAuditManager } from '@/components/shared/SupplierAuditManager'
+import { ComplianceAuditDetailPanel } from '@/components/shared/ComplianceAuditDetailPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
@@ -83,7 +84,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useStagingRef } from '@/hooks/useStagingRef'
 import { RichTextField } from '@/components/shared/RichTextField'
 import { ExternalRefManager } from '@/components/shared/ExternalRefManager'
-import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactWithTier } from '@/types/api'
+import type { ComplianceAudit, Tier, TierCreate, TierContact, TierContactCreate, TierContactWithTier } from '@/types/api'
 import api from '@/lib/api'
 
 import { useOpenDetailFromPath } from '@/hooks/useOpenDetailFromPath'
@@ -764,9 +765,14 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
   // Pre-selected from meta.contact_id when opening the panel directly from
   // the global contacts DataTable.
   const [selectedContactId, setSelectedContactId] = useState<string | null>(initialContactId ?? null)
+  const [selectedAudit, setSelectedAudit] = useState<ComplianceAudit | null>(null)
 
   // Tab navigation for TierDetailPanel — MUST be before early returns
   const [detailTab, setDetailTab] = useState<'fiche' | 'contacts' | 'conformite' | 'projets' | 'documents'>('fiche')
+
+  useEffect(() => {
+    setSelectedAudit(null)
+  }, [id])
 
   const handleInlineSave = useCallback((field: keyof TierCreate, value: string | number | boolean | null) => {
     updateTier.mutate({ id, payload: normalizeNames({ [field]: value } as Partial<TierCreate>) })
@@ -867,6 +873,20 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
         tierName={tier.name}
         contactId={selectedContactId}
         onBack={() => setSelectedContactId(null)}
+      />
+    )
+  }
+
+  // -- Supplier audit drill-down --
+  // Audits are full work surfaces (questions, proofs, validation workflow).
+  // Opening them inside the compact audit card makes the UI look clipped and
+  // nested; keep the same detail-panel pattern as contact drill-down.
+  if (selectedAudit) {
+    return (
+      <ComplianceAuditDetailPanel
+        audit={selectedAudit}
+        onClose={() => setSelectedAudit(null)}
+        inline={false}
       />
     )
   }
@@ -1305,7 +1325,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
           <ReferentielManager ownerType="tier" ownerId={tier.id} compact />
         </FormSection>
         <FormSection title={t('conformite.rules.audits.title', 'Audits tiers')} collapsible defaultExpanded storageKey="tier-detail-audits">
-          <SupplierAuditManager tierId={tier.id} compact />
+          <SupplierAuditManager tierId={tier.id} compact onOpenAudit={setSelectedAudit} />
         </FormSection>
       </PanelContentLayout>
       )}

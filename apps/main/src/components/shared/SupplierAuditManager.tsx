@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CheckCircle2, ClipboardCheck, Download, Eye, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ComplianceAuditDetailPanel } from '@/components/shared/ComplianceAuditDetailPanel'
 import { useToast } from '@/components/ui/Toast'
 import { useComplianceAudits, useComplianceAuditTemplates, useComplianceRules, useCreateComplianceAudit } from '@/hooks/useConformite'
 import { usePermission } from '@/hooks/usePermission'
@@ -12,6 +11,7 @@ import type { ComplianceAudit, ComplianceAuditTemplate } from '@/types/api'
 interface SupplierAuditManagerProps {
   tierId: string
   compact?: boolean
+  onOpenAudit?: (audit: ComplianceAudit) => void
 }
 
 type RequiredAuditItem = {
@@ -32,7 +32,7 @@ function auditTypeLabel(value: string | null | undefined) {
   return labels[key] ?? value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerProps) {
+export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierAuditManagerProps) {
   const { t, i18n } = useTranslation()
   const { toast } = useToast()
   const { hasPermission } = usePermission()
@@ -41,12 +41,10 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
   const { data: rules = [] } = useComplianceRules()
   const createAudit = useCreateComplianceAudit()
   const [templateId, setTemplateId] = useState('')
-  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null)
   const [downloadingAuditId, setDownloadingAuditId] = useState<string | null>(null)
 
   const canCreate = hasPermission('conformite.audit.create')
   const selectedTemplate = templates.find(template => template.id === templateId)
-  const selectedAudit = audits.find(audit => audit.id === selectedAuditId) ?? null
   const today = new Date().toISOString().slice(0, 10)
 
   const requiredAudits = useMemo<RequiredAuditItem[]>(() => {
@@ -160,18 +158,6 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
     }
   }
 
-  // Si un audit est selectionne, on bascule en mode "drill-down" : le panel
-  // detail prend la place de la liste, l'utilisateur garde le contexte tier
-  // ouvert et revient via le bouton "Retour" du panel.
-  if (selectedAudit) {
-    return (
-      <ComplianceAuditDetailPanel
-        audit={selectedAudit}
-        onClose={() => setSelectedAuditId(null)}
-      />
-    )
-  }
-
   return (
     <section className={compact ? 'space-y-3' : 'space-y-4'}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -257,7 +243,7 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedAuditId(audit.id)}
+                    onClick={() => onOpenAudit?.(audit)}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                     title={t('conformite.rules.audits.details', 'Details')}
                   >

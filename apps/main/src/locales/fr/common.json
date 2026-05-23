@@ -2079,8 +2079,10 @@
       "audits": {
         "title": "Audits tiers",
         "subtitle": "Audits fournisseur, score, preuves et validation.",
+        "required_counter": "{{valid}}/{{total}} exigés",
         "select_template": "Modèle d’audit...",
         "create": "Créer un audit",
+        "create_required": "Créer cet audit requis",
         "empty": "Aucun audit tiers enregistré.",
         "valid_until": "Valide jusqu’au",
         "workflow": "Workflow validation lié",

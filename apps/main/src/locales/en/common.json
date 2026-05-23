@@ -1946,8 +1946,10 @@
       "audits": {
         "title": "Supplier audits",
         "subtitle": "Supplier audits, score, evidence and validation.",
+        "required_counter": "{{valid}}/{{total}} required",
         "select_template": "Audit template...",
         "create": "Create audit",
+        "create_required": "Create this required audit",
         "empty": "No supplier audit recorded.",
         "valid_until": "Valid until",
         "workflow": "Validation workflow linked",

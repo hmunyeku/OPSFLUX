@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
-import { ClipboardCheck, Download, Eye, Plus, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Download, Eye, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useComplianceAudits, useComplianceAuditTemplates, useCreateComplianceAudit } from '@/hooks/useConformite'
+import { useComplianceAudits, useComplianceAuditTemplates, useComplianceRules, useCreateComplianceAudit } from '@/hooks/useConformite'
 import { usePermission } from '@/hooks/usePermission'
 import { SearchableSelect } from '@/pages/conformite/components'
 import { ComplianceAuditDetailModal } from '@/components/shared/ComplianceAuditDetailModal'
 import { conformiteService } from '@/services/conformiteService'
 import { useToast } from '@/components/ui/Toast'
+import type { ComplianceAudit, ComplianceAuditTemplate } from '@/types/api'
 
 interface SupplierAuditManagerProps {
   tierId: string
@@ -19,6 +20,7 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
   const { hasPermission } = usePermission()
   const { data: audits = [], isLoading } = useComplianceAudits({ target_type: 'tier', target_id: tierId })
   const { data: templates = [] } = useComplianceAuditTemplates()
+  const { data: rules = [] } = useComplianceRules()
   const createAudit = useCreateComplianceAudit()
   const [templateId, setTemplateId] = useState('')
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null)
@@ -33,14 +35,47 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
   const canCreate = hasPermission('conformite.audit.create')
   const selectedTemplate = templates.find(template => template.id === templateId)
   const selectedAudit = audits.find(audit => audit.id === selectedAuditId) ?? null
+  const today = new Date().toISOString().slice(0, 10)
 
-  const handleCreate = async () => {
-    if (!templateId || createAudit.isPending) return
+  const requiredAudits = useMemo(() => {
+    const templatesById = new Map(templates.map(template => [template.id, template]))
+    const items = new Map<string, { template: ComplianceAuditTemplate; latestAudit: ComplianceAudit | null; validAudit: ComplianceAudit | null }>()
+
+    for (const rule of rules) {
+      const auditTemplateId = typeof rule.condition_json?.audit_template_id === 'string'
+        ? rule.condition_json.audit_template_id
+        : null
+      if (!auditTemplateId || !rule.active) continue
+      if (rule.subject_scope !== 'company' && rule.subject_scope !== 'all') continue
+
+      const targetValues = (rule.target_value ?? '').split(',').map(value => value.trim()).filter(Boolean)
+      const appliesToTier = rule.target_type === 'all' || (rule.target_type === 'tier' && targetValues.includes(tierId))
+      if (!appliesToTier) continue
+
+      const template = templatesById.get(auditTemplateId)
+      if (!template) continue
+      const matchingAudits = audits
+        .filter(audit => audit.template_id === template.id)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      const validAudit = matchingAudits.find(audit =>
+        ['validated', 'closed'].includes(audit.status)
+        && (!audit.valid_until || audit.valid_until >= today)
+      ) ?? null
+      items.set(template.id, { template, latestAudit: matchingAudits[0] ?? null, validAudit })
+    }
+
+    return Array.from(items.values()).sort((a, b) => a.template.audit_type.localeCompare(b.template.audit_type))
+  }, [audits, rules, templates, tierId, today])
+
+  const validRequiredCount = requiredAudits.filter(item => item.validAudit).length
+
+  const handleCreate = async (template: ComplianceAuditTemplate | undefined = selectedTemplate) => {
+    if (!template || createAudit.isPending) return
     await createAudit.mutateAsync({
-      template_id: templateId,
+      template_id: template.id,
       target_type: 'tier',
       target_id: tierId,
-      title: selectedTemplate?.name,
+      title: template.name,
     })
     setTemplateId('')
   }
@@ -64,7 +99,11 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <ClipboardCheck size={16} className="text-primary" />
             {t('conformite.rules.audits.title', 'Audits tiers')}
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{audits.length}</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+              {requiredAudits.length > 0
+                ? t('conformite.rules.audits.required_counter', '{{valid}}/{{total}} exigés', { valid: validRequiredCount, total: requiredAudits.length })
+                : audits.length}
+            </span>
           </div>
           <p className="text-xs text-muted-foreground">
             {t('conformite.rules.audits.subtitle', 'Audits fournisseur, score, preuves et validation.')}
@@ -82,7 +121,7 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
             </div>
             <button
               type="button"
-              onClick={handleCreate}
+              onClick={() => handleCreate()}
               disabled={!templateId || createAudit.isPending}
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
               title={t('conformite.rules.audits.create', 'Créer un audit')}
@@ -92,6 +131,42 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
           </div>
         )}
       </div>
+
+      {requiredAudits.length > 0 && (
+        <div className="grid gap-2 @2xl:grid-cols-3">
+          {requiredAudits.map(({ template, latestAudit, validAudit }) => (
+            <div key={template.id} className="flex min-w-0 items-center gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <div className={validAudit ? 'text-emerald-600' : 'text-amber-500'}>
+                {validAudit ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-foreground">{template.audit_type}</div>
+                <div className="truncate text-[11px] text-muted-foreground">{template.code} · {template.name}</div>
+              </div>
+              {latestAudit ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedAuditId(latestAudit.id)}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                  title={t('conformite.rules.audits.details')}
+                >
+                  <Eye size={14} />
+                </button>
+              ) : canCreate ? (
+                <button
+                  type="button"
+                  onClick={() => handleCreate(template)}
+                  disabled={createAudit.isPending}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-primary hover:bg-primary/10 disabled:cursor-wait disabled:opacity-50"
+                  title={t('conformite.rules.audits.create_required', 'Créer cet audit requis')}
+                >
+                  <Plus size={14} />
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-2">
         {isLoading ? (

@@ -10,6 +10,7 @@ import type {
   ComplianceCheckResult,
   ComplianceExemption, ComplianceExemptionCreate, ComplianceExemptionUpdate,
   ComplianceAudit, ComplianceAuditAnswerUpsert, ComplianceAuditCreate, ComplianceAuditSubmit, ComplianceAuditTemplate,
+  ComplianceAuditTemplatePreset,
   ComplianceAuditTemplateCreate, ComplianceAuditTemplateUpdate,
   JobPosition, JobPositionCreate, JobPositionUpdate,
   TierContactTransfer, TierContactTransferCreate,
@@ -114,6 +115,16 @@ export const conformiteService = {
   },
 
   // ── Supplier audits ──
+  listAuditTemplatePresets: async (): Promise<ComplianceAuditTemplatePreset[]> => {
+    const { data } = await api.get('/api/v1/conformite/audit-template-presets')
+    return data
+  },
+
+  installAuditTemplatePreset: async (code: string): Promise<ComplianceAuditTemplate> => {
+    const { data } = await api.post(`/api/v1/conformite/audit-template-presets/${encodeURIComponent(code)}/install`)
+    return data
+  },
+
   listAuditTemplates: async (params: { include_inactive?: boolean } = {}): Promise<ComplianceAuditTemplate[]> => {
     const { data } = await api.get('/api/v1/conformite/audit-templates', { params })
     return data

@@ -15,6 +15,10 @@ from app.core.database import get_db
 from app.core.references import generate_reference
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.services.modules import compliance_service
+from app.services.modules.compliance_audit_presets import (
+    get_audit_template_preset,
+    list_audit_template_presets,
+)
 from app.services.modules.moc_service import create_contextual_moc, transition as transition_moc
 from app.services.connectors.compliance_connector import create_connector
 from app.services.modules.compliance_external_verification import apply_external_certificate_result
@@ -2006,6 +2010,120 @@ async def check_compliance(
 
 
 # ── Supplier audits / audits tiers ──────────────────────────────────────
+
+def _audit_template_options():
+    return selectinload(ComplianceAuditTemplate.themes).selectinload(ComplianceAuditTheme.questions)
+
+
+async def _read_audit_template(db: AsyncSession, template_id: UUID) -> ComplianceAuditTemplate:
+    result = await db.execute(
+        select(ComplianceAuditTemplate)
+        .options(_audit_template_options())
+        .where(ComplianceAuditTemplate.id == template_id)
+    )
+    return result.scalars().unique().one()
+
+
+async def _create_audit_template_from_preset(
+    db: AsyncSession,
+    entity_id: UUID,
+    preset: dict,
+) -> ComplianceAuditTemplate:
+    template = ComplianceAuditTemplate(
+        entity_id=entity_id,
+        code=preset["code"],
+        name=preset["name"],
+        audit_type=preset["audit_type"],
+        target_scope=preset.get("target_scope", "company"),
+        description=preset.get("description"),
+        passing_score=Decimal(str(preset.get("passing_score", 70))),
+        validity_days=preset.get("validity_days"),
+    )
+    db.add(template)
+    await db.flush()
+
+    for theme_position, theme_in in enumerate(preset.get("themes", []), start=1):
+        theme = ComplianceAuditTheme(
+            template_id=template.id,
+            title=theme_in["title"],
+            description=theme_in.get("description"),
+            weight=Decimal(str(theme_in.get("weight", 1))),
+            position=theme_in.get("position", theme_position),
+        )
+        db.add(theme)
+        await db.flush()
+        for question_position, question_in in enumerate(theme_in.get("questions", []), start=1):
+            db.add(ComplianceAuditQuestion(
+                theme_id=theme.id,
+                code=question_in.get("code"),
+                text=question_in["text"],
+                response_type=question_in.get("response_type", "choice"),
+                weight=Decimal(str(question_in.get("weight", 1))),
+                required=question_in.get("required", True),
+                attachment_required=question_in.get("attachment_required", False),
+                options_json=question_in.get("options_json"),
+                position=question_in.get("position", question_position),
+            ))
+    await db.commit()
+    return await _read_audit_template(db, template.id)
+
+
+@router.get(
+    "/audit-template-presets",
+    dependencies=[require_permission("conformite.audit.template.read")],
+)
+async def list_audit_template_presets_route(
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    existing_result = await db.execute(
+        select(ComplianceAuditTemplate.code).where(ComplianceAuditTemplate.entity_id == entity_id)
+    )
+    installed_codes = set(existing_result.scalars().all())
+    presets = []
+    for preset in list_audit_template_presets():
+        presets.append({
+            "code": preset["code"],
+            "name": preset["name"],
+            "audit_type": preset["audit_type"],
+            "target_scope": preset.get("target_scope", "company"),
+            "description": preset.get("description"),
+            "passing_score": preset.get("passing_score"),
+            "validity_days": preset.get("validity_days"),
+            "theme_count": len(preset.get("themes", [])),
+            "question_count": sum(len(theme.get("questions", [])) for theme in preset.get("themes", [])),
+            "installed": preset["code"] in installed_codes,
+        })
+    return presets
+
+
+@router.post(
+    "/audit-template-presets/{preset_code}/install",
+    response_model=ComplianceAuditTemplateRead,
+)
+async def install_audit_template_preset(
+    preset_code: str,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("conformite.audit.template.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    preset = get_audit_template_preset(preset_code)
+    if not preset:
+        raise HTTPException(404, "Audit template preset not found")
+
+    existing = await db.execute(
+        select(ComplianceAuditTemplate)
+        .options(_audit_template_options())
+        .where(
+            ComplianceAuditTemplate.entity_id == entity_id,
+            ComplianceAuditTemplate.code == preset["code"],
+        )
+    )
+    template = existing.scalars().unique().one_or_none()
+    if template:
+        return template
+
+    return await _create_audit_template_from_preset(db, entity_id, preset)
 
 
 @router.get(

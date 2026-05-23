@@ -1735,6 +1735,14 @@
       "passing_score_short": "Threshold {{score}}%",
       "validity_days": "{{count}} d",
       "validity_permanent": "Permanent validity",
+      "presets": {
+        "title": "Ready-to-install field templates",
+        "subtitle": "Grids derived from CIS 2026 administrative, HSE and business audits.",
+        "install": "Install",
+        "installed": "Installed",
+        "installed_toast": "Audit template installed",
+        "install_error": "Unable to install template"
+      },
       "themes": "Themes and questions",
       "add_theme": "Add theme",
       "add_question": "Add question",

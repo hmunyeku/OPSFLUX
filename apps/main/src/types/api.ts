@@ -1194,6 +1194,19 @@ export interface ComplianceAuditTemplate {
   themes: ComplianceAuditTheme[]
 }
 
+export interface ComplianceAuditTemplatePreset {
+  code: string
+  name: string
+  audit_type: string
+  target_scope: string
+  description: string | null
+  passing_score: number
+  validity_days: number | null
+  theme_count: number
+  question_count: number
+  installed: boolean
+}
+
 export interface ComplianceAuditQuestionCreate {
   code?: string | null
   text: string

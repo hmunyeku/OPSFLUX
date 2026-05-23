@@ -1,14 +1,19 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ClipboardPenLine, Eye } from 'lucide-react'
+import { CheckCircle2, ClipboardPenLine, DownloadCloud, Eye } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { DataTableFilterDef, DataTablePagination } from '@/components/ui/DataTable/types'
 import { usePermission } from '@/hooks/usePermission'
-import { useComplianceAuditTemplates } from '@/hooks/useConformite'
+import {
+  useComplianceAuditTemplatePresets,
+  useComplianceAuditTemplates,
+  useInstallComplianceAuditTemplatePreset,
+} from '@/hooks/useConformite'
 import { useUIStore } from '@/stores/uiStore'
 import type { ComplianceAuditTemplate } from '@/types/api'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/components/ui/Toast'
 
 type AuditTemplateRow = ComplianceAuditTemplate & {
   theme_count: number
@@ -20,7 +25,10 @@ export function AuditTemplatesTab() {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const { data: templates = [], isLoading } = useComplianceAuditTemplates({ include_inactive: true })
+  const { data: presets = [] } = useComplianceAuditTemplatePresets()
+  const installPreset = useInstallComplianceAuditTemplatePreset()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { toast } = useToast()
   const [searchValue, setSearchValue] = useState('')
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
   const canCreate = hasPermission('conformite.audit.template.create')
@@ -119,7 +127,7 @@ export function AuditTemplatesTab() {
       size: 280,
       cell: ({ row }) => (
         <span className="line-clamp-2 text-xs text-muted-foreground">
-          {row.original.description || '—'}
+          {row.original.description || '-'}
         </span>
       ),
     },
@@ -191,37 +199,83 @@ export function AuditTemplatesTab() {
   }), [filteredRows.length])
 
   return (
-    <DataTable<AuditTemplateRow>
-      columns={columns}
-      data={filteredRows}
-      isLoading={isLoading}
-      pagination={pagination}
-      searchValue={searchValue}
-      onSearchChange={setSearchValue}
-      searchPlaceholder={t('conformite.audit_templates.search')}
-      filters={filters}
-      activeFilters={activeFilters}
-      onFilterChange={(id, value) => {
-        setActiveFilters((prev) => {
-          const next = { ...prev }
-          if (value === undefined || value === null || value === '') delete next[id]
-          else next[id] = value
-          return next
-        })
-      }}
-      onRowClick={(row) => openDetailPanel(row.id)}
-      emptyIcon={ClipboardPenLine}
-      emptyTitle={templates.length === 0 ? t('conformite.audit_templates.empty_title') : t('common.no_results')}
-      emptyAction={templates.length === 0 && canCreate ? { label: t('conformite.audit_templates.create'), onClick: openCreatePanel } : undefined}
-      toolbarRight={(
-        <div className="hidden text-[11px] text-muted-foreground sm:block">
-          {filteredRows.length}/{rows.length} {t('conformite.audit_templates.metrics.templates').toLowerCase()}
-        </div>
+    <div className="space-y-3">
+      {canCreate && presets.length > 0 && (
+        <section className="rounded-lg border border-border bg-card/70 px-3 py-2">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-foreground">{t('conformite.audit_templates.presets.title')}</div>
+              <div className="text-[11px] text-muted-foreground">{t('conformite.audit_templates.presets.subtitle')}</div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[620px]">
+              {presets.map((preset) => (
+                <div key={preset.code} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-border/70 bg-background/50 px-2 py-1.5">
+                  <div className="min-w-0">
+                    <div className="truncate text-[11px] font-semibold text-foreground">{preset.name}</div>
+                    <div className="truncate text-[10px] text-muted-foreground">
+                      {preset.audit_type} - {preset.theme_count} {t('conformite.audit_templates.metrics.themes').toLowerCase()} - {preset.question_count} {t('conformite.audit_templates.metrics.questions').toLowerCase()}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={cn(
+                      'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-primary transition',
+                      preset.installed
+                        ? 'border-success/30 bg-success/10 text-success'
+                        : 'border-primary/30 bg-primary/10 hover:bg-primary/15',
+                    )}
+                    title={preset.installed ? t('conformite.audit_templates.presets.installed') : t('conformite.audit_templates.presets.install')}
+                    disabled={preset.installed || installPreset.isPending}
+                    onClick={async () => {
+                      try {
+                        await installPreset.mutateAsync(preset.code)
+                        toast({ title: t('conformite.audit_templates.presets.installed_toast'), variant: 'success' })
+                      } catch {
+                        toast({ title: t('conformite.audit_templates.presets.install_error'), variant: 'error' })
+                      }
+                    }}
+                  >
+                    {preset.installed ? <CheckCircle2 size={14} /> : <DownloadCloud size={14} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       )}
-      columnResizing
-      columnVisibility
-      defaultHiddenColumns={['description']}
-      storageKey="conformite-audit-templates"
-    />
+
+      <DataTable<AuditTemplateRow>
+        columns={columns}
+        data={filteredRows}
+        isLoading={isLoading}
+        pagination={pagination}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder={t('conformite.audit_templates.search')}
+        filters={filters}
+        activeFilters={activeFilters}
+        onFilterChange={(id, value) => {
+          setActiveFilters((prev) => {
+            const next = { ...prev }
+            if (value === undefined || value === null || value === '') delete next[id]
+            else next[id] = value
+            return next
+          })
+        }}
+        onRowClick={(row) => openDetailPanel(row.id)}
+        emptyIcon={ClipboardPenLine}
+        emptyTitle={templates.length === 0 ? t('conformite.audit_templates.empty_title') : t('common.no_results')}
+        emptyAction={templates.length === 0 && canCreate ? { label: t('conformite.audit_templates.create'), onClick: openCreatePanel } : undefined}
+        toolbarRight={(
+          <div className="hidden text-[11px] text-muted-foreground sm:block">
+            {filteredRows.length}/{rows.length} {t('conformite.audit_templates.metrics.templates').toLowerCase()}
+          </div>
+        )}
+        columnResizing
+        columnVisibility
+        defaultHiddenColumns={['description']}
+        storageKey="conformite-audit-templates"
+      />
+    </div>
   )
 }

@@ -214,6 +214,24 @@ export function useComplianceAuditTemplates(params: { include_inactive?: boolean
   })
 }
 
+export function useComplianceAuditTemplatePresets() {
+  return useQuery({
+    queryKey: ['compliance-audit-template-presets'],
+    queryFn: () => conformiteService.listAuditTemplatePresets(),
+  })
+}
+
+export function useInstallComplianceAuditTemplatePreset() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) => conformiteService.installAuditTemplatePreset(code),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['compliance-audit-templates'] })
+      qc.invalidateQueries({ queryKey: ['compliance-audit-template-presets'] })
+    },
+  })
+}
+
 export function useCreateComplianceAuditTemplate() {
   const qc = useQueryClient()
   return useMutation({

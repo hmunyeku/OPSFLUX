@@ -1868,6 +1868,14 @@
       "passing_score_short": "Seuil {{score}}%",
       "validity_days": "{{count}} j",
       "validity_permanent": "Validité permanente",
+      "presets": {
+        "title": "Modèles terrain prêts à installer",
+        "subtitle": "Grilles issues des audits administratif, HSE et métier CIS 2026.",
+        "install": "Installer",
+        "installed": "Installé",
+        "installed_toast": "Modèle d'audit installé",
+        "install_error": "Impossible d'installer le modèle"
+      },
       "themes": "Thèmes et questions",
       "add_theme": "Ajouter un thème",
       "add_question": "Ajouter une question",

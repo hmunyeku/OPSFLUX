@@ -26,6 +26,7 @@
  *   />
  */
 import type { LucideIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 /* ── TabBar (container) ─────────────────────────────────────── */
@@ -138,17 +139,29 @@ export function TabButton({
     >
       <Icon size={13} className="shrink-0" />
       <span className="hidden @[380px]:inline">{label}</span>
-      {badge !== undefined && badge !== 0 && (
-        <span
-          className={cn(
-            'gl-tab-badge',
-            active ? "bg-white/25 text-primary-foreground" : "bg-accent text-muted-foreground",
-          )}
-        >
-          {badge}
-        </span>
-      )}
+      <StableTabBadge badge={badge} active={active} />
     </button>
+  )
+}
+
+function StableTabBadge({ badge, active }: { badge?: number | string; active?: boolean }) {
+  const [stableBadge, setStableBadge] = useState<number | string | undefined>(badge)
+
+  useEffect(() => {
+    if (badge !== undefined) setStableBadge(badge)
+  }, [badge])
+
+  if (stableBadge === undefined || stableBadge === 0) return null
+
+  return (
+    <span
+      className={cn(
+        'gl-tab-badge',
+        active ? "bg-white/25 text-primary-foreground" : "bg-accent text-muted-foreground",
+      )}
+    >
+      {stableBadge}
+    </span>
   )
 }
 
@@ -194,16 +207,7 @@ export function PageNavBar<T extends string = string>({
               >
                 <Icon size={13} className="shrink-0" />
                 <span className="hidden @[380px]:inline">{item.label}</span>
-                {item.badge !== undefined && item.badge !== 0 && (
-                  <span
-                    className={cn(
-                      'gl-tab-badge',
-                      isActive ? "bg-white/25 text-primary-foreground" : "bg-accent text-muted-foreground",
-                    )}
-                  >
-                    {item.badge}
-                  </span>
-                )}
+                <StableTabBadge badge={item.badge} active={isActive} />
               </button>
             )
           })}

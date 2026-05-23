@@ -1806,6 +1806,110 @@ DEFAULT_TEMPLATES: list[dict] = [
         },
     },
     {
+        "slug": "conformite.record.expiring_soon",
+        "name": "Rappel expiration conformite",
+        "description": "Envoye aux administrateurs avant expiration d'un enregistrement de conformite.",
+        "object_type": "compliance",
+        "variables_schema": {
+            "record_id": "ID de l'enregistrement",
+            "days_remaining": "Jours restants",
+            "expires_at": "Date d'expiration",
+            "user.first_name": "Prenom du destinataire",
+            "entity.name": "Nom de l'entite",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux - Referentiel a renouveler dans {{ days_remaining }} j",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Un enregistrement de conformite arrive a expiration dans <strong>{{ days_remaining }} jour(s)</strong>.</p>"
+                    "<ul><li>ID : {{ record_id }}</li><li>Expiration : {{ expires_at }}</li></ul>"
+                    "<p>Merci de lancer le renouvellement ou de mettre a jour la preuve dans OpsFlux.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux - Compliance record due in {{ days_remaining }} days",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>A compliance record expires in <strong>{{ days_remaining }} day(s)</strong>.</p>"
+                    "<ul><li>ID: {{ record_id }}</li><li>Expiration: {{ expires_at }}</li></ul>"
+                    "<p>Please renew it or update the evidence in OpsFlux.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "conformite.audit.expiring_soon",
+        "name": "Rappel expiration audit fournisseur",
+        "description": "Envoye aux administrateurs avant expiration d'un audit fournisseur.",
+        "object_type": "compliance_audit",
+        "variables_schema": {
+            "audit_id": "ID de l'audit",
+            "days_remaining": "Jours restants",
+            "valid_until": "Date de fin de validite",
+            "user.first_name": "Prenom du destinataire",
+            "entity.name": "Nom de l'entite",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux - Audit fournisseur a renouveler dans {{ days_remaining }} j",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Un audit fournisseur arrive a expiration dans <strong>{{ days_remaining }} jour(s)</strong>.</p>"
+                    "<ul><li>ID audit : {{ audit_id }}</li><li>Valide jusqu'au : {{ valid_until }}</li></ul>"
+                    "<p>Merci de planifier le renouvellement de l'audit.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux - Supplier audit due in {{ days_remaining }} days",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>A supplier audit expires in <strong>{{ days_remaining }} day(s)</strong>.</p>"
+                    "<ul><li>Audit ID: {{ audit_id }}</li><li>Valid until: {{ valid_until }}</li></ul>"
+                    "<p>Please schedule the audit renewal.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "conformite.audit.expired",
+        "name": "Audit fournisseur expire",
+        "description": "Envoye aux administrateurs quand un audit fournisseur expire.",
+        "object_type": "compliance_audit",
+        "variables_schema": {
+            "audit_id": "ID de l'audit",
+            "valid_until": "Date d'expiration",
+            "user.first_name": "Prenom du destinataire",
+            "entity.name": "Nom de l'entite",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux - Audit fournisseur expire",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Un audit fournisseur valide a <strong>expire</strong>.</p>"
+                    "<ul><li>ID audit : {{ audit_id }}</li><li>Expiration : {{ valid_until }}</li></ul>"
+                    "<p>Veuillez verifier la conformite du fournisseur dans OpsFlux.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux - Supplier audit expired",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>A validated supplier audit has <strong>expired</strong>.</p>"
+                    "<ul><li>Audit ID: {{ audit_id }}</li><li>Expiration: {{ valid_until }}</li></ul>"
+                    "<p>Please review supplier compliance in OpsFlux.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
         "slug": "ticket_comment",
         "name": "Nouveau commentaire sur un ticket",
         "description": "Envoyé quand un commentaire est ajouté à un ticket de support.",

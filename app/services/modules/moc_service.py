@@ -19,12 +19,13 @@ required-field checks are enforced per-transition.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.common import ComplianceAudit, Project, ProjectTask, User
 from app.models.moc import (
@@ -511,6 +512,15 @@ async def transition(
 
     await db.flush()
 
+    if workflow_profile == "audit_validation":
+        await _sync_audit_validation_workflow(
+            db,
+            moc=moc,
+            to_status=to_status,
+            actor=actor,
+            now=now,
+        )
+
     # Fire-and-forget notifications (best-effort — failures don't block).
     try:
         await _notify_transition(db, moc=moc, old_status=old_status, actor=actor)
@@ -714,6 +724,59 @@ async def invite_validator(
     return row
 
 
+async def _sync_audit_validation_workflow(
+    db: AsyncSession,
+    *,
+    moc: MOC,
+    to_status: str,
+    actor: User,
+    now: datetime,
+) -> None:
+    """Keep the supplier audit aligned with its validation MOC outcome."""
+    audit = (
+        await db.execute(
+            select(ComplianceAudit)
+            .options(selectinload(ComplianceAudit.template))
+            .where(ComplianceAudit.validation_moc_id == moc.id)
+        )
+    ).scalar_one_or_none()
+    if audit is None:
+        return
+
+    previous_status = audit.status
+    if to_status in {"submitted", "in_review"} and audit.status == "draft":
+        audit.status = "submitted"
+    elif to_status == "approved":
+        audit.status = "validated"
+        audit.validated_at = audit.validated_at or now
+        if audit.template and audit.template.validity_days:
+            audit.valid_until = (audit.validated_at + timedelta(days=audit.template.validity_days)).date()
+    elif to_status == "rejected":
+        audit.status = "rejected"
+
+    if audit.status == previous_status:
+        return
+
+    try:
+        from app.core.events import emit_event
+        await emit_event(
+            f"conformite.audit.{audit.status}",
+            {
+                "audit_id": str(audit.id),
+                "template_id": str(audit.template_id),
+                "target_type": audit.target_type,
+                "target_id": str(audit.target_id),
+                "entity_id": str(audit.entity_id),
+                "validation_moc_id": str(moc.id),
+                "actor_id": str(actor.id),
+                "previous_status": previous_status,
+                "valid_until": audit.valid_until.isoformat() if audit.valid_until else None,
+            },
+        )
+    except Exception:
+        logger.exception("Audit validation event failed for MOC %s", moc.reference)
+
+
 # ─── Notifications ────────────────────────────────────────────────────────────
 
 
@@ -734,6 +797,92 @@ NOTIFY_ROLES_BY_STATUS: dict[str, list[str]] = {
 }
 
 
+async def _notify_audit_validation_transition(
+    db: AsyncSession, *, moc: MOC, old_status: str | None, actor: User
+) -> None:
+    """Notify audit validators and requester for audit-validation MOCs."""
+    recipient_ids: set[UUID] = set()
+    if moc.status in {"submitted", "in_review"}:
+        rows = await db.execute(
+            select(MOCValidation.validator_id).where(
+                MOCValidation.moc_id == moc.id,
+                MOCValidation.validator_id.isnot(None),
+            )
+        )
+        recipient_ids = {row[0] for row in rows.all() if row[0] and row[0] != actor.id}
+    elif moc.status in {"approved", "rejected"}:
+        if moc.initiator_id and moc.initiator_id != actor.id:
+            recipient_ids.add(moc.initiator_id)
+
+    if not recipient_ids:
+        return
+
+    audit = (
+        await db.execute(
+            select(ComplianceAudit).where(ComplianceAudit.validation_moc_id == moc.id)
+        )
+    ).scalar_one_or_none()
+    audit_label = audit.title if audit else (moc.title or moc.reference)
+    status_label = _humanise_status(moc.status)
+    link_path = f"/moc?id={moc.id}"
+    title = (
+        f"Audit fournisseur a valider - {audit_label}"
+        if moc.status in {"submitted", "in_review"}
+        else f"Audit fournisseur {status_label.lower()} - {audit_label}"
+    )
+    body = (
+        f"L'audit fournisseur '{audit_label}' est passe de "
+        f"{_humanise_status(old_status or 'draft')} a {status_label}."
+    )
+
+    from app.core.notifications import send_in_app_bulk
+    await send_in_app_bulk(
+        db,
+        user_ids=list(recipient_ids),
+        entity_id=moc.entity_id,
+        title=title,
+        body=body,
+        category="conformite",
+        link=link_path,
+        event_type=f"conformite.audit.validation.{moc.status}",
+    )
+
+    try:
+        from app.core.email_templates import render_and_send_email
+    except Exception:
+        return
+
+    users = (
+        await db.execute(select(User).where(User.id.in_(recipient_ids), User.active == True))  # noqa: E712
+    ).scalars().all()
+    origin = "https://app.opsflux.io"
+    template_slug = "moc.validated" if moc.status == "approved" else "moc.awaiting_validation"
+    for user in users:
+        if not user.email:
+            continue
+        try:
+            await render_and_send_email(
+                db,
+                slug=template_slug,
+                entity_id=moc.entity_id,
+                to=user.email,
+                variables={
+                    "reference": moc.reference,
+                    "objectives": audit_label,
+                    "site_label": moc.site_label,
+                    "platform_code": moc.platform_code,
+                    "status_label": status_label,
+                    "actor_name": actor.full_name or actor.email,
+                    "link": f"{origin}{link_path}",
+                    "user": {"first_name": user.first_name or user.email},
+                },
+                category="conformite",
+                event_type=f"conformite.audit.validation.{moc.status}",
+            )
+        except Exception:
+            logger.exception("Audit validation email failed for MOC %s", moc.reference)
+
+
 async def _notify_transition(
     db: AsyncSession, *, moc: MOC, old_status: str | None, actor: User
 ) -> None:
@@ -743,6 +892,10 @@ async def _notify_transition(
     `moc.cancelled`, `moc.closed` have dedicated templates; every other
     transition uses the generic `moc.awaiting_validation` template.
     """
+    if (moc.workflow_profile or "") == "audit_validation":
+        await _notify_audit_validation_transition(db, moc=moc, old_status=old_status, actor=actor)
+        return
+
     target_roles = NOTIFY_ROLES_BY_STATUS.get(moc.status, [])
     if not target_roles:
         return

@@ -1156,6 +1156,110 @@ async def on_compliance_expired(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_compliance_expired for %s", record_id)
 
 
+async def on_compliance_expiring_soon(event: OpsFluxEvent) -> None:
+    """Notify relevant users when a compliance record approaches expiration."""
+    payload = event.payload
+    record_id = payload.get("record_id")
+    entity_id = payload.get("entity_id")
+    days_remaining = payload.get("days_remaining")
+
+    if not record_id or not entity_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.core.email_templates import render_and_send_email
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+
+        admin_ids = await _get_admin_user_ids(entity_id)
+        async with async_session_factory() as db:
+            for admin_id in admin_ids:
+                await send_in_app(
+                    db,
+                    user_id=admin_id,
+                    entity_id=UUID(str(entity_id)),
+                    title="Conformite a renouveler",
+                    body=f"Un referentiel arrive a expiration dans {days_remaining} jour(s).",
+                    category="conformite",
+                    link="/conformite?tab=enregistrements",
+                    event_type="conformite.record.expiring_soon",
+                )
+                email, name = await _get_user_email_and_name(admin_id, db)
+                if email:
+                    await render_and_send_email(
+                        db,
+                        slug="conformite.record.expiring_soon",
+                        entity_id=UUID(str(entity_id)),
+                        to=email,
+                        variables={
+                            "record_id": str(record_id),
+                            "days_remaining": str(days_remaining),
+                            "expires_at": str(payload.get("expires_at") or ""),
+                            "user": {"first_name": name},
+                        },
+                    )
+            await db.commit()
+        logger.info("conformite.record.expiring_soon handled: %s", record_id)
+    except Exception:
+        logger.exception("Error in on_compliance_expiring_soon for %s", record_id)
+
+
+async def on_compliance_audit_expiry(event: OpsFluxEvent) -> None:
+    """Notify relevant users when a supplier audit expires or will expire soon."""
+    payload = event.payload
+    audit_id = payload.get("audit_id")
+    entity_id = payload.get("entity_id")
+
+    if not audit_id or not entity_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.core.email_templates import render_and_send_email
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+
+        is_soon = event.event_type.endswith("expiring_soon")
+        title = "Audit fournisseur a renouveler" if is_soon else "Audit fournisseur expire"
+        body = (
+            f"Un audit fournisseur arrive a expiration dans {payload.get('days_remaining')} jour(s)."
+            if is_soon else
+            "Un audit fournisseur valide est arrive a expiration."
+        )
+        slug = "conformite.audit.expiring_soon" if is_soon else "conformite.audit.expired"
+
+        admin_ids = await _get_admin_user_ids(entity_id)
+        async with async_session_factory() as db:
+            for admin_id in admin_ids:
+                await send_in_app(
+                    db,
+                    user_id=admin_id,
+                    entity_id=UUID(str(entity_id)),
+                    title=title,
+                    body=body,
+                    category="conformite",
+                    link="/conformite?tab=verifications",
+                    event_type=event.event_type,
+                )
+                email, name = await _get_user_email_and_name(admin_id, db)
+                if email:
+                    await render_and_send_email(
+                        db,
+                        slug=slug,
+                        entity_id=UUID(str(entity_id)),
+                        to=email,
+                        variables={
+                            "audit_id": str(audit_id),
+                            "days_remaining": str(payload.get("days_remaining") or ""),
+                            "valid_until": str(payload.get("valid_until") or payload.get("expired_at") or ""),
+                            "user": {"first_name": name},
+                        },
+                    )
+            await db.commit()
+        logger.info("%s handled: %s", event.event_type, audit_id)
+    except Exception:
+        logger.exception("Error in on_compliance_audit_expiry for %s", audit_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_paxlog_ads_in_progress
 # When an AdS effectively starts, auto-transition its linked Planner
@@ -1968,6 +2072,9 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("conformite.record.verified", on_compliance_record_verified)
     event_bus.subscribe("conformite.record.rejected", on_compliance_record_verified)
     event_bus.subscribe("conformite.record.expired", on_compliance_expired)
+    event_bus.subscribe("conformite.record.expiring_soon", on_compliance_expiring_soon)
+    event_bus.subscribe("conformite.audit.expired", on_compliance_audit_expiry)
+    event_bus.subscribe("conformite.audit.expiring_soon", on_compliance_audit_expiry)
     event_bus.subscribe(PROJECT_STATUS_CHANGED_EVENT, on_project_status_changed)
     event_bus.subscribe("pax.credential.expiring", on_credential_expiring)
     # Generic FSM transition observability

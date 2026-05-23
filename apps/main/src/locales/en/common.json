@@ -1980,7 +1980,18 @@
         "notes_placeholder": "Notes, comments, observations...",
         "save_before_evidence": "Save answers before attaching evidence to this question.",
         "report_pdf": "Download PDF report",
-        "report_error": "Unable to generate the audit report."
+        "report_error": "Unable to generate the audit report.",
+        "required_label": "required",
+        "required_tooltip": "{{valid}} valid out of {{total}} audits required by rules",
+        "required_group": "Required audits",
+        "other_group": "Other templates",
+        "state_valid": "Valid",
+        "state_in_progress": "In progress",
+        "state_required": "To plan",
+        "validated_on": "Validated on",
+        "expired": "Expired {{n}}d ago",
+        "expires_soon": "Expires in {{n}}d",
+        "valid_n_days": "{{n}}d remaining"
       },
       "view": {
         "matrix": "Matrix view",
@@ -6764,7 +6775,13 @@
       "ticket.assigned": "Ticket assigned",
       "ticket.commented": "Ticket commented",
       "ticket.resolved": "Ticket resolved",
-      "travelwiz.pickup_reminder": "Pickup reminder"
+      "travelwiz.pickup_reminder": "Pickup reminder",
+      "conformite.record.expiring_soon": "Compliance renewal due",
+      "conformite.audit.expired": "Supplier audit expired",
+      "conformite.audit.expiring_soon": "Supplier audit renewal due",
+      "conformite.audit.validation.submitted": "Supplier audit submitted",
+      "conformite.audit.validation.approved": "Supplier audit approved",
+      "conformite.audit.validation.rejected": "Supplier audit rejected"
     },
     "ui": {
       "channel_allowed": "Allowed",

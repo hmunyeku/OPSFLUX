@@ -9,7 +9,7 @@ Emits events for each transition, triggering notifications.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +33,8 @@ async def check_compliance_expiry() -> None:
 
             # ── Pass 2: Renewal reminders (expiring soon) ──
             reminder_count = await _send_renewal_reminders(db, now)
+            audit_expired_count = await _expire_overdue_audits(db, now.date())
+            audit_reminder_count = await _send_audit_renewal_reminders(db, now.date())
 
             # ── Pass 3: Grace period warnings ──
             grace_count = await _check_grace_periods(db, now)
@@ -40,8 +42,8 @@ async def check_compliance_expiry() -> None:
             await db.commit()
 
             logger.info(
-                "compliance_expiry: done — %d expired, %d reminders, %d grace warnings",
-                expired_count, reminder_count, grace_count,
+                "compliance_expiry: done - %d records expired, %d record reminders, %d audits expired, %d audit reminders, %d grace warnings",
+                expired_count, reminder_count, audit_expired_count, audit_reminder_count, grace_count,
             )
 
     except Exception:
@@ -125,6 +127,105 @@ async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
                 "rule_id": str(rule.id),
             })
             reminder_count += 1
+
+    return reminder_count
+
+
+def _audit_rule_applies(rule, audit) -> bool:
+    """Best-effort matcher for audit reminder rules."""
+    condition = rule.condition_json or {}
+    if str(condition.get("audit_template_id") or "") != str(audit.template_id):
+        return False
+    if rule.subject_scope not in {"company", "all"}:
+        return False
+    if rule.target_type == "all":
+        return True
+    if rule.target_type != audit.target_type:
+        return False
+    values = [value.strip() for value in str(rule.target_value or "").split(",") if value.strip()]
+    return str(audit.target_id) in values
+
+
+async def _expire_overdue_audits(db: AsyncSession, today: date) -> int:
+    """Set status='expired' for validated supplier audits past valid_until."""
+    from app.models.common import ComplianceAudit
+
+    result = await db.execute(
+        select(ComplianceAudit).where(
+            ComplianceAudit.active == True,
+            ComplianceAudit.status == "validated",
+            ComplianceAudit.valid_until != None,
+            ComplianceAudit.valid_until < today,
+        )
+    )
+    audits = result.scalars().all()
+
+    for audit in audits:
+        audit.status = "expired"
+        await emit_event("conformite.audit.expired", {
+            "audit_id": str(audit.id),
+            "template_id": str(audit.template_id),
+            "target_type": audit.target_type,
+            "target_id": str(audit.target_id),
+            "entity_id": str(audit.entity_id),
+            "expired_at": audit.valid_until.isoformat() if audit.valid_until else None,
+        })
+
+    await db.flush()
+    return len(audits)
+
+
+async def _send_audit_renewal_reminders(db: AsyncSession, today: date) -> int:
+    """Send reminders for validated supplier audits governed by audit rules."""
+    from app.models.common import ComplianceAudit, ComplianceRule
+
+    rules_result = await db.execute(
+        select(ComplianceRule).where(
+            ComplianceRule.active == True,
+            ComplianceRule.renewal_reminder_days != None,
+            ComplianceRule.renewal_reminder_days > 0,
+            ComplianceRule.condition_json != None,
+        )
+    )
+    rules = [
+        rule for rule in rules_result.scalars().all()
+        if isinstance(rule.condition_json, dict) and rule.condition_json.get("audit_template_id")
+    ]
+    if not rules:
+        return 0
+
+    max_window = max(int(rule.renewal_reminder_days or 0) for rule in rules)
+    audits_result = await db.execute(
+        select(ComplianceAudit).where(
+            ComplianceAudit.active == True,
+            ComplianceAudit.status == "validated",
+            ComplianceAudit.valid_until != None,
+            ComplianceAudit.valid_until >= today,
+            ComplianceAudit.valid_until <= today + timedelta(days=max_window),
+        )
+    )
+    audits = audits_result.scalars().all()
+
+    reminder_count = 0
+    for audit in audits:
+        days_until = (audit.valid_until - today).days if audit.valid_until else 0
+        for rule in rules:
+            if days_until > int(rule.renewal_reminder_days or 0):
+                continue
+            if not _audit_rule_applies(rule, audit):
+                continue
+            await emit_event("conformite.audit.expiring_soon", {
+                "audit_id": str(audit.id),
+                "template_id": str(audit.template_id),
+                "target_type": audit.target_type,
+                "target_id": str(audit.target_id),
+                "entity_id": str(audit.entity_id),
+                "valid_until": audit.valid_until.isoformat() if audit.valid_until else None,
+                "days_remaining": days_until,
+                "rule_id": str(rule.id),
+            })
+            reminder_count += 1
+            break
 
     return reminder_count
 

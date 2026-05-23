@@ -2113,7 +2113,18 @@
         "notes_placeholder": "Notes, commentaires, observations...",
         "save_before_evidence": "Enregistrez les réponses pour joindre les preuves à cette question.",
         "report_pdf": "Télécharger le rapport PDF",
-        "report_error": "Impossible de générer le rapport d'audit."
+        "report_error": "Impossible de générer le rapport d'audit.",
+        "required_label": "exig?s",
+        "required_tooltip": "{{valid}} valides sur {{total}} audits exig?s par les r?gles",
+        "required_group": "Audits exig?s",
+        "other_group": "Autres mod?les",
+        "state_valid": "Valide",
+        "state_in_progress": "En cours",
+        "state_required": "? planifier",
+        "validated_on": "Valid? le",
+        "expired": "Expir? il y a {{n}}j",
+        "expires_soon": "Expire dans {{n}}j",
+        "valid_n_days": "{{n}}j restants"
       },
       "view": {
         "matrix": "Vue matrice",
@@ -7070,7 +7081,13 @@
       "ticket.assigned": "Ticket assigné",
       "ticket.commented": "Ticket commenté",
       "ticket.resolved": "Ticket résolu",
-      "travelwiz.pickup_reminder": "Rappel de navette"
+      "travelwiz.pickup_reminder": "Rappel de navette",
+      "conformite.record.expiring_soon": "Conformit? ? renouveler",
+      "conformite.audit.expired": "Audit fournisseur expir?",
+      "conformite.audit.expiring_soon": "Audit fournisseur ? renouveler",
+      "conformite.audit.validation.submitted": "Audit fournisseur soumis",
+      "conformite.audit.validation.approved": "Audit fournisseur valid?",
+      "conformite.audit.validation.rejected": "Audit fournisseur rejet?"
     },
     "ui": {
       "channel_allowed": "Autorisé",

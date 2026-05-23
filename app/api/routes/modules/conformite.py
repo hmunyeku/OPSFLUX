@@ -167,6 +167,7 @@ async def _build_audit_report_variables(
     audit: ComplianceAudit,
     entity_id: UUID,
 ) -> dict:
+    import math
     entity = await db.get(Entity, entity_id)
     tier = await db.get(Tier, audit.target_id) if audit.target_type == "tier" else None
     answers_by_question = {answer.question_id: answer for answer in audit.answers or []}
@@ -175,8 +176,14 @@ async def _build_audit_report_variables(
     answered_questions = 0
     missing_required = 0
     missing_evidence = 0
+    # Phase 2 : extraire les questions problematiques pour Plan d'action
+    # (score < passing OR missing required OR missing evidence)
+    passing_score_num = float(audit.template.passing_score) if audit.template and audit.template.passing_score is not None else 70.0
+    action_items: list[dict] = []
     for theme in sorted(audit.template.themes if audit.template else [], key=lambda row: row.position):
         question_rows = []
+        theme_score_sum = 0.0  # somme ponderee des scores
+        theme_weight_sum = 0.0
         for question in sorted(theme.questions or [], key=lambda row: row.position):
             total_questions += 1
             answer = answers_by_question.get(question.id)
@@ -186,24 +193,128 @@ async def _build_audit_report_variables(
             if question.required and not answered:
                 missing_required += 1
             attachment_count = int(getattr(answer, "attachment_count", 0) or 0) if answer else 0
-            if question.attachment_required and attachment_count <= 0:
+            evidence_missing = bool(question.attachment_required and attachment_count <= 0)
+            if evidence_missing:
                 missing_evidence += 1
+            question_score_num: float | None = float(answer.score) if answer and answer.score is not None else None
+            # Phase 2 : agregation thème (ponderation par poids question)
+            q_weight = float(question.weight or 1.0)
+            if question_score_num is not None and q_weight > 0:
+                theme_score_sum += question_score_num * q_weight
+                theme_weight_sum += q_weight
+            # Phase 2 : detection issue plan d'action
+            issue_kind = None
+            if question.required and not answered:
+                issue_kind = "missing_required"
+            elif evidence_missing:
+                issue_kind = "missing_evidence"
+            elif question_score_num is not None and question_score_num < passing_score_num:
+                issue_kind = "below_passing"
+            if issue_kind:
+                action_items.append({
+                    "kind": issue_kind,
+                    "theme": theme.title,
+                    "code": question.code or "",
+                    "text": question.text,
+                    "score": f"{question_score_num:.0f}%" if question_score_num is not None else "—",
+                    "score_num": question_score_num,
+                    "notes": _audit_plain_text(answer.notes if answer else None),
+                    "required": question.required,
+                    "attachment_required": question.attachment_required,
+                    "attachment_count": attachment_count,
+                })
             question_rows.append({
                 "code": question.code or "",
                 "text": question.text,
                 "required": question.required,
                 "attachment_required": question.attachment_required,
                 "answer": _audit_answer_display(answer.response_value if answer else None),
-                "score": f"{float(answer.score):.0f}%" if answer and answer.score is not None else "-",
+                "score": f"{question_score_num:.0f}%" if question_score_num is not None else "-",
                 "notes": _audit_plain_text(answer.notes if answer else None),
                 "attachment_count": attachment_count,
             })
+        # Score thème = moyenne ponderee, None si rien de note
+        theme_score = (theme_score_sum / theme_weight_sum) if theme_weight_sum > 0 else None
         themes.append({
             "title": theme.title,
             "description": theme.description or "",
             "weight": float(theme.weight or 0),
             "questions": question_rows,
+            "score_num": theme_score,
+            "score": f"{theme_score:.0f}%" if theme_score is not None else "—",
         })
+    # Tri Plan d'action : missing_required en premier, puis below_passing
+    # par score croissant (les pires d'abord), puis missing_evidence.
+    _kind_order = {"missing_required": 0, "below_passing": 1, "missing_evidence": 2}
+    action_items.sort(key=lambda it: (_kind_order.get(it["kind"], 9), it["score_num"] if it["score_num"] is not None else 0))
+
+    # Phase 2 : radar SVG pre-calcule (coords cote Python pour rendre le
+    # template HTML lisible). Polygone regulier centre (200, 200), rayon 150.
+    radar_axes: list[dict] = []
+    radar_polygon_points: list[str] = []
+    n = len(themes)
+    if n >= 3:  # un radar a moins de 3 axes est degenere
+        cx, cy, r_max = 200.0, 200.0, 150.0
+        for i, theme in enumerate(themes):
+            # Angle depart en haut (-pi/2), tournant horaire
+            angle = -math.pi / 2 + (2 * math.pi * i / n)
+            # Coord du bout d'axe (label) et de la valeur (polygone)
+            ax = cx + r_max * math.cos(angle)
+            ay = cy + r_max * math.sin(angle)
+            value_pct = (theme["score_num"] or 0) / 100.0
+            vx = cx + r_max * value_pct * math.cos(angle)
+            vy = cy + r_max * value_pct * math.sin(angle)
+            # Position label : un peu au-dela du bout d'axe
+            lx = cx + (r_max + 18) * math.cos(angle)
+            ly = cy + (r_max + 18) * math.sin(angle)
+            # Anchor texte selon position relative
+            if abs(math.cos(angle)) < 0.3:
+                anchor = "middle"
+            elif math.cos(angle) > 0:
+                anchor = "start"
+            else:
+                anchor = "end"
+            radar_axes.append({
+                "label": theme["title"],
+                "score": theme["score"],
+                "ax": round(ax, 2), "ay": round(ay, 2),
+                "lx": round(lx, 2), "ly": round(ly, 2),
+                "anchor": anchor,
+                "vx": round(vx, 2), "vy": round(vy, 2),
+            })
+            radar_polygon_points.append(f"{round(vx, 2)},{round(vy, 2)}")
+    radar_polygon = " ".join(radar_polygon_points)
+
+    # Phase 2 : audit precedent (meme target, status validated, started_at < current)
+    previous_audit_data: dict | None = None
+    if audit.target_type and audit.target_id and audit.started_at:
+        prev_q = await db.execute(
+            select(ComplianceAudit)
+            .where(
+                ComplianceAudit.entity_id == entity_id,
+                ComplianceAudit.target_type == audit.target_type,
+                ComplianceAudit.target_id == audit.target_id,
+                ComplianceAudit.id != audit.id,
+                ComplianceAudit.status.in_(["validated", "submitted", "completed"]),
+                ComplianceAudit.score_percent.isnot(None),
+            )
+            .order_by(ComplianceAudit.started_at.desc())
+            .limit(1)
+        )
+        prev = prev_q.scalars().first()
+        if prev:
+            prev_score = float(prev.score_percent) if prev.score_percent is not None else None
+            cur_score = float(audit.score_percent) if audit.score_percent is not None else None
+            delta = None
+            if prev_score is not None and cur_score is not None:
+                delta = cur_score - prev_score
+            previous_audit_data = {
+                "reference": prev.reference,
+                "score": f"{prev_score:.0f}%" if prev_score is not None else "—",
+                "started_at": _audit_pdf_date(prev.started_at),
+                "delta": f"{'+' if delta and delta > 0 else ''}{delta:.0f} pts" if delta is not None else None,
+                "delta_num": delta,
+            }
     return {
         "entity": {
             "name": entity.name if entity else "",
@@ -243,6 +354,13 @@ async def _build_audit_report_variables(
             "missing_evidence": missing_evidence,
         },
         "themes": themes,
+        "action_items": action_items,
+        "radar": {
+            "axes": radar_axes,
+            "polygon": radar_polygon,
+            "available": len(radar_axes) >= 3,
+        },
+        "previous_audit": previous_audit_data,
         "generated_at": _audit_pdf_date(datetime.now(timezone.utc)),
     }
 
@@ -597,6 +715,138 @@ _SUPPLIER_AUDIT_REPORT_FALLBACK_HTML = """
     }
 
     /* Signature block (fin de doc) */
+    /* Phase 2 : Radar SVG par theme */
+    .radar-wrap {
+      display: table;
+      width: 100%;
+      margin: 4mm 0 6mm;
+    }
+    .radar-svg-cell {
+      display: table-cell;
+      vertical-align: middle;
+      width: 55%;
+      text-align: center;
+    }
+    .radar-svg {
+      width: 80mm;
+      height: 80mm;
+    }
+    .radar-legend-cell {
+      display: table-cell;
+      vertical-align: middle;
+      padding-left: 6mm;
+    }
+    .radar-legend {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+    }
+    .radar-legend th {
+      text-align: left;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 1.5mm 2mm;
+    }
+    .radar-legend td {
+      padding: 1.5mm 2mm;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .radar-legend td.score-cell {
+      text-align: right;
+      font-weight: 700;
+      font-family: "Consolas", monospace;
+    }
+    .radar-legend td.score-cell.ok { color: #15803d; }
+    .radar-legend td.score-cell.warn { color: #b45309; }
+    .radar-legend td.score-cell.bad { color: #b91c1c; }
+
+    /* Phase 2 : Plan d'action */
+    .action-list {
+      margin: 4mm 0 6mm;
+    }
+    .action-item {
+      display: table;
+      width: 100%;
+      margin-bottom: 2mm;
+      padding: 3mm 4mm;
+      border-left: 3px solid #cbd5e1;
+      background: #f8fafc;
+      page-break-inside: avoid;
+    }
+    .action-item.critical { border-left-color: #b91c1c; background: #fef2f2; }
+    .action-item.warning  { border-left-color: #b45309; background: #fffbeb; }
+    .action-item.notice   { border-left-color: #1e40af; background: #eff6ff; }
+    .action-icon-cell {
+      display: table-cell;
+      width: 18mm;
+      vertical-align: top;
+      font-weight: 700;
+      font-size: 7.5pt;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .action-icon-cell.critical { color: #b91c1c; }
+    .action-icon-cell.warning  { color: #b45309; }
+    .action-icon-cell.notice   { color: #1e40af; }
+    .action-body-cell {
+      display: table-cell;
+      vertical-align: top;
+    }
+    .action-theme {
+      font-size: 8pt;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      text-transform: uppercase;
+      margin-bottom: 0.5mm;
+    }
+    .action-question {
+      font-size: 10pt;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 1mm;
+    }
+    .action-notes {
+      font-size: 9pt;
+      color: #475569;
+      font-style: italic;
+    }
+    .action-empty {
+      padding: 6mm;
+      text-align: center;
+      color: #15803d;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* Phase 2 : Comparatif audit precedent */
+    .prev-audit {
+      display: table;
+      width: 100%;
+      margin: 4mm 0;
+      padding: 3mm 4mm;
+      background: #f1f5f9;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+    }
+    .prev-cell { display: table-cell; vertical-align: middle; padding-right: 4mm; }
+    .prev-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; }
+    .prev-value { font-size: 11pt; font-weight: 700; color: #0f172a; }
+    .delta-pill {
+      display: inline-block;
+      padding: 0.8mm 3mm;
+      border-radius: 3px;
+      font-size: 10pt;
+      font-weight: 700;
+    }
+    .delta-pill.up   { background: #dcfce7; color: #15803d; }
+    .delta-pill.down { background: #fee2e2; color: #b91c1c; }
+    .delta-pill.flat { background: #f1f5f9; color: #475569; }
+
     .signatures {
       margin-top: 12mm;
       page-break-inside: avoid;
@@ -766,6 +1016,121 @@ _SUPPLIER_AUDIT_REPORT_FALLBACK_HTML = """
       </div>
     </div>
   </div>
+
+  {# ───────── Phase 2 : Comparatif audit précédent ───────── #}
+  {% if previous_audit %}
+    {%- if previous_audit.delta_num is not none -%}
+      {%- if previous_audit.delta_num > 2 -%}{%- set delta_class = 'up' -%}{%- set delta_arrow = '▲' -%}
+      {%- elif previous_audit.delta_num < -2 -%}{%- set delta_class = 'down' -%}{%- set delta_arrow = '▼' -%}
+      {%- else -%}{%- set delta_class = 'flat' -%}{%- set delta_arrow = '=' -%}
+      {%- endif -%}
+    {%- endif -%}
+    <h1 class="section" style="margin-top:8mm">Comparatif audit précédent</h1>
+    <div class="prev-audit">
+      <div class="prev-cell">
+        <div class="prev-label">Précédent ({{ previous_audit.started_at }})</div>
+        <div class="prev-value">{{ previous_audit.score }}</div>
+      </div>
+      <div class="prev-cell">
+        <div class="prev-label">Actuel</div>
+        <div class="prev-value">{{ audit.score }}</div>
+      </div>
+      {% if previous_audit.delta %}
+      <div class="prev-cell" style="text-align:right">
+        <div class="prev-label">Évolution</div>
+        <span class="delta-pill {{ delta_class }}">{{ delta_arrow }} {{ previous_audit.delta }}</span>
+      </div>
+      {% endif %}
+      <div class="prev-cell" style="text-align:right; font-size:8pt; color:#94a3b8">
+        Réf. {{ previous_audit.reference }}
+      </div>
+    </div>
+  {% endif %}
+
+  {# ───────── Phase 2 : Radar SVG par thème ───────── #}
+  {% if radar.available %}
+    <h1 class="section" style="margin-top:8mm">Performance par thème</h1>
+    <div class="radar-wrap">
+      <div class="radar-svg-cell">
+        <svg class="radar-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+          {# Grille concentrique : 4 cercles à 25/50/75/100 % du rayon max (150) #}
+          {% for pct in [25, 50, 75, 100] %}
+            <circle cx="200" cy="200" r="{{ 150 * pct / 100 }}" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+          {% endfor %}
+          {# Axes vers chaque sommet #}
+          {% for axis in radar.axes %}
+            <line x1="200" y1="200" x2="{{ axis.ax }}" y2="{{ axis.ay }}" stroke="#cbd5e1" stroke-width="1"/>
+          {% endfor %}
+          {# Polygone des scores #}
+          <polygon points="{{ radar.polygon }}" fill="#1e40af" fill-opacity="0.18" stroke="#1e40af" stroke-width="2"/>
+          {# Points sur chaque sommet #}
+          {% for axis in radar.axes %}
+            <circle cx="{{ axis.vx }}" cy="{{ axis.vy }}" r="3" fill="#1e40af"/>
+          {% endfor %}
+          {# Labels thèmes #}
+          {% for axis in radar.axes %}
+            <text x="{{ axis.lx }}" y="{{ axis.ly }}" text-anchor="{{ axis.anchor }}"
+                  font-family="Arial, sans-serif" font-size="11" font-weight="600" fill="#0f172a"
+                  dominant-baseline="middle">{{ axis.label[:24] }}</text>
+          {% endfor %}
+        </svg>
+      </div>
+      <div class="radar-legend-cell">
+        <table class="radar-legend">
+          <thead><tr><th>Thème</th><th style="text-align:right">Score</th></tr></thead>
+          <tbody>
+          {% for axis in radar.axes %}
+            {%- set s_str = axis.score|replace('%','')|trim -%}
+            {%- if s_str and s_str != '—' -%}
+              {%- set s_f = s_str|float -%}
+              {%- if s_f >= 80 -%}{%- set cls = 'ok' -%}
+              {%- elif s_f >= 50 -%}{%- set cls = 'warn' -%}
+              {%- else -%}{%- set cls = 'bad' -%}
+              {%- endif -%}
+            {%- else -%}{%- set cls = '' -%}
+            {%- endif -%}
+            <tr>
+              <td>{{ axis.label }}</td>
+              <td class="score-cell {{ cls }}">{{ axis.score }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ───────── Phase 2 : Plan d'action ───────── #}
+  <h1 class="section" style="margin-top:8mm">Plan d'action</h1>
+  {% if action_items %}
+    <p class="small muted" style="margin:0 0 3mm">
+      {{ action_items|length }} point(s) requièrent action prioritaire : questions obligatoires manquantes,
+      preuves absentes, et scores en deçà du seuil {{ template.passing_score }}.
+    </p>
+    <div class="action-list">
+      {% for it in action_items %}
+        {%- if it.kind == 'missing_required' -%}
+          {%- set ac = 'critical' -%}{%- set tag = 'Critique' -%}
+        {%- elif it.kind == 'below_passing' -%}
+          {%- set ac = 'warning' -%}{%- set tag = 'Score bas' -%}
+        {%- else -%}
+          {%- set ac = 'notice' -%}{%- set tag = 'Preuve manquante' -%}
+        {%- endif -%}
+        <div class="action-item {{ ac }}">
+          <div class="action-icon-cell {{ ac }}">{{ tag }}{% if it.score != '—' %}<br>{{ it.score }}{% endif %}</div>
+          <div class="action-body-cell">
+            <div class="action-theme">{{ it.theme }}{% if it.code %} · {{ it.code }}{% endif %}</div>
+            <div class="action-question">{{ it.text }}</div>
+            {% if it.notes %}<div class="action-notes">"{{ it.notes }}"</div>{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="action-empty">
+      ✓ Aucun point d'action critique — tous les seuils sont atteints et les preuves sont fournies.
+    </div>
+  {% endif %}
 
   {# ───────── Sections par thème ───────── #}
   <h1 class="section" style="margin-top:8mm">Détail par thème</h1>

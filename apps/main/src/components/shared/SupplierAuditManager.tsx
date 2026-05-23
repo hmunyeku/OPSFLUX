@@ -189,7 +189,7 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
   }
 
   return (
-    <section className={compact ? 'space-y-3' : 'space-y-4'}>
+    <section className={compact ? '@container space-y-3' : '@container space-y-4'}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex items-center gap-2 text-sm font-semibold text-foreground">
           <ClipboardCheck size={16} className="shrink-0 text-primary" />
@@ -263,7 +263,7 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
         )}
       </div>
 
-      <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 @[620px]:grid-cols-2 @[980px]:grid-cols-3">
         {isLoading ? (
           <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
             {t('conformite.rules.audits.loading')}
@@ -280,7 +280,7 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
           const scoreChip = scoreToChip(audit.score_percent, audit.template?.passing_score)
           return (
             <article key={audit.id} className="flex min-h-[136px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card/40 p-3 transition-colors hover:border-border/80">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-2 @[520px]:flex-row @[520px]:items-start @[520px]:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded bg-muted px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
@@ -296,17 +296,17 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
                   </div>
                 </div>
 
-                <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                <div className="flex w-full min-w-0 items-center justify-between gap-2 @[520px]:w-auto @[520px]:justify-end">
                   <div className="min-w-0">
                     {scoreChip && <span className={scoreChip.cls} title={t('conformite.rules.audits.score', 'Score')}>{scoreChip.label}</span>}
                     {audit.score_category && !scoreChip && <span className="chip chip-info">{audit.score_category.label}</span>}
                   </div>
-                  <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+                  <div className="flex shrink-0 items-center gap-0.5 @[520px]:gap-1.5">
                     <button
                       type="button"
                       onClick={() => handleDownloadReport(audit.id)}
                       disabled={downloadingAuditId === audit.id}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50 sm:h-7 sm:w-7"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-50 @[520px]:h-7 @[520px]:w-7"
                       title={t('conformite.rules.audits.report_pdf', 'Telecharger PDF')}
                     >
                       <Download size={14} />
@@ -314,7 +314,7 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
                     <button
                       type="button"
                       onClick={() => onOpenAudit?.(audit)}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:h-7 sm:w-7"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground @[520px]:h-7 @[520px]:w-7"
                       title={t('conformite.rules.audits.details', 'Details')}
                     >
                       <Eye size={14} />

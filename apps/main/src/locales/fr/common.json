@@ -1917,7 +1917,17 @@
         "option": "Libellé du choix"
       },
       "add_option": "Ajouter un choix",
-      "option_count": "{{count}} choix"
+      "option_count": "{{count}} choix",
+      "thresholds": {
+        "title": "Seuils de qualification",
+        "add": "Ajouter un seuil",
+        "help": "Ces seuils classent le tiers après audit. Le seuil de validation reste le minimum réglementaire; les seuils ci-dessous servent à qualifier le fournisseur.",
+        "label": "Catégorie",
+        "label_placeholder": "Qualifié",
+        "min_score": "Score min.",
+        "blocks_assignment": "Bloquant",
+        "count": "{{count}} seuils"
+      }
     },
     "types_panel": {
       "tabs": {

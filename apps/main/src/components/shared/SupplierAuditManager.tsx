@@ -115,6 +115,11 @@ export function SupplierAuditManager({ tierId, compact }: SupplierAuditManagerPr
                   <ShieldCheck size={12} />
                   {audit.score_percent ?? '—'}%
                 </span>
+                {audit.score_category && (
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                    {audit.score_category.label}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => handleDownloadReport(audit.id)}

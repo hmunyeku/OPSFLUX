@@ -1816,6 +1816,14 @@ class ComplianceAuditThemeRead(OpsFluxSchema):
     questions: list[ComplianceAuditQuestionRead] = Field(default_factory=list)
 
 
+class ComplianceAuditScoreThreshold(BaseModel):
+    code: str = Field(..., min_length=1, max_length=50)
+    label: str = Field(..., min_length=1, max_length=100)
+    min_score: float = Field(..., ge=0, le=100)
+    color: str | None = Field(None, max_length=30)
+    blocks_assignment: bool = False
+
+
 class ComplianceAuditTemplateCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=200)
@@ -1823,6 +1831,7 @@ class ComplianceAuditTemplateCreate(BaseModel):
     target_scope: str = Field("company", pattern=r"^(company)$")
     description: str | None = None
     passing_score: float = Field(70.0, ge=0, le=100)
+    score_thresholds: list[ComplianceAuditScoreThreshold] = Field(default_factory=list)
     validity_days: int | None = Field(None, ge=1)
     themes: list[ComplianceAuditThemeCreate] = Field(default_factory=list)
 
@@ -1832,6 +1841,7 @@ class ComplianceAuditTemplateUpdate(BaseModel):
     audit_type: str | None = Field(None, max_length=50)
     description: str | None = None
     passing_score: float | None = Field(None, ge=0, le=100)
+    score_thresholds: list[ComplianceAuditScoreThreshold] | None = None
     validity_days: int | None = Field(None, ge=1)
     active: bool | None = None
 
@@ -1845,6 +1855,7 @@ class ComplianceAuditTemplateRead(OpsFluxSchema):
     target_scope: str
     description: str | None = None
     passing_score: float
+    score_thresholds: list[ComplianceAuditScoreThreshold] | None = None
     validity_days: int | None = None
     active: bool
     created_at: datetime
@@ -1915,6 +1926,7 @@ class ComplianceAuditRead(OpsFluxSchema):
     template: ComplianceAuditTemplateRead | None = None
     answers: list[ComplianceAuditAnswerRead] = Field(default_factory=list)
     target_name: str | None = None
+    score_category: ComplianceAuditScoreThreshold | None = None
 
 
 class JobPositionRead(OpsFluxSchema):

@@ -19,6 +19,8 @@ def test_cis_audit_presets_cover_the_three_field_reports():
     assert hse is not None
     assert hse["target_scope"] == "company"
     assert hse["passing_score"] == 75
+    assert hse["score_thresholds"][0]["code"] == "preferred"
+    assert hse["score_thresholds"][-1]["blocks_assignment"] is True
     assert len(hse["themes"]) >= 8
     assert sum(len(theme["questions"]) for theme in hse["themes"]) >= 25
 

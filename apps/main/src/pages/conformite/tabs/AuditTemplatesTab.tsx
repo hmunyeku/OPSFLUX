@@ -8,6 +8,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { useComplianceAuditTemplates } from '@/hooks/useConformite'
 import { useUIStore } from '@/stores/uiStore'
 import type { ComplianceAuditTemplate } from '@/types/api'
+import { getAuditScoreThresholds } from '@/lib/complianceAudit'
 import { cn } from '@/lib/utils'
 
 type AuditTemplateRow = ComplianceAuditTemplate & {
@@ -75,6 +76,7 @@ export function AuditTemplatesTab() {
         row.audit_type,
         row.description ?? '',
         row.passing_score,
+        ...getAuditScoreThresholds(row.score_thresholds).map((threshold) => `${threshold.label} ${threshold.min_score}`),
         row.validity_days ?? '',
       ].some((value) => String(value).toLowerCase().includes(q))
     })
@@ -140,6 +142,16 @@ export function AuditTemplatesTab() {
       header: t('conformite.audit_templates.fields.passing_score'),
       size: 110,
       cell: ({ row }) => <span className="tabular-nums">{row.original.passing_score}%</span>,
+    },
+    {
+      accessorKey: 'score_thresholds',
+      header: t('conformite.audit_templates.thresholds.title'),
+      size: 150,
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">
+          {t('conformite.audit_templates.thresholds.count', { count: getAuditScoreThresholds(row.original.score_thresholds).length })}
+        </span>
+      ),
     },
     {
       accessorKey: 'validity_days',

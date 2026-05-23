@@ -11,7 +11,8 @@ import {
 import { useToast } from '@/components/ui/Toast'
 import { useCreateComplianceAuditTemplate } from '@/hooks/useConformite'
 import { useUIStore } from '@/stores/uiStore'
-import type { ComplianceAuditTemplateCreate } from '@/types/api'
+import type { ComplianceAuditScoreThreshold, ComplianceAuditTemplateCreate } from '@/types/api'
+import { DEFAULT_AUDIT_SCORE_THRESHOLDS } from '@/lib/complianceAudit'
 import { cn } from '@/lib/utils'
 
 type DraftQuestion = {
@@ -38,6 +39,7 @@ type DraftTemplate = {
   audit_type: string
   description: string
   passing_score: number
+  score_thresholds: ComplianceAuditScoreThreshold[]
   validity_days: string
   themes: DraftTheme[]
 }
@@ -73,6 +75,7 @@ function createDraft(): DraftTemplate {
     audit_type: 'HSE',
     description: '',
     passing_score: 70,
+    score_thresholds: DEFAULT_AUDIT_SCORE_THRESHOLDS,
     validity_days: '365',
     themes: [createTheme()],
   }
@@ -181,6 +184,32 @@ export function CreateAuditTemplatePanel() {
     }))
   }
 
+  const updateThreshold = (thresholdIndex: number, patch: Partial<ComplianceAuditScoreThreshold>) => {
+    setDraft(prev => ({
+      ...prev,
+      score_thresholds: prev.score_thresholds.map((threshold, index) => index === thresholdIndex
+        ? { ...threshold, ...patch }
+        : threshold),
+    }))
+  }
+
+  const addThreshold = () => {
+    setDraft(prev => ({
+      ...prev,
+      score_thresholds: [
+        ...prev.score_thresholds,
+        { code: `level_${prev.score_thresholds.length + 1}`, label: '', min_score: 0, color: 'primary', blocks_assignment: false },
+      ],
+    }))
+  }
+
+  const removeThreshold = (thresholdIndex: number) => {
+    setDraft(prev => ({
+      ...prev,
+      score_thresholds: prev.score_thresholds.filter((_, index) => index !== thresholdIndex),
+    }))
+  }
+
   const buildPayload = (): ComplianceAuditTemplateCreate | null => {
     const code = draft.code.trim()
     const name = draft.name.trim()
@@ -220,6 +249,15 @@ export function CreateAuditTemplatePanel() {
       target_scope: 'company',
       description: draft.description.trim() || null,
       passing_score: Number(draft.passing_score) || 70,
+      score_thresholds: draft.score_thresholds
+        .map((threshold, index) => ({
+          code: threshold.code.trim() || `level_${index + 1}`,
+          label: threshold.label.trim() || threshold.code.trim() || `Level ${index + 1}`,
+          min_score: Math.max(0, Math.min(100, Number(threshold.min_score) || 0)),
+          color: threshold.color || null,
+          blocks_assignment: !!threshold.blocks_assignment,
+        }))
+        .sort((a, b) => b.min_score - a.min_score),
       validity_days: draft.validity_days ? Number(draft.validity_days) : null,
       themes,
     }
@@ -293,6 +331,40 @@ export function CreateAuditTemplatePanel() {
                   placeholder={t('conformite.audit_templates.placeholders.description')}
                 />
               </Field>
+            </div>
+          </FormSection>
+
+          <FormSection
+            title={t('conformite.audit_templates.thresholds.title')}
+            headerExtra={(
+              <button type="button" onClick={addThreshold} className="btn btn-secondary btn-sm">
+                <Plus size={12} />
+                {t('conformite.audit_templates.thresholds.add')}
+              </button>
+            )}
+          >
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{t('conformite.audit_templates.thresholds.help')}</p>
+              {draft.score_thresholds.map((threshold, thresholdIndex) => (
+                <div key={thresholdIndex} className="grid gap-2 rounded-md border border-border bg-card p-2 @2xl:grid-cols-[7rem_minmax(0,1fr)_6rem_8rem_2rem] @2xl:items-end">
+                  <Field label={t('conformite.audit_templates.fields.code')}>
+                    <input value={threshold.code} onChange={(e) => updateThreshold(thresholdIndex, { code: e.target.value })} className={compactInputClass} placeholder="qualified" />
+                  </Field>
+                  <Field label={t('conformite.audit_templates.thresholds.label')}>
+                    <input value={threshold.label} onChange={(e) => updateThreshold(thresholdIndex, { label: e.target.value })} className={compactInputClass} placeholder={t('conformite.audit_templates.thresholds.label_placeholder')} />
+                  </Field>
+                  <Field label={t('conformite.audit_templates.thresholds.min_score')}>
+                    <input type="number" min={0} max={100} value={threshold.min_score} onChange={(e) => updateThreshold(thresholdIndex, { min_score: Number(e.target.value) })} className={compactInputClass} />
+                  </Field>
+                  <label className="flex h-8 items-center gap-2 text-xs text-muted-foreground">
+                    <input type="checkbox" checked={!!threshold.blocks_assignment} onChange={(e) => updateThreshold(thresholdIndex, { blocks_assignment: e.target.checked })} />
+                    {t('conformite.audit_templates.thresholds.blocks_assignment')}
+                  </label>
+                  <button type="button" onClick={() => removeThreshold(thresholdIndex)} className="inline-flex h-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
             </div>
           </FormSection>
 

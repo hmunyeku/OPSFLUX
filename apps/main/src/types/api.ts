@@ -1187,6 +1187,7 @@ export interface ComplianceAuditTemplate {
   target_scope: string
   description: string | null
   passing_score: number
+  score_thresholds: ComplianceAuditScoreThreshold[] | null
   validity_days: number | null
   active: boolean
   created_at: string
@@ -1201,10 +1202,19 @@ export interface ComplianceAuditTemplatePreset {
   target_scope: string
   description: string | null
   passing_score: number
+  score_thresholds?: ComplianceAuditScoreThreshold[] | null
   validity_days: number | null
   theme_count: number
   question_count: number
   installed: boolean
+}
+
+export interface ComplianceAuditScoreThreshold {
+  code: string
+  label: string
+  min_score: number
+  color?: string | null
+  blocks_assignment?: boolean
 }
 
 export interface ComplianceAuditQuestionCreate {
@@ -1233,6 +1243,7 @@ export interface ComplianceAuditTemplateCreate {
   target_scope?: 'company'
   description?: string | null
   passing_score?: number
+  score_thresholds?: ComplianceAuditScoreThreshold[]
   validity_days?: number | null
   themes?: ComplianceAuditThemeCreate[]
 }
@@ -1242,6 +1253,7 @@ export interface ComplianceAuditTemplateUpdate {
   audit_type?: string
   description?: string | null
   passing_score?: number
+  score_thresholds?: ComplianceAuditScoreThreshold[]
   validity_days?: number | null
   active?: boolean
 }
@@ -1269,6 +1281,7 @@ export interface ComplianceAudit {
   template?: ComplianceAuditTemplate | null
   answers?: ComplianceAuditAnswer[]
   target_name?: string | null
+  score_category?: ComplianceAuditScoreThreshold | null
 }
 
 export interface ComplianceAuditAnswer {

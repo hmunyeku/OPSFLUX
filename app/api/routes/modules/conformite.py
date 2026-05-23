@@ -15,6 +15,11 @@ from app.core.database import get_db
 from app.core.references import generate_reference
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.services.modules import compliance_service
+from app.services.modules.compliance_audit_scoring import (
+    audit_thresholds_or_default,
+    classify_audit_score,
+    normalize_audit_score_thresholds,
+)
 from app.services.modules.compliance_audit_presets import (
     get_audit_template_preset,
     list_audit_template_presets,
@@ -75,6 +80,8 @@ async def _enrich_audit_target(db: AsyncSession, audit: ComplianceAudit) -> Comp
     if audit.target_type == "tier":
         tier = await db.get(Tier, audit.target_id)
         setattr(audit, "target_name", tier.name if tier else None)
+    if audit.template:
+        setattr(audit, "score_category", classify_audit_score(audit.score_percent, audit.template.score_thresholds))
     return audit
 
 
@@ -206,6 +213,7 @@ async def _build_audit_report_variables(
             "title": audit.title,
             "status": audit.status,
             "score": f"{float(audit.score_percent):.0f}%" if audit.score_percent is not None else "-",
+            "score_category": (classify_audit_score(audit.score_percent, audit.template.score_thresholds) or {}).get("label", ""),
             "planned_at": _audit_pdf_date(audit.planned_at),
             "started_at": _audit_pdf_date(audit.started_at),
             "submitted_at": _audit_pdf_date(audit.submitted_at),
@@ -219,6 +227,7 @@ async def _build_audit_report_variables(
             "name": audit.template.name if audit.template else "",
             "audit_type": audit.template.audit_type if audit.template else "",
             "passing_score": f"{float(audit.template.passing_score):.0f}%" if audit.template else "-",
+            "score_thresholds": audit_thresholds_or_default(audit.template.score_thresholds if audit.template else None),
         },
         "supplier": {
             "name": tier.name if tier else str(audit.target_id),
@@ -275,9 +284,9 @@ _SUPPLIER_AUDIT_REPORT_FALLBACK_HTML = """
 
   <div class="grid">
     <div class="card"><div class="label">Score</div><div class="value">{{ audit.score }}</div></div>
-    <div class="card"><div class="label">Seuil</div><div class="value">{{ template.passing_score }}</div></div>
+    <div class="card"><div class="label">Seuil validation</div><div class="value">{{ template.passing_score }}</div></div>
     <div class="card"><div class="label">Questions</div><div class="value">{{ metrics.answered_questions }}/{{ metrics.total_questions }}</div></div>
-    <div class="card"><div class="label">Preuves manquantes</div><div class="value">{{ metrics.missing_evidence }}</div></div>
+    <div class="card"><div class="label">Catégorie</div><div class="value">{{ audit.score_category or '-' }}</div></div>
   </div>
 
   <div class="card">
@@ -330,7 +339,7 @@ def _build_basic_audit_pdf(variables: dict) -> bytes:
         f"Titre: {variables['audit']['title']}",
         f"Fournisseur: {variables['supplier']['name']} {variables['supplier']['code']}".strip(),
         f"Type: {variables['template']['audit_type']} - Modele: {variables['template']['name']}",
-        f"Statut: {variables['audit']['status']} - Score: {variables['audit']['score']} - Seuil: {variables['template']['passing_score']}",
+        f"Statut: {variables['audit']['status']} - Score: {variables['audit']['score']} - Seuil: {variables['template']['passing_score']} - Categorie: {variables['audit']['score_category'] or '-'}",
         f"Questions: {variables['metrics']['answered_questions']}/{variables['metrics']['total_questions']} - Preuves manquantes: {variables['metrics']['missing_evidence']}",
         f"Workflow validation: {variables['audit']['validation_workflow_id'] or '-'}",
         f"Generation: {variables['generated_at']}",
@@ -2038,6 +2047,7 @@ async def _create_audit_template_from_preset(
         target_scope=preset.get("target_scope", "company"),
         description=preset.get("description"),
         passing_score=Decimal(str(preset.get("passing_score", 70))),
+        score_thresholds=audit_thresholds_or_default(preset.get("score_thresholds")),
         validity_days=preset.get("validity_days"),
     )
     db.add(template)
@@ -2071,13 +2081,25 @@ async def _create_audit_template_from_preset(
 
 async def _ensure_default_audit_template_presets(db: AsyncSession, entity_id: UUID) -> None:
     existing_result = await db.execute(
-        select(ComplianceAuditTemplate.code).where(ComplianceAuditTemplate.entity_id == entity_id)
+        select(ComplianceAuditTemplate).where(ComplianceAuditTemplate.entity_id == entity_id)
     )
-    missing_codes = missing_audit_template_preset_codes(set(existing_result.scalars().all()))
+    existing_by_code = {template.code: template for template in existing_result.scalars().all()}
+    missing_codes = missing_audit_template_preset_codes(set(existing_by_code.keys()))
     for code in missing_codes:
         preset = get_audit_template_preset(code)
         if preset:
             await _create_audit_template_from_preset(db, entity_id, preset)
+    changed = False
+    for code, template in existing_by_code.items():
+        if template.score_thresholds:
+            continue
+        preset = get_audit_template_preset(code)
+        if not preset:
+            continue
+        template.score_thresholds = audit_thresholds_or_default(preset.get("score_thresholds"))
+        changed = True
+    if changed:
+        await db.commit()
 
 
 @router.get(
@@ -2101,6 +2123,7 @@ async def list_audit_template_presets_route(
             "target_scope": preset.get("target_scope", "company"),
             "description": preset.get("description"),
             "passing_score": preset.get("passing_score"),
+            "score_thresholds": audit_thresholds_or_default(preset.get("score_thresholds")),
             "validity_days": preset.get("validity_days"),
             "theme_count": len(preset.get("themes", [])),
             "question_count": sum(len(theme.get("questions", [])) for theme in preset.get("themes", [])),
@@ -2193,6 +2216,10 @@ async def create_audit_template(
         target_scope=body.target_scope,
         description=body.description,
         passing_score=Decimal(str(body.passing_score)),
+        score_thresholds=audit_thresholds_or_default([
+            threshold.model_dump()
+            for threshold in body.score_thresholds
+        ]),
         validity_days=body.validity_days,
     )
     db.add(template)
@@ -2250,6 +2277,8 @@ async def update_audit_template(
     for key, value in body.model_dump(exclude_unset=True).items():
         if key == "passing_score" and value is not None:
             value = Decimal(str(value))
+        elif key == "score_thresholds" and value is not None:
+            value = normalize_audit_score_thresholds(value)
         setattr(template, key, value)
     await db.commit()
     await db.refresh(template)

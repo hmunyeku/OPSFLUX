@@ -1784,7 +1784,17 @@
         "option": "Choice label"
       },
       "add_option": "Add choice",
-      "option_count": "{{count}} choices"
+      "option_count": "{{count}} choices",
+      "thresholds": {
+        "title": "Qualification thresholds",
+        "add": "Add threshold",
+        "help": "These thresholds classify the tier after an audit. The approval threshold remains the regulatory minimum; the thresholds below qualify the supplier.",
+        "label": "Category",
+        "label_placeholder": "Qualified",
+        "min_score": "Min. score",
+        "blocks_assignment": "Blocking",
+        "count": "{{count}} thresholds"
+      }
     },
     "types_panel": {
       "tabs": {

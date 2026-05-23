@@ -12,6 +12,7 @@ import {
 import { useToast } from '@/components/ui/Toast'
 import { usePermission } from '@/hooks/usePermission'
 import { useComplianceAuditTemplates, useUpdateComplianceAuditTemplate } from '@/hooks/useConformite'
+import { getAuditScoreThresholds } from '@/lib/complianceAudit'
 import { cn } from '@/lib/utils'
 
 export function AuditTemplateDetailPanel({ id }: { id: string }) {
@@ -55,6 +56,7 @@ export function AuditTemplateDetailPanel({ id }: { id: string }) {
   }
 
   const questionCount = template.themes.reduce((sum, theme) => sum + theme.questions.length, 0)
+  const scoreThresholds = getAuditScoreThresholds(template.score_thresholds)
 
   return (
     <DynamicPanelShell
@@ -69,6 +71,7 @@ export function AuditTemplateDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label={t('conformite.audit_templates.fields.name')} value={template.name} />
             <ReadOnlyRow label={t('conformite.audit_templates.fields.audit_type')} value={<span className="chip chip-info">{template.audit_type}</span>} />
             <ReadOnlyRow label={t('conformite.audit_templates.fields.passing_score')} value={`${template.passing_score}%`} />
+            <ReadOnlyRow label={t('conformite.audit_templates.thresholds.title')} value={t('conformite.audit_templates.thresholds.count', { count: scoreThresholds.length })} />
             <ReadOnlyRow label={t('conformite.audit_templates.fields.validity_days')} value={template.validity_days ? t('conformite.audit_templates.validity_days', { count: template.validity_days }) : t('conformite.audit_templates.validity_permanent')} />
             <ReadOnlyRow label={t('conformite.audit_templates.metrics.themes')} value={template.themes.length} />
             <ReadOnlyRow label={t('conformite.audit_templates.metrics.questions')} value={questionCount} />
@@ -81,6 +84,15 @@ export function AuditTemplateDetailPanel({ id }: { id: string }) {
             <p className="mt-3 rounded-md border border-border bg-background/60 p-3 text-sm text-muted-foreground">
               {template.description}
             </p>
+          )}
+          {scoreThresholds.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {scoreThresholds.map((threshold) => (
+                <span key={threshold.code} className={cn('chip text-[10px]', threshold.blocks_assignment ? 'chip-danger' : 'chip-info')}>
+                  {threshold.label} · ≥{threshold.min_score}%
+                </span>
+              ))}
+            </div>
           )}
         </FormSection>
 

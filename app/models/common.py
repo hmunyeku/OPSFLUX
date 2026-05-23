@@ -1755,6 +1755,7 @@ class ComplianceAuditTemplate(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMix
     target_scope: Mapped[str] = mapped_column(String(20), default="company", server_default="company", nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     passing_score: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("70.00"), server_default="70", nullable=False)
+    score_thresholds: Mapped[list[dict] | None] = mapped_column(JSONB)
     validity_days: Mapped[int | None] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
 

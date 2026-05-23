@@ -3,6 +3,7 @@ import type {
   ComplianceAuditAnswer,
   ComplianceAuditAnswerUpsert,
   ComplianceAuditQuestion,
+  ComplianceAuditScoreThreshold,
 } from '@/types/api'
 
 export interface ComplianceAuditAnswerDraft {
@@ -23,6 +24,18 @@ export interface ComplianceAuditProgress {
   missingEvidence: number
   completionPercent: number
   canSubmit: boolean
+}
+
+export const DEFAULT_AUDIT_SCORE_THRESHOLDS: ComplianceAuditScoreThreshold[] = [
+  { code: 'preferred', label: 'Privilégié', min_score: 90, color: 'success', blocks_assignment: false },
+  { code: 'qualified', label: 'Qualifié', min_score: 75, color: 'primary', blocks_assignment: false },
+  { code: 'watch', label: 'Sous surveillance', min_score: 60, color: 'warning', blocks_assignment: false },
+  { code: 'blocked', label: 'Bloqué', min_score: 0, color: 'danger', blocks_assignment: true },
+]
+
+export function getAuditScoreThresholds(thresholds?: ComplianceAuditScoreThreshold[] | null): ComplianceAuditScoreThreshold[] {
+  const source = thresholds && thresholds.length > 0 ? thresholds : DEFAULT_AUDIT_SCORE_THRESHOLDS
+  return [...source].sort((a, b) => b.min_score - a.min_score)
 }
 
 function isAnswered(answer?: ComplianceAuditAnswer | null): boolean {

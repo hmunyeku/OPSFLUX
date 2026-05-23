@@ -38,9 +38,29 @@ function scoreColor(score: number | null | undefined) {
   return 'text-destructive'
 }
 
-function getChoiceOptions(optionsJson: Record<string, unknown> | null): string[] {
+type AuditChoiceOption = {
+  value: string
+  label: string
+  score: number | null
+}
+
+function getChoiceOptions(optionsJson: Record<string, unknown> | null): AuditChoiceOption[] {
+  const choices = optionsJson?.choices
+  if (Array.isArray(choices)) {
+    return choices
+      .map((choice) => {
+        if (typeof choice === 'string') return { value: choice, label: choice, score: null }
+        if (!choice || typeof choice !== 'object') return null
+        const raw = choice as Record<string, unknown>
+        const value = String(raw.value ?? raw.label ?? '').trim()
+        const label = String(raw.label ?? raw.value ?? '').trim()
+        const score = typeof raw.score === 'number' ? raw.score : null
+        return value && label ? { value, label, score } : null
+      })
+      .filter((choice): choice is AuditChoiceOption => !!choice)
+  }
   const raw = optionsJson?.options
-  if (Array.isArray(raw)) return raw.map(String).filter(Boolean)
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean).map((option) => ({ value: option, label: option, score: null }))
   return []
 }
 
@@ -314,11 +334,17 @@ function QuestionCard({
             <select
               disabled={readOnly}
               value={currentValue}
-              onChange={(event) => onChange({ responseValue: { value: event.target.value }, score: draft.score ?? null })}
+              onChange={(event) => {
+                const choice = choices.find((item) => item.value === event.target.value)
+                onChange({
+                  responseValue: choice ? { value: choice.value, label: choice.label } : { value: event.target.value },
+                  score: choice?.score ?? draft.score ?? null,
+                })
+              }}
               className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground disabled:opacity-60"
             >
               <option value="">{t('conformite.rules.audits.select')}</option>
-              {choices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}
+              {choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
             </select>
           ) : (
             <RichTextField

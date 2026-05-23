@@ -32,6 +32,13 @@ SCORE_0_3 = {
     },
 }
 
+SUPPLIER_SCORE_THRESHOLDS = [
+    {"code": "preferred", "label": "Privilegie", "min_score": 90, "color": "success", "blocks_assignment": False},
+    {"code": "qualified", "label": "Qualifie", "min_score": 75, "color": "primary", "blocks_assignment": False},
+    {"code": "watch", "label": "Sous surveillance", "min_score": 60, "color": "warning", "blocks_assignment": False},
+    {"code": "blocked", "label": "Bloque", "min_score": 0, "color": "danger", "blocks_assignment": True},
+]
+
 
 def _question(
     code: str,
@@ -66,6 +73,7 @@ AUDIT_TEMPLATE_PRESETS: list[dict] = [
             "Seuils conseilles: 90+ privilegie, 75-89 qualifie, 60-74 sous surveillance, <60 bloque."
         ),
         "passing_score": 80,
+        "score_thresholds": SUPPLIER_SCORE_THRESHOLDS,
         "validity_days": 365,
         "themes": [
             {
@@ -119,6 +127,7 @@ AUDIT_TEMPLATE_PRESETS: list[dict] = [
             "Seuils conseilles: >=90 excellent, >=75 tres bon, >=65 bon, >=50 moyen, <50 non qualifie."
         ),
         "passing_score": 75,
+        "score_thresholds": SUPPLIER_SCORE_THRESHOLDS,
         "validity_days": 365,
         "themes": [
             {
@@ -213,6 +222,7 @@ AUDIT_TEMPLATE_PRESETS: list[dict] = [
             "<60 moyens travaux, >=60 grands travaux."
         ),
         "passing_score": 60,
+        "score_thresholds": SUPPLIER_SCORE_THRESHOLDS,
         "validity_days": 365,
         "themes": [
             {

@@ -339,10 +339,16 @@ export function useDeleteComplianceRecord() {
 // ── Check ──
 
 export function useComplianceCheck(ownerType: string | undefined, ownerId: string | undefined) {
+  // Bug #159 (backend) : /conformite/check/{owner_type}/{id} retourne 422 si
+  // owner_type n'est pas dans {user, tier_contact}. Le hook etait appele
+  // pour 'tier' depuis ReferentielManager (TierDetailPanel) -> 422 systematique
+  // en console. On gate le query cote client : meme constraint.
+  const SUPPORTED_OWNER_TYPES = new Set(['user', 'tier_contact'])
+  const supported = !!ownerType && SUPPORTED_OWNER_TYPES.has(ownerType)
   return useQuery({
     queryKey: ['compliance-check', ownerType, ownerId],
     queryFn: () => conformiteService.checkCompliance(ownerType!, ownerId!),
-    enabled: !!ownerType && !!ownerId,
+    enabled: supported && !!ownerId,
   })
 }
 

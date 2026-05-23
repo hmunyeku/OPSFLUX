@@ -137,9 +137,9 @@ export function ComplianceAuditDetailModal({ audit, open, onClose }: ComplianceA
                 <ClipboardCheck size={16} className="text-primary" />
                 <span className="truncate">{audit.title}</span>
               </Dialog.Title>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              <Dialog.Description className="mt-0.5 truncate text-xs text-muted-foreground">
                 {audit.reference} · {audit.template?.name ?? audit.template?.audit_type ?? audit.status}
-              </p>
+              </Dialog.Description>
             </div>
             <button
               type="button"

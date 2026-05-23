@@ -20,6 +20,9 @@ import type {
 interface ComplianceTypeListParams extends PaginationParams {
   category?: string
   search?: string
+  owner_type?: string
+  subject_scope?: string
+  include_audit?: boolean
 }
 
 interface ComplianceRecordListParams extends PaginationParams {

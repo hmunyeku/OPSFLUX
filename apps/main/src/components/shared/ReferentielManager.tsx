@@ -135,7 +135,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
     enabled: showHistory,
   })
   const { data: checkResult, isLoading: checkLoading } = useComplianceCheck(ownerType, ownerId)
-  const { data: typesData } = useComplianceTypes({ page_size: 200 })
+  const { data: typesData } = useComplianceTypes({ page_size: 200, owner_type: ownerType, include_audit: false })
   const { data: rules = [] } = useComplianceRules()
   const createRecord = useCreateComplianceRecord()
   const updateRecord = useUpdateComplianceRecord()

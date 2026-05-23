@@ -77,7 +77,15 @@ export function useComplianceMatrix(params: {
 
 // ── Types (referentiel) ──
 
-export function useComplianceTypes(params: { page?: number; page_size?: number; category?: string; search?: string } = {}) {
+export function useComplianceTypes(params: {
+  page?: number
+  page_size?: number
+  category?: string
+  search?: string
+  owner_type?: string
+  subject_scope?: string
+  include_audit?: boolean
+} = {}) {
   return useQuery({
     queryKey: ['compliance-types', params],
     queryFn: () => conformiteService.listTypes(params),

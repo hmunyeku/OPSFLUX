@@ -1160,6 +1160,9 @@ async def get_compliance_dashboard_kpis(
 async def list_compliance_types(
     category: str | None = None,
     search: str | None = None,
+    owner_type: str | None = None,
+    subject_scope: str | None = None,
+    include_audit: bool = True,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -1169,6 +1172,35 @@ async def list_compliance_types(
         ComplianceType.entity_id == entity_id,
         ComplianceType.active == True,
     )
+    if not include_audit:
+        query = query.where(ComplianceType.category != "audit")
+    effective_scope = subject_scope
+    if owner_type:
+        try:
+            effective_scope = compliance_service._owner_subject_scope(owner_type)
+        except Exception:
+            raise StructuredHTTPException(
+                400,
+                code="OWNER_TYPE_NON_SUPPORTE",
+                message="Contexte de conformité non supporté",
+            )
+    if effective_scope in {"company", "asset", "cargo"}:
+        scoped_type_ids = select(ComplianceRule.compliance_type_id).where(
+            ComplianceRule.entity_id == entity_id,
+            ComplianceRule.active == True,
+            or_(
+                ComplianceRule.subject_scope == effective_scope,
+                ComplianceRule.subject_scope == "all",
+            ),
+        )
+        if not include_audit:
+            scoped_type_ids = scoped_type_ids.where(
+                or_(
+                    ComplianceRule.condition_json == None,  # noqa: E711
+                    ComplianceRule.condition_json["audit_template_id"].as_string() == None,  # noqa: E711
+                )
+            )
+        query = query.where(ComplianceType.id.in_(scoped_type_ids))
     if category:
         query = query.where(ComplianceType.category == category)
     if search:
@@ -1997,6 +2029,12 @@ async def create_compliance_record(
             400,
             code="TYPE_DE_CONFORMIT_INTROUVABLE",
             message="Type de conformité introuvable",
+        )
+    if ct.category == "audit":
+        raise StructuredHTTPException(
+            400,
+            code="AUDIT_DOIT_UTILISER_LE_MOTEUR_AUDIT",
+            message="Les audits tiers doivent être créés depuis la section Audits, pas comme référentiel.",
         )
     issuer_tier = await _validate_record_issuer(
         db,

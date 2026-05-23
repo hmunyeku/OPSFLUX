@@ -320,6 +320,17 @@ async def check_pax_asset_compliance(
                 "layer_label": layer_labels.get(layer, layer),
                 "blocking": True,
             }
+        if cred.status == "pending_validation":
+            return {
+                "credential_type_code": code,
+                "credential_type_name": name,
+                "status": "pending_validation",
+                "message": f"En attente de validation : {name}",
+                "expiry_date": cred.expiry_date,
+                "layer": layer,
+                "layer_label": layer_labels.get(layer, layer),
+                "blocking": False,
+            }
         if cred.status == "expired" or (cred.expiry_date and cred.expiry_date < today):
             overall_compliant = False
             return {
@@ -331,17 +342,6 @@ async def check_pax_asset_compliance(
                 "layer": layer,
                 "layer_label": layer_labels.get(layer, layer),
                 "blocking": True,
-            }
-        if cred.status == "pending_validation":
-            return {
-                "credential_type_code": code,
-                "credential_type_name": name,
-                "status": "pending_validation",
-                "message": f"En attente de validation : {name}",
-                "expiry_date": cred.expiry_date,
-                "layer": layer,
-                "layer_label": layer_labels.get(layer, layer),
-                "blocking": False,
             }
         return {
             "credential_type_code": code,

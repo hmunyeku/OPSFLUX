@@ -489,7 +489,7 @@ def _contact_with_tier(row) -> dict:
     d = {c.key: getattr(contact, c.key) for c in contact.__table__.columns}
     d["tier_name"] = tier_name
     d["tier_code"] = tier_code
-    d["job_position_name"] = contact.job_position_name
+    d["job_position_name"] = getattr(contact, "job_position_name", None)
     return d
 
 

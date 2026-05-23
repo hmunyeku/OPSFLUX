@@ -432,6 +432,7 @@ interface AttachmentManagerProps {
   compact?: boolean
   initialShowForm?: boolean
   readOnly?: boolean
+  onCountChange?: (count: number) => void
   /** When set, uploads are tagged with a category drawn from this dictionary
    *  (e.g. 'moc_attachment_type'). The selected category chip filters the
    *  list and becomes the upload category, plus a badge on each attached file.
@@ -450,6 +451,7 @@ export function AttachmentManager({
   compact,
   initialShowForm,
   readOnly,
+  onCountChange,
   categoryDictionary,
   hiddenCategories,
 }: AttachmentManagerProps) {
@@ -483,6 +485,11 @@ export function AttachmentManager({
   const attachments: FileAttachment[] = (data ?? []).filter((a) =>
     !hiddenCategories?.length || !a.category || !hiddenCategories.includes(a.category),
   )
+
+  useEffect(() => {
+    onCountChange?.(attachments.length)
+  }, [attachments.length, onCountChange])
+
   const selectedCategoryLabel = categoryFilter
     ? categoryOptions.find((o) => o.value === categoryFilter)?.label
     : null

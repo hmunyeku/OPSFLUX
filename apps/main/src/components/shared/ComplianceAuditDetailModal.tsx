@@ -398,6 +398,9 @@ export function QuestionCard({
               ownerId={draft.answerId}
               compact
               readOnly={readOnly}
+              onCountChange={(count) => {
+                if (count !== draft.attachmentCount) onChange({ attachmentCount: count })
+              }}
             />
           ) : (
             <p className="rounded border border-dashed border-border p-3 text-xs text-muted-foreground">

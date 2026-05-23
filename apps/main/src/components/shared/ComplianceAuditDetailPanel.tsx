@@ -175,7 +175,10 @@ export function ComplianceAuditDetailPanel({
               className="btn-sm btn-primary inline-flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-50"
               title={canSubmit
                 ? t('conformite.rules.audits.submit_for_validation', 'Soumettre pour validation')
-                : t('conformite.rules.audits.submit_blocked', 'Reponses obligatoires/preuves manquantes ou aucun validateur')}
+                : t('conformite.rules.audits.submit_blocked', 'Reponses obligatoires/preuves manquantes ou aucun validateur', {
+                  missing: progress.missingRequired,
+                  evidence: progress.missingEvidence,
+                })}
             >
               {submitAudit.isPending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
               <span>{t('conformite.rules.audits.submit_short', 'Soumettre')}</span>

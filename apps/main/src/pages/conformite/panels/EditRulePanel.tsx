@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Scale, Trash2 } from 'lucide-react'
 import {
@@ -14,28 +14,14 @@ import { useToast } from '@/components/ui/Toast'
 import { usePermission } from '@/hooks/usePermission'
 import {
   useComplianceTypes, useJobPositions,
-  useUpdateComplianceRule, useDeleteComplianceRule, useRuleHistory,
+  useComplianceRules, useUpdateComplianceRule, useDeleteComplianceRule, useRuleHistory,
 } from '@/hooks/useConformite'
 import type { ComplianceRule } from '@/types/api'
 import { RuleFormFields } from './RuleFormFields'
 import { formatDate } from '@/lib/i18n'
 
-export function EditRulePanel() {
-  const { t } = useTranslation()
-  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
-  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const updateRule = useUpdateComplianceRule()
-  const deleteRule = useDeleteComplianceRule()
-  const { hasPermission } = usePermission()
-  const canUpdate = hasPermission('conformite.rule.update')
-  const canDelete = hasPermission('conformite.rule.delete')
-  const { toast } = useToast()
-  const { data: typesData } = useComplianceTypes({ page_size: 200 })
-  const { data: jpData } = useJobPositions({ page_size: 200 })
-  const rule = dynamicPanel?.data?.rule as ComplianceRule | undefined
-  const { data: historyData } = useRuleHistory(rule?.id)
-
-  const [form, setForm] = useState<Record<string, any>>({
+function buildRuleForm(rule?: ComplianceRule): Record<string, any> {
+  return {
     subject_scope: rule?.subject_scope ?? 'person',
     target_type: rule?.target_type ?? 'all',
     target_value: rule?.target_value ?? '',
@@ -49,8 +35,39 @@ export function EditRulePanel() {
     renewal_reminder_days: rule?.renewal_reminder_days ?? null,
     condition_json: rule?.condition_json ?? null,
     compliance_type_id: rule?.compliance_type_id ?? '',
-  })
+  }
+}
+
+export function EditRulePanel() {
+  const { t } = useTranslation()
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const updateRule = useUpdateComplianceRule()
+  const deleteRule = useDeleteComplianceRule()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('conformite.rule.update')
+  const canDelete = hasPermission('conformite.rule.delete')
+  const { toast } = useToast()
+  const { data: typesData } = useComplianceTypes({ page_size: 200 })
+  const { data: jpData } = useJobPositions({ page_size: 200 })
+  const { data: rules = [] } = useComplianceRules()
+  const panelRule = dynamicPanel?.data?.rule as ComplianceRule | undefined
+  const ruleId = panelRule?.id ?? (
+    dynamicPanel?.type === 'edit' && dynamicPanel?.meta?.subtype === 'rule'
+      ? dynamicPanel.id
+      : undefined
+  )
+  const rule = panelRule ?? rules.find((item) => item.id === ruleId)
+  const { data: historyData } = useRuleHistory(rule?.id)
+
+  const [form, setForm] = useState<Record<string, any>>(() => buildRuleForm(rule))
   const [changeReason, setChangeReason] = useState('')
+
+  useEffect(() => {
+    if (!rule) return
+    setForm(buildRuleForm(rule))
+    setChangeReason('')
+  }, [rule?.id])
 
   // Bug #88 (Rules of Hooks) : `actionItems = useMemo(...)` etait declare
   // APRES `if (!rule) return null`. Le hook est maintenant declare AVANT
@@ -58,7 +75,7 @@ export function EditRulePanel() {
   // par defaut (jamais utilise car early return juste apres) -- pas
   // d'effet de bord, juste compliance avec les Rules of Hooks.
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!rule) return
     if (!changeReason.trim()) {
       toast({ title: t('conformite.toast.change_reason_required'), variant: 'error' })
@@ -88,9 +105,9 @@ export function EditRulePanel() {
     } catch {
       toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
-  }
+  }, [rule, changeReason, toast, t, updateRule, form, closeDynamicPanel])
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!rule) return
     try {
       await deleteRule.mutateAsync({ id: rule.id })
@@ -99,7 +116,7 @@ export function EditRulePanel() {
     } catch {
       toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
-  }
+  }, [rule, deleteRule, toast, t, closeDynamicPanel])
 
   const actionItems = useMemo<ActionItem[]>(() => {
     const items: ActionItem[] = [

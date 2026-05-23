@@ -96,6 +96,7 @@ function CreateRulePanelInner() {
         module: 'conformite',
         id: created.id,
         meta: { subtype: 'rule' },
+        data: { rule: created },
       })
     } catch {
       toast({ title: t('conformite.toast.error'), variant: 'error' })
@@ -122,15 +123,23 @@ function CreateRulePanelInner() {
       icon={<Scale size={14} className="text-primary" />}
       actionItems={actionItems}
     >
-      <SmartFormToolbar />
-      <SmartFormSimpleHint />
-      <SmartFormInlineHelpDrawer />
+      <div className="min-h-0">
+        <SmartFormToolbar className="sticky top-0 z-20 bg-background/95 backdrop-blur" />
+        <SmartFormSimpleHint />
+        <SmartFormInlineHelpDrawer />
 
-      <RuleFormFields form={form} setForm={setForm} typesData={typesData} jpData={jpData} />
+        <RuleFormFields
+          form={form}
+          setForm={setForm}
+          typesData={typesData}
+          jpData={jpData}
+          contentClassName="pb-24 sm:pb-6"
+        />
 
-      {_ctx?.mode === 'wizard' && (
-        <SmartFormWizardNav onSubmit={handleCreate} onCancel={closeDynamicPanel} />
-      )}
+        {_ctx?.mode === 'wizard' && (
+          <SmartFormWizardNav onSubmit={handleCreate} onCancel={closeDynamicPanel} />
+        )}
+      </div>
     </DynamicPanelShell>
   )
 }

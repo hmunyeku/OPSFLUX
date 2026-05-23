@@ -279,12 +279,13 @@ function TagRuleValueInput({
   )
 }
 
-export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
+export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly, contentClassName }: {
   form: Record<string, any>
   setForm: (f: Record<string, any>) => void
   typesData: any
   jpData: any
   typeReadOnly?: boolean
+  contentClassName?: string
 }) {
   const { t } = useTranslation()
   const { ruleTargetOptions, ruleSubjectScopeOptions, rulePriorityOptions, ruleApplicabilityOptions } = useConformiteDictionaryState()
@@ -377,7 +378,7 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
   )
 
   return (
-    <PanelContentLayout>
+    <PanelContentLayout className={contentClassName}>
       <EssentialSection id="t_rule_general" title={t('common.general')}>
         <FormGrid>
           <DynamicPanelField label="Type de conformité" required span="full">

@@ -37,6 +37,7 @@ from app.models.common import (
     Entity, JobPosition, TierContactTransfer, TierContact, Tier, Attachment, ContactEmail,
     User, UserEmail, Phone, Setting, UserGroup, UserGroupMember,
 )
+from app.models.moc import MOCValidation
 from app.schemas.common import (
     PaginatedResponse,
     ComplianceTypeCreate, ComplianceTypeRead, ComplianceTypeUpdate,
@@ -285,6 +286,44 @@ async def _build_audit_report_variables(
             radar_polygon_points.append(f"{round(vx, 2)},{round(vy, 2)}")
     radar_polygon = " ".join(radar_polygon_points)
 
+    # Phase 3 : validators MOC (si validation_moc_id existe)
+    # Recupere les MOCValidation rows + leurs users pour bloc signatures dynamique.
+    validators_data: list[dict] = []
+    if audit.validation_moc_id:
+        val_q = await db.execute(
+            select(MOCValidation, User)
+            .outerjoin(User, MOCValidation.validator_id == User.id)
+            .where(MOCValidation.moc_id == audit.validation_moc_id)
+            .order_by(MOCValidation.created_at)
+        )
+        for mv, user in val_q.all():
+            # Status mapping : approved=True => "approved" ; approved=False => "rejected" ;
+            # approved=None + completed=True => "abstained" ; sinon "pending"
+            if mv.approved is True:
+                status = "approved"
+            elif mv.approved is False:
+                status = "rejected"
+            elif mv.completed:
+                status = "abstained"
+            else:
+                status = "pending"
+            display_name = mv.validator_name or (f"{user.first_name} {user.last_name}".strip() if user else "Validateur en attente")
+            role_label = mv.role
+            if mv.role == "metier" and mv.metier_name:
+                role_label = mv.metier_name
+            validators_data.append({
+                "role": role_label,
+                "role_raw": mv.role,
+                "metier_code": mv.metier_code,
+                "name": display_name,
+                "status": status,
+                "validated_at": _audit_pdf_date(mv.validated_at) if mv.validated_at else None,
+                "comments": _audit_plain_text(mv.comments) if mv.comments else None,
+                "signature": mv.signature,  # base64 data URL ou None
+                "required": mv.required,
+                "level": mv.level,
+            })
+
     # Phase 2 : audit precedent (meme target, status validated, started_at < current)
     previous_audit_data: dict | None = None
     if audit.target_type and audit.target_id and audit.started_at:
@@ -319,6 +358,7 @@ async def _build_audit_report_variables(
         "entity": {
             "name": entity.name if entity else "",
             "code": entity.code if entity else "",
+            "logo_url": entity.logo_url if entity else None,
         },
         "audit": {
             "reference": audit.reference,
@@ -346,6 +386,7 @@ async def _build_audit_report_variables(
             "code": tier.code if tier else "",
             "type": tier.type if tier else "",
             "country": tier.country if tier else "",
+            "logo_url": tier.logo_url if tier else None,
         },
         "metrics": {
             "total_questions": total_questions,
@@ -361,6 +402,7 @@ async def _build_audit_report_variables(
             "available": len(radar_axes) >= 3,
         },
         "previous_audit": previous_audit_data,
+        "validators": validators_data,
         "generated_at": _audit_pdf_date(datetime.now(timezone.utc)),
     }
 
@@ -371,8 +413,70 @@ _SUPPLIER_AUDIT_REPORT_FALLBACK_HTML = """
 <head>
   <meta charset="utf-8">
   <style>
-    @page { size: A4; margin: 15mm 13mm 18mm; }
+    @page {
+      size: A4; margin: 22mm 13mm 18mm;
+      @top-left {
+        content: "{{ entity.name }} &middot; Audit {{ template.audit_type|capitalize }}";
+        font-family: Arial, sans-serif; font-size: 8px; color: #475569;
+        font-weight: 600; border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 4mm; vertical-align: top;
+      }
+      @top-right {
+        content: "{{ supplier.name }}";
+        font-family: Arial, sans-serif; font-size: 8px; color: #94a3b8;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 4mm; vertical-align: top;
+      }
+      @bottom-left {
+        content: "OpsFlux &middot; Confidentiel &middot; " counter(page) " / " counter(pages);
+        font-family: Arial, sans-serif; font-size: 8px; color: #94a3b8;
+      }
+      @bottom-right {
+        content: "{{ audit.reference }}";
+        font-family: Arial, sans-serif; font-size: 8px; color: #94a3b8;
+      }
+    }
+    @page :first {
+      margin: 0;
+      @top-left { content: ""; border-bottom: none; }
+      @top-right { content: ""; border-bottom: none; }
+      @bottom-left { content: ""; }
+      @bottom-right { content: ""; }
+    }
     body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #111827; font-size: 10px; line-height: 1.42; }
+    /* Phase 3 : logos dans la cover */
+    .cover-head { position: relative; }
+    .cover-entity-logo {
+      position: absolute; top: 12mm; right: 16mm;
+      max-height: 22mm; max-width: 50mm; opacity: .95;
+    }
+    .cover-supplier-logo {
+      max-height: 18mm; max-width: 40mm;
+      vertical-align: middle; margin-right: 10px;
+      border: 1px solid #e2e8f0; padding: 4px; background: #fff; border-radius: 3px;
+    }
+    .supplier-row { display: table; width: 100%; margin-bottom: 6px; }
+    .supplier-row .logo-cell { display: table-cell; vertical-align: middle; width: 50mm; }
+    .supplier-row .name-cell { display: table-cell; vertical-align: middle; }
+    /* Phase 3 : validators dynamiques */
+    .validators-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    .validators-table th {
+      background: #f1f5f9; color: #475569; font-size: 8px; text-transform: uppercase;
+      letter-spacing: .5px; padding: 7px; border: 1px solid #d7dde8; text-align: left;
+    }
+    .validators-table td {
+      padding: 8px; border: 1px solid #e5e7eb; vertical-align: top;
+    }
+    .v-name { font-weight: 700; color: #0f172a; }
+    .v-role { font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+    .v-comments { font-size: 9px; color: #475569; font-style: italic; margin-top: 3px; }
+    .v-status { padding: 3px 7px; border-radius: 999px; font-size: 9px; font-weight: 700; display: inline-block; }
+    .v-status.approved { color: #166534; background: #dcfce7; }
+    .v-status.rejected { color: #991b1b; background: #fee2e2; }
+    .v-status.pending  { color: #92400e; background: #fef3c7; }
+    .v-status.abstained { color: #334155; background: #e2e8f0; }
+    .v-signature { max-height: 22mm; max-width: 60mm; vertical-align: middle; }
+    .v-sig-empty { color: #cbd5e1; font-size: 8px; font-style: italic; }
     .cover { page-break-after: always; min-height: 265mm; position: relative; }
     .cover-head { background: #0f2f57; color: #fff; padding: 28mm 16mm 16mm; border-bottom: 7px solid #2563eb; }
     .eyebrow { font-size: 8px; letter-spacing: 1.8px; text-transform: uppercase; color: #bfdbfe; }
@@ -431,15 +535,25 @@ _SUPPLIER_AUDIT_REPORT_FALLBACK_HTML = """
 
   <div class="cover">
     <div class="cover-head">
+      {% if entity.logo_url %}<img class="cover-entity-logo" src="{{ entity.logo_url }}" alt="{{ entity.name }}"/>{% endif %}
       <div class="eyebrow">{{ entity.name or 'OpsFlux' }} &middot; conformit&eacute; fournisseurs</div>
       <h1>Rapport d&rsquo;audit fournisseur</h1>
       <div class="cover-sub">{{ template.name or template.audit_type or 'Audit fournisseur' }}</div>
     </div>
     <div class="cover-body">
       <div class="label">Fournisseur audit&eacute;</div>
-      <div class="supplier">{{ supplier.name }}</div>
-      <div class="muted">
-        {{ supplier.code or 'Sans code' }}{% if supplier.type %} &middot; {{ supplier.type|capitalize }}{% endif %}{% if supplier.country %} &middot; {{ supplier.country }}{% endif %}
+      <div class="supplier-row">
+        {% if supplier.logo_url %}
+        <div class="logo-cell">
+          <img class="cover-supplier-logo" src="{{ supplier.logo_url }}" alt="{{ supplier.name }}"/>
+        </div>
+        {% endif %}
+        <div class="name-cell">
+          <div class="supplier">{{ supplier.name }}</div>
+          <div class="muted">
+            {{ supplier.code or 'Sans code' }}{% if supplier.type %} &middot; {{ supplier.type|capitalize }}{% endif %}{% if supplier.country %} &middot; {{ supplier.country }}{% endif %}
+          </div>
+        </div>
       </div>
       <div class="grid" style="margin-top:20px">
         <div class="cell card {{ 'green' if verdict_class == 'ok' else ('red' if verdict_class == 'bad' else 'blue') }}">
@@ -533,12 +647,53 @@ _SUPPLIER_AUDIT_REPORT_FALLBACK_HTML = """
 
   <div class="signatures">
     <h1 class="section">5. Validation et signatures</h1>
-    <div class="sig">
-      <div class="sig-box"><div class="label">Auditeur</div><br><br>Date: ___________________</div>
-      <div class="sig-box"><div class="label">Validateur</div><br><br>Date: ___________________</div>
-      <div class="sig-box"><div class="label">Repr&eacute;sentant fournisseur</div><br><br>Date: ___________________</div>
-    </div>
-    <p class="small muted" style="margin-top:4mm">R&eacute;f&eacute;rence workflow: {{ audit.validation_workflow_id or '-' }}. Les pi&egrave;ces jointes, photos, preuves documentaires et commentaires d&eacute;taill&eacute;s restent les enregistrements ma&icirc;tres dans OpsFlux.</p>
+    {% if validators and validators|length > 0 %}
+      <p class="muted small" style="margin:0 0 6px">Acteurs du circuit de validation MOC ({{ validators|length }} intervenant{{ 's' if validators|length > 1 else '' }}). R&eacute;f&eacute;rence workflow: <span class="qcode">{{ audit.validation_workflow_id }}</span></p>
+      <table class="validators-table">
+        <thead>
+          <tr>
+            <th style="width:30%">Acteur</th>
+            <th style="width:15%">Statut</th>
+            <th style="width:15%">Date</th>
+            <th>Commentaires &amp; signature</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in validators %}
+            {%- set st = v.status -%}
+            {%- if st == 'approved' -%}{%- set lbl = 'Approuv&eacute;' -%}
+            {%- elif st == 'rejected' -%}{%- set lbl = 'Rejet&eacute;' -%}
+            {%- elif st == 'abstained' -%}{%- set lbl = 'Abstenu' -%}
+            {%- else -%}{%- set lbl = 'En attente' -%}
+            {%- endif -%}
+            <tr>
+              <td>
+                <div class="v-name">{{ v.name }}</div>
+                <div class="v-role">{{ v.role|capitalize }}{% if v.required %} &middot; obligatoire{% endif %}{% if v.level %} &middot; niveau {{ v.level }}{% endif %}</div>
+              </td>
+              <td><span class="v-status {{ st }}">{{ lbl }}</span></td>
+              <td class="small">{{ v.validated_at or '&mdash;' }}</td>
+              <td>
+                {% if v.comments %}<div class="v-comments">&laquo; {{ v.comments }} &raquo;</div>{% endif %}
+                {% if v.signature %}
+                  <img class="v-signature" src="{{ v.signature }}" alt="Signature {{ v.name }}"/>
+                {% else %}
+                  <div class="v-sig-empty">(signature non d&eacute;pos&eacute;e)</div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted small" style="margin:0 0 6px">Workflow de validation non encore d&eacute;clench&eacute; ({{ 'r&eacute;f. ' + audit.validation_workflow_id if audit.validation_workflow_id else 'aucun MOC associ&eacute;' }}). Cases r&eacute;serv&eacute;es pour signature manuelle :</p>
+      <div class="sig">
+        <div class="sig-box"><div class="label">Auditeur</div><br><br>Date: ___________________</div>
+        <div class="sig-box"><div class="label">Validateur</div><br><br>Date: ___________________</div>
+        <div class="sig-box"><div class="label">Repr&eacute;sentant fournisseur</div><br><br>Date: ___________________</div>
+      </div>
+    {% endif %}
+    <p class="small muted" style="margin-top:4mm">Les pi&egrave;ces jointes, photos, preuves documentaires et commentaires d&eacute;taill&eacute;s restent les enregistrements ma&icirc;tres dans OpsFlux.</p>
   </div>
 </body>
 </html>

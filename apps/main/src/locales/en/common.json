@@ -3,6 +3,20 @@
     "name": "OpsFlux",
     "tagline": "Operations ERP Platform"
   },
+  "condition_builder": {
+    "assistant": {
+      "button": "JSON assistant",
+      "title": "JSON rule assistant",
+      "help": "Insert a template, then adjust fields, operators and values.",
+      "fields": "Available fields",
+      "operators": "Operators",
+      "templates": {
+        "simple": "Simple condition",
+        "all": "All conditions",
+        "any": "At least one condition"
+      }
+    }
+  },
   "validation": {
     "required": "{{label}} is required",
     "min_length": "{{label}} must contain at least {{min}} characters",

@@ -11,7 +11,7 @@
  */
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2, Code, LayoutList } from 'lucide-react'
+import { Plus, Trash2, Code, LayoutList, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 
@@ -105,6 +105,42 @@ export function ConditionBuilder({ value, onChange, disabled, fields }: Conditio
   const [group, setGroup] = useState<ConditionGroup>(initialGroup)
   const [jsonText, setJsonText] = useState(value ? JSON.stringify(value, null, 2) : '')
   const [jsonError, setJsonError] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const firstField = allFields[0]
+  const secondField = allFields[1] ?? firstField
+  const templateExamples = useMemo(() => {
+    const firstValue = firstField?.type === 'number' ? 2 : firstField?.type === 'boolean' ? true : 'valeur'
+    const secondValue = secondField?.type === 'number' ? 10 : secondField?.type === 'boolean' ? true : 'valeur'
+    return [
+      {
+        label: t('condition_builder.assistant.templates.simple', 'Condition simple'),
+        value: {
+          logic: 'and',
+          conditions: [{ field: firstField?.id ?? 'field', operator: 'equals', value: firstValue }],
+        },
+      },
+      {
+        label: t('condition_builder.assistant.templates.all', 'Toutes les conditions'),
+        value: {
+          logic: 'and',
+          conditions: [
+            { field: firstField?.id ?? 'field', operator: 'equals', value: firstValue },
+            { field: secondField?.id ?? 'field_2', operator: 'equals', value: secondValue },
+          ],
+        },
+      },
+      {
+        label: t('condition_builder.assistant.templates.any', 'Au moins une condition'),
+        value: {
+          logic: 'or',
+          conditions: [
+            { field: firstField?.id ?? 'field', operator: 'equals', value: firstValue },
+            { field: secondField?.id ?? 'field_2', operator: 'equals', value: secondValue },
+          ],
+        },
+      },
+    ]
+  }, [firstField, secondField, t])
 
   const emitChange = useCallback((g: ConditionGroup) => {
     setGroup(g)
@@ -159,6 +195,15 @@ export function ConditionBuilder({ value, onChange, disabled, fields }: Conditio
     }
   }, [onChange])
 
+  const applyJsonTemplate = useCallback((template: Record<string, unknown>) => {
+    const nextText = JSON.stringify(template, null, 2)
+    setJsonText(nextText)
+    setJsonError(false)
+    onChange(template)
+    if (isConditionGroup(template)) setGroup(template as unknown as ConditionGroup)
+    setMode('json')
+  }, [onChange])
+
   const switchToVisual = useCallback(() => {
     // Try to parse current JSON into visual mode
     if (jsonText.trim()) {
@@ -197,20 +242,75 @@ export function ConditionBuilder({ value, onChange, disabled, fields }: Conditio
             <Code size={12} /> Avancé
           </button>
         </div>
-        {mode === 'visual' && group.conditions.length > 1 && (
+        <div className="flex items-center gap-1.5">
+          {mode === 'visual' && group.conditions.length > 1 && (
+            <button
+              type="button"
+              onClick={toggleLogic}
+              className={cn(
+                'text-[10px] font-bold uppercase px-2 py-0.5 rounded transition-colors',
+                group.logic === 'or' ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground hover:text-foreground',
+              )}
+              title={t('shared.basculer_entre_et_ou')}
+            >
+              {group.logic === 'and' ? 'ET (toutes)' : 'OU (au moins une)'}
+            </button>
+          )}
           <button
             type="button"
-            onClick={toggleLogic}
+            onClick={() => {
+              setAssistantOpen(open => !open)
+              setMode('json')
+            }}
             className={cn(
-              'text-[10px] font-bold uppercase px-2 py-0.5 rounded transition-colors',
-              group.logic === 'or' ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground hover:text-foreground',
+              'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+              assistantOpen ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
-            title={t('shared.basculer_entre_et_ou')}
           >
-            {group.logic === 'and' ? 'ET (toutes)' : 'OU (au moins une)'}
+            <Wand2 size={12} />
+            {t('condition_builder.assistant.button', 'Assistant JSON')}
           </button>
-        )}
+        </div>
       </div>
+
+      {assistantOpen && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-xs">
+          <div className="mb-2">
+            <div className="font-semibold text-foreground">{t('condition_builder.assistant.title', 'Assistant de règle JSON')}</div>
+            <div className="text-muted-foreground">{t('condition_builder.assistant.help', 'Insérez un modèle puis adaptez les champs, opérateurs et valeurs.')}</div>
+          </div>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {templateExamples.map((template) => (
+              <button
+                key={template.label}
+                type="button"
+                onClick={() => applyJsonTemplate(template.value)}
+                className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:border-primary/40 hover:text-primary"
+              >
+                {template.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <div className="mb-1 font-medium text-muted-foreground">{t('condition_builder.assistant.fields', 'Champs disponibles')}</div>
+              <div className="max-h-24 overflow-auto rounded border border-border/60 bg-background/60 p-1.5 font-mono text-[11px] text-muted-foreground">
+                {allFields.map(field => (
+                  <div key={field.id}>{field.id} <span className="font-sans">({field.label})</span></div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 font-medium text-muted-foreground">{t('condition_builder.assistant.operators', 'Opérateurs')}</div>
+              <div className="rounded border border-border/60 bg-background/60 p-1.5 font-mono text-[11px] text-muted-foreground">
+                equals, not_equals, contains<br />
+                greater_than, greater_or_equal<br />
+                less_than, less_or_equal
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLegacy && mode === 'visual' && (
         <div className="text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 rounded border border-amber-200 dark:border-amber-800/40">

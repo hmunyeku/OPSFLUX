@@ -528,7 +528,7 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly 
         </FormGrid>
       </AdvancedSection>
 
-      <AdvancedSection id="t_rule_conditions" title="Conditions d'application" defaultExpanded={false} collapsible>
+      <AdvancedSection id="t_rule_conditions" title="Conditions d'application / JSON" defaultExpanded collapsible>
         {form.target_type === 'packlog_cargo' ? (
           <RuleTargetSpecificDesigner form={form} setForm={setForm} />
         ) : (

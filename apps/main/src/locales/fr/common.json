@@ -3,6 +3,20 @@
     "name": "OpsFlux",
     "tagline": "Plateforme ERP opérations"
   },
+  "condition_builder": {
+    "assistant": {
+      "button": "Assistant JSON",
+      "title": "Assistant de règle JSON",
+      "help": "Insérez un modèle puis adaptez les champs, opérateurs et valeurs.",
+      "fields": "Champs disponibles",
+      "operators": "Opérateurs",
+      "templates": {
+        "simple": "Condition simple",
+        "all": "Toutes les conditions",
+        "any": "Au moins une condition"
+      }
+    }
+  },
   "validation": {
     "required": "{{label}} requis",
     "min_length": "{{label}} doit contenir au moins {{min}} caractères",

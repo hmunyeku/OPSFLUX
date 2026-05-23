@@ -50,8 +50,8 @@ export function EditRulePanel({ view }: { view?: DynamicPanelView }) {
   const canUpdate = hasPermission('conformite.rule.update')
   const canDelete = hasPermission('conformite.rule.delete')
   const { toast } = useToast()
-  const { data: typesData } = useComplianceTypes({ page_size: 200 })
-  const { data: jpData } = useJobPositions({ page_size: 200 })
+  const { data: typesData } = useComplianceTypes({ page_size: 1000 })
+  const { data: jpData } = useJobPositions({ page_size: 1000 })
   const { data: rules = [] } = useComplianceRules()
   const panelRule = panelView?.data?.rule as ComplianceRule | undefined
   const ruleId = panelRule?.id ?? (

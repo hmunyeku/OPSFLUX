@@ -340,6 +340,7 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly,
   const selectedAuditTemplateId = typeof form.condition_json?.audit_template_id === 'string'
     ? form.condition_json.audit_template_id
     : ''
+  const isAuditRule = ct?.category === 'audit' || Boolean(selectedAuditTemplateId)
   const setAuditTemplateId = (value: string) => {
     const current = (form.condition_json && typeof form.condition_json === 'object') ? form.condition_json : {}
     const next = { ...current }
@@ -467,7 +468,7 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly,
               />
             </DynamicPanelField>
           )}
-          {ct?.category === 'audit' && (
+          {isAuditRule && (
             <DynamicPanelField label={t('conformite.rules.audit_template')} span="full">
               <SearchableSelect
                 value={selectedAuditTemplateId}
@@ -532,6 +533,10 @@ export function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly,
       <AdvancedSection id="t_rule_conditions" title="Conditions d'application / JSON" defaultExpanded collapsible>
         {form.target_type === 'packlog_cargo' ? (
           <RuleTargetSpecificDesigner form={form} setForm={setForm} />
+        ) : isAuditRule ? (
+          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+            {t('conformite.rules.audit_assignment_help')}
+          </div>
         ) : (
           <ConditionBuilder
             value={form.condition_json}

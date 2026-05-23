@@ -134,7 +134,7 @@ export function ConformitePage() {
 
   const { data: typesData, isLoading: typesLoading } = useComplianceTypes({
     page: activeTab === 'referentiel' ? page : 1,
-    page_size: activeTab === 'referentiel' ? pageSize : (activeTab === 'regles' ? 200 : 1),
+    page_size: activeTab === 'referentiel' ? pageSize : (activeTab === 'regles' ? 1000 : 1),
     category: activeTab === 'referentiel' ? categoryFilter : undefined,
     search: activeTab === 'referentiel' ? (debouncedSearch || undefined) : undefined,
   })
@@ -162,7 +162,7 @@ export function ConformitePage() {
   })
 
   const { data: rulesData, isLoading: rulesLoading } = useComplianceRules(undefined)
-  const { data: jobPositionsData } = useJobPositions({ page_size: 200 })
+  const { data: jobPositionsData } = useJobPositions({ page_size: 1000 })
 
   const { data: transfersData, isLoading: transfersLoading } = useTransfers({
     page: activeTab === 'transferts' ? page : 1,

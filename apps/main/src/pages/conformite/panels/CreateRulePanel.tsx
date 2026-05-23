@@ -36,8 +36,8 @@ function CreateRulePanelInner({ view }: { view?: DynamicPanelView }) {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
-  const { data: typesData } = useComplianceTypes({ page_size: 200 })
-  const { data: jpData } = useJobPositions({ page_size: 200 })
+  const { data: typesData } = useComplianceTypes({ page_size: 1000 })
+  const { data: jpData } = useJobPositions({ page_size: 1000 })
 
   const preType = panelView?.meta?.prefill_type_id ?? ''
   const preSubjectScope = panelView?.meta?.prefill_subject_scope

@@ -1858,6 +1858,7 @@
       },
       "audit_template": "Audit template",
       "audit_template_placeholder": "Link a mandatory audit template...",
+      "audit_assignment_help": "Audit assignment is driven by the audit template and the targets above. The advanced JSON editor is hidden here to avoid altering the template link.",
       "target_companies": "Company / companies",
       "target_companies_placeholder": "Select one or more companies...",
       "target_countries": "Countries",

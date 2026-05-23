@@ -1991,6 +1991,7 @@
       },
       "audit_template": "Modèle d'audit",
       "audit_template_placeholder": "Associer un modèle d'audit obligatoire...",
+      "audit_assignment_help": "L'association audit est pilotée par le modèle d'audit et les cibles ci-dessus. Le JSON avancé est masqué ici pour éviter d'altérer le lien avec le modèle.",
       "target_companies": "Entreprise(s)",
       "target_companies_placeholder": "Choisir une ou plusieurs entreprises...",
       "target_countries": "Pays",

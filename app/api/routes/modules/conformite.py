@@ -4554,6 +4554,20 @@ async def get_compliance_matrix(
         # referential matrix. Keep audit templates out of record grids.
         ComplianceType.category != "audit",
     )
+    if owner_type == "tier":
+        company_type_ids = select(ComplianceRule.compliance_type_id).where(
+            ComplianceRule.entity_id == entity_id,
+            ComplianceRule.active == True,  # noqa: E712
+            or_(
+                ComplianceRule.subject_scope == "company",
+                ComplianceRule.subject_scope == "all",
+            ),
+            or_(
+                ComplianceRule.condition_json == None,  # noqa: E711
+                ComplianceRule.condition_json["audit_template_id"].as_string() == None,  # noqa: E711
+            ),
+        )
+        types_q = types_q.where(ComplianceType.id.in_(company_type_ids))
     if category:
         types_q = types_q.where(ComplianceType.category == category)
     types_q = types_q.order_by(ComplianceType.category, ComplianceType.name)

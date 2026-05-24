@@ -323,6 +323,9 @@ export interface PendingVerificationItem {
   type_name?: string | null
   attachment_count?: number
   attachment_required?: boolean
+  validation_moc_id?: string | null
+  audit_status?: string | null
+  score_percent?: number | null
 }
 
 export interface VerificationHistoryItem {

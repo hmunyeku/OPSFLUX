@@ -2238,7 +2238,8 @@
         "social_security": "Sécu sociale",
         "vaccine": "Vaccin",
         "driving_license": "Permis",
-        "medical_check": "Visite médicale"
+        "medical_check": "Visite médicale",
+        "supplier_audit": "Audit tiers"
       },
       "reject_prompt": "Rejeter prompt",
       "reject_title": "Rejeter titre",

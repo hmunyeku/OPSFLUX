@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ClipboardCheck, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,6 +24,17 @@ export function VerificationsTab() {
   const [verSearch, setVerSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('pending')
   const { openDynamicPanel } = useUIStore()
+
+  const openAuditValidation = useCallback((item: Record<string, any>) => {
+    if (item.record_type !== 'supplier_audit' || !item.validation_moc_id) return false
+    openDynamicPanel({
+      type: 'detail',
+      module: 'moc',
+      id: item.validation_moc_id,
+      meta: { tab: 'validation' },
+    })
+    return true
+  }, [openDynamicPanel])
 
   const allItems = useMemo(() => {
     const pending = (pendingData?.items ?? []).map((item) => ({
@@ -167,6 +178,18 @@ export function VerificationsTab() {
       cell: ({ row }) => {
         const item = row.original
         if (item.verification_status !== 'pending') return null
+        if (item.record_type === 'supplier_audit') {
+          return (
+            <button
+              onClick={(e) => { e.stopPropagation(); openAuditValidation(item) }}
+              disabled={!item.validation_moc_id}
+              className="btn-sm btn-primary disabled:opacity-40"
+              title={t('conformite.audits.open_validation')}
+            >
+              <ClipboardCheck size={12} />
+            </button>
+          )
+        }
         const proofMissing = (item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0)
         const isRejecting = rejectingId === item.id
         if (isRejecting) {
@@ -190,7 +213,7 @@ export function VerificationsTab() {
         )
       },
     },
-  ], [recordTypeLabels, rejectingId, rejectReason, t, verificationStatusLabels])
+  ], [recordTypeLabels, rejectingId, rejectReason, t, verificationStatusLabels, openAuditValidation])
 
   const verPagination: DataTablePagination = {
     page: 1,
@@ -213,6 +236,7 @@ export function VerificationsTab() {
       onFilterChange={(id, value) => { if (id === 'verification_status') setStatusFilter(value as string || '') }}
       onRowClick={(row) => {
         if (row.verification_status === 'pending') {
+          if (openAuditValidation(row)) return
           openDynamicPanel({
             type: 'detail', module: 'conformite', id: row.id,
             meta: { subtype: 'verification', record_type: row.record_type },

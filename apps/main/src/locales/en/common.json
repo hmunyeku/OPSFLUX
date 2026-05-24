@@ -2105,7 +2105,8 @@
         "social_security": "Social security",
         "vaccine": "Vaccine",
         "driving_license": "Driving license",
-        "medical_check": "Medical check"
+        "medical_check": "Medical check",
+        "supplier_audit": "Supplier audit"
       },
       "reject_prompt": "Reject prompt",
       "reject_title": "Reject title",

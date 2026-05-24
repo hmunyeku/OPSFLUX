@@ -207,5 +207,6 @@ export function useVerificationRecordTypeLabels() {
     vaccine: t('conformite.verifications.record_types.vaccine'),
     driving_license: t('conformite.verifications.record_types.driving_license'),
     medical_check: t('conformite.verifications.record_types.medical_check'),
+    supplier_audit: t('conformite.verifications.record_types.supplier_audit'),
   }), [t])
 }

@@ -143,6 +143,21 @@ async def _enrich_audit_answer_attachment_counts(
             setattr(answer, "attachment_count", counts.get(answer.id, 0))
 
 
+async def _count_audit_answer_proofs(db: AsyncSession, audit: ComplianceAudit) -> int:
+    """Count all proof attachments linked to answers of a supplier audit."""
+    answer_ids = [answer.id for answer in (audit.answers or []) if answer.id is not None]
+    if not answer_ids:
+        return 0
+    count = await db.scalar(
+        select(sqla_func.count(Attachment.id)).where(
+            Attachment.owner_type == "compliance_audit_answer",
+            Attachment.owner_id.in_(answer_ids),
+            Attachment.archived == False,  # noqa: E712
+        )
+    )
+    return int(count or 0)
+
+
 def _audit_read_options():
     return (
         selectinload(ComplianceAudit.template)
@@ -4091,11 +4106,53 @@ async def list_pending_verifications(
             "attachment_required": True,
         })
 
+    # Supplier audits use the MOC engine for approval. Surface them here so
+    # compliance validators can find the work queue from the Conformite module,
+    # while the action still opens the underlying validation workflow.
+    audit_result = await db.execute(
+        select(ComplianceAudit)
+        .options(selectinload(ComplianceAudit.template), selectinload(ComplianceAudit.answers))
+        .where(
+            ComplianceAudit.entity_id == entity_id,
+            ComplianceAudit.archived == False,  # noqa: E712
+            ComplianceAudit.validation_moc_id.is_not(None),
+            ComplianceAudit.status.in_(["submitted", "in_review"]),
+        )
+        .order_by(ComplianceAudit.submitted_at.desc().nullslast(), ComplianceAudit.created_at.desc())
+    )
+    for audit in audit_result.scalars().unique().all():
+        template = audit.template
+        submitted_at = audit.submitted_at or audit.updated_at or audit.created_at
+        items.append({
+            "id": str(audit.id),
+            "record_type": "supplier_audit",
+            "owner_type": audit.target_type,
+            "owner_id": str(audit.target_id),
+            "owner_name": None,
+            "description": audit.title or (template.name if template else audit.reference),
+            "submitted_at": submitted_at.isoformat(),
+            "verification_status": "pending",
+            "issued_at": audit.submitted_at.isoformat() if audit.submitted_at else None,
+            "expires_at": audit.valid_until.isoformat() if audit.valid_until else None,
+            "issuer": template.audit_type if template else None,
+            "reference_number": audit.reference,
+            "category": "audit",
+            "type_name": template.name if template else None,
+            "attachment_count": await _count_audit_answer_proofs(db, audit),
+            "attachment_required": False,
+            "validation_moc_id": str(audit.validation_moc_id),
+            "audit_status": audit.status,
+            "score_percent": float(audit.score_percent) if audit.score_percent is not None else None,
+        })
+
     # Enrich owner names
     user_ids = set()
+    tier_ids = set()
     for item in items:
         if item["owner_type"] == "user" and item["owner_id"]:
             user_ids.add(item["owner_id"])
+        if item["owner_type"] == "tier" and item["owner_id"]:
+            tier_ids.add(item["owner_id"])
     if user_ids:
         users_result = await db.execute(
             select(User.id, User.first_name, User.last_name).where(
@@ -4106,6 +4163,17 @@ async def list_pending_verifications(
         for item in items:
             if item["owner_type"] == "user":
                 item["owner_name"] = user_names.get(item["owner_id"])
+    if tier_ids:
+        tiers_result = await db.execute(
+            select(Tier.id, Tier.name).where(
+                Tier.id.in_([UUID(tid) for tid in tier_ids]),
+                Tier.entity_id == entity_id,
+            )
+        )
+        tier_names = {str(r[0]): r[1] for r in tiers_result.all()}
+        for item in items:
+            if item["owner_type"] == "tier":
+                item["owner_name"] = tier_names.get(item["owner_id"])
 
     # Sort by submitted_at desc
     items.sort(key=lambda x: x["submitted_at"], reverse=True)

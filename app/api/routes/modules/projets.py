@@ -927,7 +927,7 @@ async def create_project(
 
     if payload.get("tier_id"):
         tier = await db.get(Tier, payload["tier_id"])
-        await ensure_tier_usable(db, tier, entity_id=entity_id, operation="project")
+        await ensure_tier_usable(db, tier, entity_id=entity_id, operation="project", require_compliance=True)
 
     if not payload.get("code"):
         payload["code"] = await generate_reference("PRJ", db, entity_id=entity_id)
@@ -1245,7 +1245,7 @@ async def update_project(
     )
     if update_data.get("tier_id"):
         tier = await db.get(Tier, update_data["tier_id"])
-        await ensure_tier_usable(db, tier, entity_id=entity_id, operation="project")
+        await ensure_tier_usable(db, tier, entity_id=entity_id, operation="project", require_compliance=True)
     for field, value in update_data.items():
         setattr(project, field, value)
     await db.commit()

@@ -445,6 +445,7 @@ async def check_owner_compliance(
     entity_id: UUID,
     include_contextual: bool = False,
     asset_id: UUID | None = None,
+    commit_status_updates: bool = True,
 ) -> dict:
     """Compute the canonical compliance verdict for one owner."""
     if asset_id and owner_type in {"user", "tier_contact"}:
@@ -855,7 +856,10 @@ async def check_owner_compliance(
 
     compliant_type_ids = (valid_type_ids | external_valid_type_ids | audit_valid_type_ids | exempted_type_ids) & required_type_ids
     missing_type_ids = required_type_ids - valid_type_ids - external_valid_type_ids - audit_valid_type_ids - exempted_type_ids - unverified_type_ids
-    await db.commit()
+    if commit_status_updates:
+        await db.commit()
+    else:
+        await db.flush()
 
     return {
         "owner_type": owner_type,

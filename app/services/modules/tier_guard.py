@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import StructuredHTTPException
 from app.models.common import Tier, TierBlock, TierContact
+from app.services.modules.compliance_service import check_owner_compliance
 
 
 async def get_current_tier_block(
@@ -44,6 +45,7 @@ async def ensure_tier_usable(
     entity_id: UUID,
     operation: str,
     today: date | None = None,
+    require_compliance: bool = False,
 ) -> None:
     if not tier or getattr(tier, "entity_id", entity_id) != entity_id:
         raise StructuredHTTPException(
@@ -72,6 +74,45 @@ async def ensure_tier_usable(
                 "block_id": str(block.id),
             },
         )
+
+    if require_compliance:
+        verdict = await check_owner_compliance(
+            db,
+            owner_type="tier",
+            owner_id=tier.id,
+            entity_id=entity_id,
+            include_contextual=True,
+            commit_status_updates=False,
+        )
+        if not verdict.get("is_compliant", False):
+            blocking_items = [
+                item
+                for item in verdict.get("details", [])
+                if item.get("status") in {"missing", "expired", "unverified"}
+            ]
+            raise StructuredHTTPException(
+                409,
+                code="TIER_COMPLIANCE_BLOCKED",
+                message=f"Tier is not compliant for {operation}",
+                params={
+                    "tier_id": str(tier.id),
+                    "operation": operation,
+                    "total_required": verdict.get("total_required", 0),
+                    "total_valid": verdict.get("total_valid", 0),
+                    "total_missing": verdict.get("total_missing", 0),
+                    "total_expired": verdict.get("total_expired", 0),
+                    "total_unverified": verdict.get("total_unverified", 0),
+                    "blocking_items": [
+                        {
+                            "type_id": item.get("type_id") or item.get("compliance_type_id"),
+                            "type_name": item.get("type_name"),
+                            "category": item.get("category") or item.get("type_category"),
+                            "status": item.get("status"),
+                        }
+                        for item in blocking_items[:10]
+                    ],
+                },
+            )
 
 
 async def ensure_tier_contact_usable(

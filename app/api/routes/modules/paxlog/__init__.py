@@ -74,7 +74,7 @@ from app.models.paxlog import (
 )
 from app.models.planner import PlannerActivity
 from app.models.travelwiz import ManifestPassenger, Voyage, VoyageManifest
-from app.services.modules.tier_guard import ensure_tier_contact_usable
+from app.services.modules.tier_guard import ensure_tier_contact_usable, ensure_tier_usable
 from app.schemas.paxlog import (
     AdsBoardingContextRead,
     AdsBoardingManifestRead,
@@ -2019,6 +2019,25 @@ async def _replace_ads_allowed_companies(
                 code="UNE_OU_PLUSIEURS_ENTREPRISES_AUTORIS_ES",
                 message="Une ou plusieurs entreprises autorisées sont invalides pour cette entité.",
             )
+        for company_id, company_name in valid_rows:
+            tier = await db.get(Tier, company_id)
+            try:
+                await ensure_tier_usable(
+                    db,
+                    tier,
+                    entity_id=entity_id,
+                    operation="paxlog",
+                    require_compliance=True,
+                )
+            except StructuredHTTPException as exc:
+                params = dict(getattr(exc, "code_params", {}) or {})
+                params["company_name"] = company_name
+                raise StructuredHTTPException(
+                    exc.status_code,
+                    code=getattr(exc, "code", None) or "TIER_COMPLIANCE_BLOCKED",
+                    message="Entreprise non conforme pour PaxLog.",
+                    params=params,
+                ) from exc
     await db.execute(text("DELETE FROM ads_allowed_companies WHERE ads_id = :ads_id"), {"ads_id": str(ads_id)})
     for company_id in unique_company_ids:
         db.add(AdsAllowedCompany(ads_id=ads_id, company_id=company_id))

@@ -1,7 +1,7 @@
 /**
  * React Query hooks for Conformite (compliance) module.
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { conformiteService } from '@/services/conformiteService'
 import type {
   ComplianceTypeCreate, ComplianceTypeUpdate,
@@ -14,6 +14,12 @@ import type {
   TierContactTransferCreate,
   ComplianceAuthorizedCenterCreate, ComplianceAuthorizedCenterUpdate,
 } from '@/types/api'
+
+function invalidateComplianceRecordState(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ['compliance-records'] })
+  qc.invalidateQueries({ queryKey: ['compliance-check'] })
+  qc.invalidateQueries({ queryKey: ['pending-verifications'] })
+}
 
 // ── Dashboard KPIs ──
 
@@ -311,7 +317,7 @@ export function useCreateComplianceRecord() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: ComplianceRecordCreate) => conformiteService.createRecord(payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-records'] }) },
+    onSuccess: () => { invalidateComplianceRecordState(qc) },
   })
 }
 
@@ -320,7 +326,7 @@ export function useUpdateComplianceRecord() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: ComplianceRecordUpdate }) =>
       conformiteService.updateRecord(id, payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-records'] }) },
+    onSuccess: () => { invalidateComplianceRecordState(qc) },
   })
 }
 
@@ -328,11 +334,7 @@ export function useVerifyComplianceRecordExternally() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => conformiteService.verifyRecordExternally(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['compliance-records'] })
-      qc.invalidateQueries({ queryKey: ['compliance-check'] })
-      qc.invalidateQueries({ queryKey: ['pending-verifications'] })
-    },
+    onSuccess: () => { invalidateComplianceRecordState(qc) },
   })
 }
 
@@ -340,7 +342,7 @@ export function useDeleteComplianceRecord() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => conformiteService.deleteRecord(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['compliance-records'] }) },
+    onSuccess: () => { invalidateComplianceRecordState(qc) },
   })
 }
 

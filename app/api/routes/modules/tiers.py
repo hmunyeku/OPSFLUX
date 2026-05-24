@@ -2,10 +2,11 @@
 
 import io
 import logging
-from datetime import date as date_type
+from datetime import date as date_type, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import and_, case, select, func as sqla_func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -20,7 +21,7 @@ from app.services.core.delete_service import delete_entity
 from app.services.core.audit_service import add_event as add_audit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
-    Address, Attachment, Entity, ExternalReference, Tag, Tier, TierBlock, TierContact, User, UserTierLink,
+    Address, Attachment, AuditLog, Entity, ExternalReference, Tag, Tier, TierBlock, TierContact, User, UserTierLink,
     JobPosition,
 )
 from app.schemas.common import (
@@ -369,6 +370,152 @@ async def archive_tier(
     )
     await db.commit()
     return {"detail": "Tier archived"}
+
+
+# ── Bulk operations ──────────────────────────────────────────────────────
+
+
+class TierAuditEventRead(BaseModel):
+    """Audit event exposé dans l'onglet Historique du panel Tier."""
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    action: str
+    resource_type: str
+    user_id: UUID | None
+    user_name: str | None
+    details: dict | None
+    ip_address: str | None
+    created_at: datetime
+
+
+@router.get("/{tier_id}/audit-log", response_model=list[TierAuditEventRead])
+async def list_tier_audit_log(
+    tier_id: UUID,
+    limit: int = 50,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.tier.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Récupère l'historique audit-log d'un tier (max 200 events).
+
+    Filtre sur AuditLog.resource_type='tier' AND resource_id=str(tier_id).
+    LEFT JOIN User pour exposer first_name/last_name (pas juste user_id).
+    Le scope entity_id est applique pour eviter cross-tenant leak.
+
+    Garde-fou : verifie d'abord que le tier appartient bien a l'entity
+    courante (sinon retourne 404 silencieux, pas leak existence).
+    """
+    # Verif tier existe + scope
+    tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
+    # Cap limit
+    limit = max(1, min(limit, 200))
+    # Query audit_log avec join sur users
+    result = await db.execute(
+        select(AuditLog, User.first_name, User.last_name, User.email)
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.resource_type == "tier",
+            AuditLog.resource_id == str(tier.id),
+        )
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+    )
+    events: list[TierAuditEventRead] = []
+    for evt, fn, ln, email in result.all():
+        full_name = " ".join(filter(None, [fn, ln])).strip()
+        events.append(TierAuditEventRead(
+            id=evt.id,
+            action=evt.action,
+            resource_type=evt.resource_type,
+            user_id=evt.user_id,
+            user_name=full_name or email or None,
+            details=evt.details,
+            ip_address=evt.ip_address,
+            created_at=evt.created_at,
+        ))
+    return events
+
+
+class BulkArchiveTiersRequest(BaseModel):
+    """Body for POST /tiers/bulk-archive — list of tier IDs to archive atomically."""
+    model_config = ConfigDict(extra="forbid")
+    ids: list[UUID] = Field(..., min_length=1, max_length=500)
+
+
+class BulkArchiveSkipped(BaseModel):
+    id: UUID
+    reason: str  # 'not_found' | 'forbidden' | 'already_archived'
+
+
+class BulkArchiveTiersResponse(BaseModel):
+    archived: int
+    skipped: list[BulkArchiveSkipped]
+
+
+@router.post("/bulk-archive", response_model=BulkArchiveTiersResponse)
+async def bulk_archive_tiers(
+    body: BulkArchiveTiersRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("tier.tier.delete"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Archive (soft-delete) plusieurs tiers en une seule transaction.
+
+    Avant cet endpoint, le frontend faisait N appels DELETE séquentiels via
+    Promise.all — pas atomique (si l'un échoue les autres sont déjà commit)
+    et lent (N * round-trip réseau + N transactions). Maintenant :
+
+      - 1 seule transaction (rollback global si erreur fatale)
+      - Audit-log par tier archivé (action='archive' resource_type='tier'
+        avec source='bulk' dans details pour traçabilité de l'origine)
+      - Réponse structurée : count archives + liste skipped avec raison
+        (not_found / forbidden / already_archived). 200 même partiel pour
+        donner au frontend la vraie liste des skipped.
+
+    Max 500 IDs par appel (limit configurable via Pydantic).
+    Permission : tier.tier.delete (idem endpoint single).
+    """
+    skipped: list[BulkArchiveSkipped] = []
+    archived_count = 0
+    # Dedup
+    ids = list({tid for tid in body.ids})
+
+    # External-user scope filter
+    external_tier_ids: set | None = None
+    if current_user.user_type == "external":
+        linked = await _get_external_user_tier_ids(db, current_user, entity_id)
+        external_tier_ids = set(linked) if linked else set()
+
+    # Fetch all tiers in 1 query (perf)
+    result = await db.execute(
+        select(Tier).where(Tier.id.in_(ids), Tier.entity_id == entity_id)
+    )
+    tiers_by_id = {t.id: t for t in result.scalars().all()}
+
+    for tid in ids:
+        tier = tiers_by_id.get(tid)
+        if tier is None:
+            skipped.append(BulkArchiveSkipped(id=tid, reason="not_found"))
+            continue
+        if external_tier_ids is not None and tier.id not in external_tier_ids:
+            skipped.append(BulkArchiveSkipped(id=tid, reason="forbidden"))
+            continue
+        if not tier.active:
+            skipped.append(BulkArchiveSkipped(id=tid, reason="already_archived"))
+            continue
+        await delete_entity(tier, db, "tier", entity_id=entity_id, user_id=current_user.id)
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="archive", resource_type="tier", resource_id=tier.id,
+            details={"code": tier.code, "name": tier.name, "source": "bulk"},
+        )
+        archived_count += 1
+
+    await db.commit()
+    return BulkArchiveTiersResponse(archived=archived_count, skipped=skipped)
 
 
 # ── Global Contacts (all companies) ────────────────────────────────────────

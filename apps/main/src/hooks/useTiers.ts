@@ -70,6 +70,34 @@ export function useArchiveTier() {
   })
 }
 
+export interface BulkArchiveSkipped {
+  id: string
+  reason: 'not_found' | 'forbidden' | 'already_archived'
+}
+
+export interface BulkArchiveResult {
+  archived: number
+  skipped: BulkArchiveSkipped[]
+}
+
+export function useBulkArchiveTiers() {
+  const qc = useQueryClient()
+  return useMutation<BulkArchiveResult, unknown, string[]>({
+    mutationFn: (ids: string[]) => tiersService.bulkArchive(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tiers'] })
+    },
+  })
+}
+
+export function useTierAuditLog(tierId: string | undefined, limit = 50) {
+  return useQuery({
+    queryKey: ['tier-audit-log', tierId, limit],
+    queryFn: () => tiersService.listAuditLog(tierId!, limit),
+    enabled: !!tierId,
+  })
+}
+
 // ── Contacts ──
 
 function invalidateTierContactCompliance(qc: QueryClient, contactId: string) {

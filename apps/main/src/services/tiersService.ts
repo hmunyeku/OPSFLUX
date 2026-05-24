@@ -10,6 +10,17 @@ import type {
   PaginatedResponse, PaginationParams, UserRead,
 } from '@/types/api'
 
+export interface TierAuditEvent {
+  id: string
+  action: string
+  resource_type: string
+  user_id: string | null
+  user_name: string | null
+  details: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+}
+
 interface TierListParams extends PaginationParams {
   type?: string
   search?: string
@@ -47,6 +58,16 @@ export const tiersService = {
 
   archive: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/tiers/${id}`)
+  },
+
+  bulkArchive: async (ids: string[]): Promise<{ archived: number; skipped: Array<{ id: string; reason: 'not_found' | 'forbidden' | 'already_archived' }> }> => {
+    const { data } = await api.post('/api/v1/tiers/bulk-archive', { ids })
+    return data
+  },
+
+  listAuditLog: async (tierId: string, limit = 50): Promise<TierAuditEvent[]> => {
+    const { data } = await api.get(`/api/v1/tiers/${tierId}/audit-log`, { params: { limit } })
+    return data
   },
 
   // ── Contacts (employees) ──

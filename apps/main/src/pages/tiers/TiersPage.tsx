@@ -71,10 +71,11 @@ import { OpeningHoursManager } from '@/components/shared/OpeningHoursManager'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import {
-  useTiers, useCreateTier, useUpdateTier, useArchiveTier,
+  useTiers, useCreateTier, useUpdateTier, useArchiveTier, useBulkArchiveTiers,
   useTier, useTierContacts, useAllTierContacts,
   useTierBlocks, useBlockTier, useUnblockTier,
   useTierExternalRefs, useCreateTierExternalRef, useDeleteTierExternalRef,
+  useTierAuditLog,
 } from '@/hooks/useTiers'
 import { useAddresses, useNotes, useAttachments, usePhones, useContactEmails, useSocialNetworks, useOpeningHours } from '@/hooks/useSettings'
 import { useLegalIdentifiers } from '@/hooks/useUserSubModels'
@@ -189,6 +190,96 @@ function TierCountryDisplay({ code, labels, withLabel = false }: { code: string 
         !withLabel && 'min-w-5',
       )}
     />
+  )
+}
+
+// -- Tier audit-log timeline (Historique) -----------------------------------
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  create: 'Création',
+  update: 'Modification',
+  archive: 'Archivage',
+  block: 'Blocage',
+  unblock: 'Déblocage',
+  transfer: 'Transfert',
+  mark_validated: 'Validation manuelle',
+  external_verify: 'Vérification externe',
+  approve: 'Approbation',
+  reject: 'Rejet',
+}
+
+const AUDIT_ACTION_CHIP: Record<string, string> = {
+  create: 'chip chip-success',
+  update: 'chip',
+  archive: 'chip chip-danger',
+  block: 'chip chip-danger',
+  unblock: 'chip chip-success',
+  transfer: 'chip chip-info',
+  mark_validated: 'chip chip-success',
+  external_verify: 'chip chip-info',
+  approve: 'chip chip-success',
+  reject: 'chip chip-danger',
+}
+
+function TierAuditTimeline({ tierId }: { tierId: string }) {
+  const { i18n } = useTranslation()
+  const { data: events = [], isLoading } = useTierAuditLog(tierId, 50)
+
+  if (isLoading) {
+    return (
+      <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+        Chargement de l'historique…
+      </div>
+    )
+  }
+  if (events.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+        Aucun événement enregistré sur ce tier.
+      </div>
+    )
+  }
+  const fmt = (iso: string) => {
+    try {
+      return new Intl.DateTimeFormat(i18n.language, {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      }).format(new Date(iso))
+    } catch {
+      return iso.slice(0, 16).replace('T', ' ')
+    }
+  }
+  return (
+    <ol className="relative space-y-2 border-l border-border pl-4">
+      {events.map((evt) => {
+        const actionLabel = AUDIT_ACTION_LABELS[evt.action] ?? evt.action
+        const chipClass = AUDIT_ACTION_CHIP[evt.action] ?? 'chip'
+        const detailFields = evt.details && typeof evt.details === 'object'
+          ? Object.entries(evt.details).filter(([k]) => k !== 'source').slice(0, 4)
+          : []
+        return (
+          <li key={evt.id} className="relative">
+            <span className="absolute -left-[19px] top-1 inline-block h-2 w-2 rounded-full bg-primary" />
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className={chipClass}>{actionLabel}</span>
+              <span className="text-xs text-muted-foreground">par</span>
+              <span className="text-xs font-semibold text-foreground">{evt.user_name ?? 'Système'}</span>
+              <span className="text-[11px] text-muted-foreground">·</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
+            </div>
+            {detailFields.length > 0 && (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {detailFields.map(([k, v]) => (
+                  <span key={k} className="mr-3">
+                    <span className="font-medium text-foreground/70">{k}:</span>{' '}
+                    <span className="font-mono">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
@@ -1454,6 +1545,15 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
           </div>
         </FormSection>
 
+        <FormSection
+          title={t('tiers.ui.sections.history', 'Historique')}
+          collapsible
+          defaultExpanded={false}
+          storageKey="tier-detail-history"
+        >
+          <TierAuditTimeline tierId={tier.id} />
+        </FormSection>
+
         <FormSection title={t('tiers.ui.sections.configuration')} collapsible defaultExpanded={false} storageKey="tier-detail-configuration">
           <DetailFieldGrid>
             <div>
@@ -1538,7 +1638,7 @@ export function TiersPage() {
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
   const confirm = useConfirm()
-  const archiveSelectedTier = useArchiveTier()
+  const bulkArchiveTiers = useBulkArchiveTiers()
   // Reset page when tab/search/filters change
   useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, activeTab])
 
@@ -1952,12 +2052,23 @@ export function TiersPage() {
           })
           if (!ok) return
           try {
-            await Promise.all(rows.map((row) => archiveSelectedTier.mutateAsync(row.id)))
-            toast({
-              title: t('tiers.ui.archive_selected_success_title'),
-              description: t('tiers.ui.archive_selected_success_description', { count: rows.length }),
-              variant: 'success',
-            })
+            // Bulk atomique en 1 appel (avant : N appels Promise.all sequentiels,
+            // non-atomique si erreur partielle). Reponse structuree avec
+            // `archived` count + `skipped[]` (not_found / forbidden / already_archived).
+            const result = await bulkArchiveTiers.mutateAsync(rows.map((row) => row.id))
+            if (result.skipped.length === 0) {
+              toast({
+                title: t('tiers.ui.archive_selected_success_title'),
+                description: t('tiers.ui.archive_selected_success_description', { count: result.archived }),
+                variant: 'success',
+              })
+            } else {
+              toast({
+                title: t('tiers.ui.archive_selected_partial_title', 'Archivage partiel'),
+                description: t('tiers.ui.archive_selected_partial_description', '{{archived}} archivés, {{skipped}} ignorés (introuvable, non autorisé ou déjà archivé)', { archived: result.archived, skipped: result.skipped.length }),
+                variant: result.archived > 0 ? 'success' : 'warning',
+              })
+            }
           } catch (err) {
             toast({
               title: t('common.error'),
@@ -1968,7 +2079,7 @@ export function TiersPage() {
         },
       },
     ]
-  }, [archiveSelectedTier, confirm, hasPermission, t, toast])
+  }, [bulkArchiveTiers, confirm, hasPermission, t, toast])
 
   const getTierRowTooltip = useCallback((tier: Tier): string => {
     const parts = [

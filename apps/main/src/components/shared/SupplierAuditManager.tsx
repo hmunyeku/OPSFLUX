@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CheckCircle2, ClipboardCheck, Download, Eye, History, Plus, Search } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ClipboardCheck, Download, Eye, History, Loader2, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
 import { useComplianceAudits, useComplianceAuditTemplates, useComplianceRules, useCreateComplianceAudit } from '@/hooks/useConformite'
 import { usePermission } from '@/hooks/usePermission'
@@ -438,8 +439,35 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
 
       <div className="flex flex-wrap gap-2">
         {isLoading ? (
-          <div className="w-full rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-            {t('conformite.rules.audits.loading')}
+          <div
+            className="relative flex w-full flex-wrap gap-2"
+            role="status"
+            aria-label={t('common.loading')}
+            aria-busy="true"
+          >
+            <Loader2
+              size={14}
+              className="absolute right-2 top-2 z-10 animate-spin text-muted-foreground"
+              aria-hidden="true"
+            />
+            {Array.from({ length: compact ? 2 : 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex min-w-0 flex-[1_1_15rem] flex-col overflow-hidden rounded-md border border-border bg-card/40 p-3 @[900px]:flex-[1_1_18rem] @[1200px]:flex-[1_1_20rem]"
+              >
+                <div className="flex flex-wrap items-start gap-2">
+                  <Skeleton className="h-5 w-20 rounded" />
+                  <Skeleton className="h-4 min-w-28 flex-1" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="mt-2 h-3 w-32" />
+                <div className="mt-6 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-1.5 w-full rounded-full" />
+                  <Skeleton className="h-3 w-8" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : audits.length === 0 ? (
           <div className="w-full rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">

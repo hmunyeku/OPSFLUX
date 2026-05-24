@@ -40,11 +40,6 @@ export function TypeDetailPanel({ id }: { id: string }) {
   const [centerStart, setCenterStart] = useState('')
   const [centerEnd, setCenterEnd] = useState('')
   const [expandedCenterId, setExpandedCenterId] = useState<string | null>(null)
-  // Issuer creation form is collapsed by default — the previous layout kept all
-  // 5 fields permanently visible above the list which made the empty state look
-  // like a half-filled form and pushed the primary "+ Ajouter" action to the
-  // bottom-right of the grid, far from the section heading.
-  const [showAddCenterForm, setShowAddCenterForm] = useState(false)
   const { data: availableCenters } = useAuthorizationCenters({ page_size: 200 })
   const { data: authorizedCenters } = useTypeAuthorizedCenters(id)
   const addAuthorizedCenter = useAddTypeAuthorizedCenter()
@@ -89,17 +84,8 @@ export function TypeDetailPanel({ id }: { id: string }) {
     setCenterNotes('')
     setCenterStart('')
     setCenterEnd('')
-    setShowAddCenterForm(false) // Collapse the form back after a successful add.
     toast({ title: t('conformite.types_panel.center_added'), variant: 'success' })
   }, [addAuthorizedCenter, centerEnd, centerNotes, centerStart, id, selectedCenterId, toast, t])
-
-  const cancelAddCenter = useCallback(() => {
-    setSelectedCenterId('')
-    setCenterNotes('')
-    setCenterStart('')
-    setCenterEnd('')
-    setShowAddCenterForm(false)
-  }, [])
 
   const formatAccreditationPeriod = useCallback((start?: string | null, end?: string | null) => {
     if (!start && !end) return t('conformite.types_panel.accreditation_period_missing')
@@ -177,64 +163,6 @@ export function TypeDetailPanel({ id }: { id: string }) {
               />
             </DetailFieldGrid>
           </FormSection>
-          {/* Source & vérification externe — édition inline du raccordement au provider externe (RiseUp, etc.). */}
-          <FormSection title="Source & vérification externe">
-            <DetailFieldGrid>
-              <InlineEditableSelect
-                label="Source"
-                value={ct.compliance_source || 'opsflux'}
-                displayValue={
-                  ct.compliance_source === 'external'
-                    ? 'Externe (provider tiers)'
-                    : ct.compliance_source === 'both'
-                    ? 'Mixte (interne + externe)'
-                    : 'OpsFlux (interne)'
-                }
-                options={[
-                  { value: 'opsflux', label: 'OpsFlux (interne)' },
-                  { value: 'external', label: 'Externe (provider tiers)' },
-                  { value: 'both', label: 'Mixte (interne + externe)' },
-                ]}
-                onSave={(v) => {
-                  // When going back to internal-only, drop the external provider/mapping to stay coherent.
-                  if (v === 'opsflux') {
-                    updateType.mutate({ id, payload: { compliance_source: 'opsflux', external_provider: null, external_mapping: null } })
-                  } else {
-                    handleSave('compliance_source', v)
-                  }
-                }}
-              />
-              {ct.compliance_source !== 'opsflux' && (
-                <InlineEditableSelect
-                  label="Provider externe"
-                  value={ct.external_provider || ''}
-                  displayValue={ct.external_provider === 'riseup' ? 'RiseUp (LMS)' : '—'}
-                  options={[
-                    { value: 'riseup', label: 'RiseUp (LMS)' },
-                  ]}
-                  onSave={(v) => handleSave('external_provider', v || null)}
-                />
-              )}
-              {ct.compliance_source !== 'opsflux' && ct.external_provider === 'riseup' && (
-                <InlineEditableRow
-                  label="Mapping RiseUp (cert id)"
-                  value={ct.external_mapping?.riseup_cert_id ?? ''}
-                  displayValue={
-                    ct.external_mapping?.riseup_cert_id
-                      ? `riseup_cert_id = ${ct.external_mapping.riseup_cert_id}`
-                      : '— non mappé'
-                  }
-                  onSave={(v) => {
-                    const next = (v || '').trim()
-                    updateType.mutate({
-                      id,
-                      payload: { external_mapping: next ? { riseup_cert_id: next } : null },
-                    })
-                  }}
-                />
-              )}
-            </DetailFieldGrid>
-          </FormSection>
           <FormSection title={t('common.description')}>
             {/* Full-width — FormSection labels this block already,
                 the inner label row was cramping multiline content. */}
@@ -262,80 +190,51 @@ export function TypeDetailPanel({ id }: { id: string }) {
       )}
       {detailTab === 'emetteurs' && (
         <PanelContentLayout>
-          <FormSection
-            title={t('conformite.types_panel.centers_title')}
-            /* `headerExtra` is the canonical FormSection slot for right-aligned
-               header actions — using it keeps spacing/typography consistent with
-               other sections (vs an ad-hoc div above the section). */
-            headerExtra={
-              !showAddCenterForm ? (
+          <FormSection title={t('conformite.types_panel.centers_title')}>
+            <div className="@container space-y-3">
+              <div className="grid grid-cols-1 gap-2 @[760px]:grid-cols-[minmax(0,1.2fr)_minmax(120px,.6fr)_minmax(120px,.6fr)_minmax(0,1fr)_auto]">
+                <select
+                  value={selectedCenterId}
+                  onChange={(e) => setSelectedCenterId(e.target.value)}
+                  className={panelInputClass}
+                >
+                  <option value="">{t('conformite.types_panel.select_center_placeholder')}</option>
+                  {(availableCenters?.items ?? []).map((center) => (
+                    <option key={center.id} value={center.id}>
+                      {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={centerStart}
+                  onChange={(e) => setCenterStart(e.target.value)}
+                  className={panelInputClass}
+                  aria-label={t('conformite.types_panel.accreditation_starts_at')}
+                />
+                <input
+                  type="date"
+                  value={centerEnd}
+                  onChange={(e) => setCenterEnd(e.target.value)}
+                  className={panelInputClass}
+                  aria-label={t('conformite.types_panel.accreditation_ends_at')}
+                />
+                <input
+                  value={centerNotes}
+                  onChange={(e) => setCenterNotes(e.target.value)}
+                  className={panelInputClass}
+                  placeholder={t('conformite.types_panel.center_notes_placeholder')}
+                />
                 <button
                   type="button"
-                  onClick={() => setShowAddCenterForm(true)}
+                  onClick={handleAddCenter}
+                  disabled={!selectedCenterId || addAuthorizedCenter.isPending}
                   className="btn btn-primary btn-sm"
                 >
-                  <Plus size={12} />
-                  {t('conformite.types_panel.add_center') || t('common.add')}
+                  {addAuthorizedCenter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  {t('common.add')}
                 </button>
-              ) : undefined
-            }
-          >
-            <div className="@container space-y-3">
-              {/* Collapsible add-center form — hidden by default to keep the section header clean.
-                  Replaces the always-visible 5-field grid that pushed the primary action to the bottom. */}
-              {showAddCenterForm && (
-                <div className="rounded-md border border-border bg-background-subtle p-3 space-y-2">
-                  <div className="grid grid-cols-1 gap-2 @[760px]:grid-cols-[minmax(0,1.2fr)_minmax(120px,.6fr)_minmax(120px,.6fr)_minmax(0,1fr)]">
-                    <select
-                      value={selectedCenterId}
-                      onChange={(e) => setSelectedCenterId(e.target.value)}
-                      className={panelInputClass}
-                      autoFocus
-                    >
-                      <option value="">{t('conformite.types_panel.select_center_placeholder')}</option>
-                      {(availableCenters?.items ?? []).map((center) => (
-                        <option key={center.id} value={center.id}>
-                          {center.name}{center.authorization_center_code ? ` · ${center.authorization_center_code}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="date"
-                      value={centerStart}
-                      onChange={(e) => setCenterStart(e.target.value)}
-                      className={panelInputClass}
-                      aria-label={t('conformite.types_panel.accreditation_starts_at')}
-                    />
-                    <input
-                      type="date"
-                      value={centerEnd}
-                      onChange={(e) => setCenterEnd(e.target.value)}
-                      className={panelInputClass}
-                      aria-label={t('conformite.types_panel.accreditation_ends_at')}
-                    />
-                    <input
-                      value={centerNotes}
-                      onChange={(e) => setCenterNotes(e.target.value)}
-                      className={panelInputClass}
-                      placeholder={t('conformite.types_panel.center_notes_placeholder')}
-                    />
-                  </div>
-                  <div className="flex items-center justify-end gap-2">
-                    <button type="button" onClick={cancelAddCenter} className="btn btn-ghost btn-sm">
-                      {t('common.cancel')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddCenter}
-                      disabled={!selectedCenterId || addAuthorizedCenter.isPending}
-                      className="btn btn-primary btn-sm"
-                    >
-                      {addAuthorizedCenter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                      {t('conformite.types_panel.confirm_add_center') || t('common.confirm') || t('common.add')}
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
 
               {authorizedCenters?.length ? (
                 <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-background">

@@ -165,10 +165,7 @@ function CreateComplianceRecordInner() {
       variant: 'primary',
       priority: 100,
       loading: createRecord.isPending || uploading,
-      // Previously also disabled when !file, which made the wizard look broken
-      // (Terminer silently did nothing). We now let the button click reach
-      // handleCreate, which raises a clear toast when the attachment is missing.
-      disabled: createRecord.isPending || uploading,
+      disabled: createRecord.isPending || uploading || !file,
       tooltip: !file ? t('conformite.records.errors.attachment_required') : undefined,
       onClick: handleCreate,
     },
@@ -181,10 +178,6 @@ function CreateComplianceRecordInner() {
       icon={<FileCheck size={14} className="text-primary" />}
       actionItems={actionItems}
     >
-      <form
-        id="create-compliance-record-form"
-        onSubmit={(e) => { e.preventDefault(); handleCreate() }}
-      >
       <PanelContentLayout>
         <SmartFormToolbar />
         <SmartFormSimpleHint />
@@ -370,22 +363,18 @@ function CreateComplianceRecordInner() {
           )}
         </SmartFormSection>
       {_ctx?.mode === 'wizard' && (
+
         <SmartFormWizardNav
-          /* Bug fix : previously the wizard called document.querySelector('form')
-             but no <form> existed in the tree, so the final "Terminer" button
-             silently did nothing. Now there's a real <form id="create-compliance-record-form">
-             above and we target it explicitly. */
-          onSubmit={() => {
-            const formEl = document.getElementById('create-compliance-record-form') as HTMLFormElement | null
-            if (formEl) formEl.requestSubmit()
-            else handleCreate()
-          }}
-          onCancel={closeDynamicPanel}
+
+          onSubmit={() => document.querySelector('form')?.requestSubmit()}
+
+          onCancel={() => {}}
+
         />
+
       )}
 
       </PanelContentLayout>
-      </form>
     </DynamicPanelShell>
   )
 }

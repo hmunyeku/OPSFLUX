@@ -1347,6 +1347,8 @@
       "linked_user": "Utilisateur lié",
       "external_user": "Utilisateur externe",
       "no_linked_user": "Aucun utilisateur lié",
+      "access_email": "Email d'accès",
+      "no_access_email": "Aucun email principal",
       "promote_to_external_user": "Promouvoir en utilisateur externe",
       "promote_hint": "Ce contact peut recevoir un compte externe limité à son entreprise.",
       "promote_missing_email": "Ajoutez d'abord un email principal au contact pour pouvoir le promouvoir.",

@@ -21,7 +21,6 @@ import {
   FormGrid,
   InlineEditableRow,
   InlineEditableSelect,
-  ReadOnlyRow,
   PanelContentLayout,
   SectionColumns,
   DetailFieldGrid,
@@ -683,15 +682,26 @@ export function ContactDetailPanel({
             </FormSection>
 
             <FormSection title={t('tiers.ui.sections.access')} collapsible defaultExpanded storageKey="contact-detail-sections">
-              <DetailFieldGrid>
-                <ReadOnlyRow
-                  label={t('tiers.ui.linked_user')}
-                  value={contact.linked_user_id
-                    ? <CrossModuleLink module="users" id={contact.linked_user_id} label={contact.linked_user_email || t('tiers.ui.external_user')} showIcon={false} className="text-xs" />
-                    : t('tiers.ui.no_linked_user')}
-                />
-                <ReadOnlyRow label={t('common.email')} value={accessEmail || '--'} />
-              </DetailFieldGrid>
+              <div className="grid gap-2 @[560px]:grid-cols-2">
+                <div className="min-w-0 rounded-md border border-border/60 bg-background/60 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('tiers.ui.linked_user')}
+                  </div>
+                  <div className="mt-1 min-w-0 text-sm font-medium text-foreground">
+                    {contact.linked_user_id
+                      ? <CrossModuleLink module="users" id={contact.linked_user_id} label={contact.linked_user_email || t('tiers.ui.external_user')} showIcon={false} className="text-xs" />
+                      : <span className="text-muted-foreground">{t('tiers.ui.no_linked_user')}</span>}
+                  </div>
+                </div>
+                <div className="min-w-0 rounded-md border border-border/60 bg-background/60 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('tiers.ui.access_email')}
+                  </div>
+                  <div className="mt-1 min-w-0 truncate text-sm font-medium text-foreground" title={accessEmail || undefined}>
+                    {accessEmail || <span className="text-muted-foreground">{t('tiers.ui.no_access_email')}</span>}
+                  </div>
+                </div>
+              </div>
               {canPromote && !contact.linked_user_id && (
                 <div className="mt-3 space-y-2">
                   <p className="text-xs text-muted-foreground">

@@ -1250,6 +1250,8 @@
       "linked_user": "Linked user",
       "external_user": "External user",
       "no_linked_user": "No linked user",
+      "access_email": "Access email",
+      "no_access_email": "No primary email",
       "promote_to_external_user": "Promote to external user",
       "promote_hint": "This contact can receive an external account limited to its own company.",
       "promote_missing_email": "Add a primary email to this contact before promoting it.",

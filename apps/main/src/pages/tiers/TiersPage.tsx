@@ -223,7 +223,7 @@ const AUDIT_ACTION_CHIP: Record<string, string> = {
 }
 
 function TierAuditTimeline({ tierId }: { tierId: string }) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { data: events = [], isLoading } = useTierAuditLog(tierId, 50)
 
   if (isLoading) {
@@ -244,7 +244,7 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
   if (events.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-        Aucun événement enregistré sur ce tier.
+        {t('tiers.history.empty', 'Aucun evenement enregistre sur ce tiers.')}
       </div>
     )
   }

@@ -485,6 +485,11 @@ export function ContactDetailPanel({
   const { data: contactAddresses } = useAddresses('tier_contact', contact?.id)
   const { data: contactNotes } = useNotes('tier_contact', contact?.id)
   const { data: contactAttachments } = useAttachments('tier_contact', contact?.id)
+  const primaryPolymorphicEmail = useMemo(() => {
+    const emails = contactCEmails ?? []
+    return emails.find((item) => item.is_default)?.email ?? emails[0]?.email ?? null
+  }, [contactCEmails])
+  const accessEmail = contact?.linked_user_email || contact?.email || primaryPolymorphicEmail || null
 
   const updateContact = useUpdateTierContact()
   const deleteContact = useDeleteTierContact()
@@ -519,6 +524,13 @@ export function ContactDetailPanel({
 
   const handlePromote = useCallback(async () => {
     try {
+      if (!contact?.email && primaryPolymorphicEmail) {
+        await updateContact.mutateAsync({
+          tierId,
+          contactId,
+          payload: { email: primaryPolymorphicEmail },
+        })
+      }
       await promoteContact.mutateAsync({
         tierId,
         contactId,
@@ -537,7 +549,7 @@ export function ContactDetailPanel({
         variant: 'error',
       })
     }
-  }, [tierId, contactId, promoteContact, toast, t])
+  }, [contact?.email, primaryPolymorphicEmail, tierId, contactId, updateContact, promoteContact, toast, t])
 
   const confirmContact = useConfirm()
 
@@ -678,19 +690,19 @@ export function ContactDetailPanel({
                     ? <CrossModuleLink module="users" id={contact.linked_user_id} label={contact.linked_user_email || t('tiers.ui.external_user')} showIcon={false} className="text-xs" />
                     : t('tiers.ui.no_linked_user')}
                 />
-                <ReadOnlyRow label={t('common.email')} value={contact.email || '--'} />
+                <ReadOnlyRow label={t('common.email')} value={accessEmail || '--'} />
               </DetailFieldGrid>
               {canPromote && !contact.linked_user_id && (
                 <div className="mt-3 space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    {contact.email ? t('tiers.ui.promote_hint') : t('tiers.ui.promote_missing_email')}
+                    {accessEmail ? t('tiers.ui.promote_hint') : t('tiers.ui.promote_missing_email')}
                   </p>
                   <button
                     onClick={handlePromote}
-                    disabled={!contact.email || promoteContact.isPending}
+                    disabled={!accessEmail || promoteContact.isPending || updateContact.isPending}
                     className="btn-sm btn-primary"
                   >
-                    {promoteContact.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
+                    {promoteContact.isPending || updateContact.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
                     {t('tiers.ui.promote_to_external_user')}
                   </button>
                 </div>

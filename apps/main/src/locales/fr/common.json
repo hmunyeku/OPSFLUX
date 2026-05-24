@@ -2738,10 +2738,10 @@
       "status": {
         "draft": "Brouillon",
         "submitted": "Soumis",
-        "approved": "Approuv?",
-        "rejected": "Rejet?",
-        "implemented": "Impl?ment?",
-        "cancelled": "Annul?"
+        "approved": "Approuvé",
+        "rejected": "Rejeté",
+        "implemented": "Implémenté",
+        "cancelled": "Annulé"
       },
       "type": {
         "scope": "Périmètre",

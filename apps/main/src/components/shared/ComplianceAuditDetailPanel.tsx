@@ -17,7 +17,7 @@
  * QuestionCard exporte depuis l'ancienne modal.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2, Lock, Pencil, Save, Send } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2, Lock, Pencil, Save, Send, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DynamicPanelShell, FormSection } from '@/components/layout/DynamicPanel'
 import { QuestionCard, scoreColor } from '@/components/shared/ComplianceAuditDetailModal'
@@ -57,27 +57,32 @@ export function ComplianceAuditDetailPanel({
   const [validatorId, setValidatorId] = useState<string | null>(null)
   const [validators, setValidators] = useState<Array<{ id: string; label: string }>>([])
   const [submitComment, setSubmitComment] = useState('')
+  const [editMode, setEditMode] = useState(false)
 
   useEffect(() => {
     setDrafts(buildAuditAnswerDrafts(audit))
     setValidators([])
     setValidatorId(null)
     setSubmitComment('')
+    setEditMode(false)
   }, [audit.id, audit.updated_at])
 
   const progress = useMemo(() => getDraftProgress(drafts), [drafts])
   const isLockedByStatus = ['submitted', 'in_review', 'validated', 'closed'].includes(audit.status)
   const canEditReport = hasPermission('conformite.audit.update')
   const canSubmitAudit = hasPermission('conformite.audit.submit')
-  const readOnly = isLockedByStatus || !canEditReport
   const canSave = canEditReport && !isLockedByStatus
+  const isEditing = canSave && editMode
+  const readOnly = !isEditing
   const canPrepareSubmission = canSubmitAudit && !isLockedByStatus && !audit.validation_moc_id
   const canSubmit = progress.canSubmit && validators.length > 0 && canPrepareSubmission
   const readOnlyReason = isLockedByStatus
     ? t('conformite.rules.audits.readonly_locked', 'Rapport verrouille par son statut : soumis, en validation, valide ou cloture.')
     : !canEditReport
       ? t('conformite.rules.audits.readonly_permission', 'Vous avez la lecture du rapport, mais pas la permission de le completer.')
-      : null
+      : !editMode
+        ? t('conformite.rules.audits.readonly_view_mode', 'Le rapport est ouvert en lecture seule. Activez le mode edition pour modifier les reponses.')
+        : null
 
   // Group drafts by theme for FormSection-per-theme rendering.
   // ComplianceAuditQuestion ne porte que theme_id : on resout via template.themes.
@@ -118,8 +123,9 @@ export function ComplianceAuditDetailPanel({
   }
 
   const save = async () => {
-    if (!canSave) return
+    if (!isEditing) return
     await updateAnswers.mutateAsync({ id: audit.id, payload: draftsToUpsertPayload(drafts) })
+    setEditMode(false)
     toast({ title: t('conformite.rules.audits.saved', 'Reponses enregistrees'), variant: 'success' })
   }
 
@@ -147,9 +153,9 @@ export function ComplianceAuditDetailPanel({
     `conformite.audit_status.${audit.status}`,
     audit.status === 'draft' ? 'Brouillon' : audit.status,
   )
-  const kpiCardClass = 'min-w-0 rounded-md border border-border bg-card px-2 py-1.5'
-  const kpiLabelClass = 'text-[9px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground break-all'
-  const kpiValueClass = 'mt-1 truncate text-sm font-bold leading-none tabular-nums'
+  const kpiCardClass = 'min-w-[6rem] flex-1 rounded border border-border/60 bg-background/60 px-2 py-1'
+  const kpiLabelClass = 'text-[9px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground'
+  const kpiValueClass = 'mt-0.5 truncate text-sm font-bold leading-none tabular-nums'
 
   return (
     <DynamicPanelShell
@@ -170,17 +176,42 @@ export function ComplianceAuditDetailPanel({
             <ArrowLeft size={13} />
             <span>{t('common.back', 'Retour')}</span>
           </button>
-          {canEditReport && (
+          {canSave && !editMode && (
             <button
               type="button"
-              onClick={save}
-              disabled={!canSave || updateAnswers.isPending}
-              className="btn-sm btn-secondary inline-flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-50"
-              title={canSave ? t('conformite.rules.audits.save', 'Enregistrer') : (readOnlyReason ?? t('common.read_only', 'Lecture seule'))}
+              onClick={() => setEditMode(true)}
+              className="btn-sm btn-secondary inline-flex items-center gap-1"
+              title={t('conformite.rules.audits.mode_edit', 'Mode edition du rapport')}
             >
-              {updateAnswers.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-              <span>{t('conformite.rules.audits.save', 'Enregistrer')}</span>
+              <Pencil size={13} />
+              <span>{t('common.edit', 'Modifier')}</span>
             </button>
+          )}
+          {isEditing && (
+            <>
+              <button
+                type="button"
+                onClick={save}
+                disabled={updateAnswers.isPending}
+                className="btn-sm btn-secondary inline-flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-50"
+                title={t('conformite.rules.audits.save', 'Enregistrer')}
+              >
+                {updateAnswers.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                <span>{t('conformite.rules.audits.save', 'Enregistrer')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDrafts(buildAuditAnswerDrafts(audit))
+                  setEditMode(false)
+                }}
+                className="btn-sm btn-secondary inline-flex items-center gap-1"
+                title={t('common.cancel', 'Annuler')}
+              >
+                <X size={13} />
+                <span>{t('common.cancel', 'Annuler')}</span>
+              </button>
+            </>
           )}
           {canPrepareSubmission && (
             <button
@@ -203,7 +234,7 @@ export function ComplianceAuditDetailPanel({
       }
     >
       {/* KPI strip cohérent avec patterns paxlog/projets */}
-      <div className="grid grid-cols-3 gap-1.5 px-1 @[420px]:grid-cols-5">
+      <div className="mx-1 flex min-w-0 flex-wrap gap-1.5 rounded-md border border-border bg-card/60 p-1.5">
         <div className={kpiCardClass}>
           <p className={kpiLabelClass}>{t('conformite.rules.audits.score', 'Score')}</p>
           <p className={cn(kpiValueClass, scoreColor(audit.score_percent))}>{audit.score_percent ?? '—'}%</p>

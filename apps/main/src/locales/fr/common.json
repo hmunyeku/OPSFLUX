@@ -2113,6 +2113,7 @@
         "mode_edit_help": "Vous pouvez compléter les réponses, joindre les preuves puis soumettre le rapport selon vos permissions.",
         "readonly_locked": "Rapport verrouillé par son statut : soumis, en validation, validé ou clôturé.",
         "readonly_permission": "Vous avez la lecture du rapport, mais pas la permission de le compléter.",
+        "readonly_view_mode": "Le rapport est ouvert en lecture seule. Activez le mode édition pour modifier les réponses.",
         "proof_required": "Preuve requise",
         "partial": "Partiel",
         "yes": "Oui",

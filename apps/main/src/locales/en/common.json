@@ -1980,6 +1980,7 @@
         "mode_edit_help": "You can complete answers, attach evidence, then submit the report according to your permissions.",
         "readonly_locked": "This report is locked by its status: submitted, in review, validated or closed.",
         "readonly_permission": "You can read this report, but you do not have permission to complete it.",
+        "readonly_view_mode": "The report opens in read-only mode. Enable edit mode to modify answers.",
         "proof_required": "Proof required",
         "partial": "Partial",
         "yes": "Yes",

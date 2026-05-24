@@ -157,7 +157,7 @@ function StableTabBadge({ badge, active }: { badge?: number | string; active?: b
     <span
       className={cn(
         'gl-tab-badge',
-        active ? "bg-white/25 text-primary-foreground" : "bg-accent text-muted-foreground",
+        active ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground',
       )}
     >
       {stableBadge}

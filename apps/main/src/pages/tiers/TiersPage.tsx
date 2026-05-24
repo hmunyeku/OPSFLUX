@@ -24,6 +24,7 @@ import {
   LayoutDashboard, FolderKanban, Shield, User, Activity, CircleDollarSign, AlertTriangle,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
+import { Skeleton } from '@/components/ui/Skeleton'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, ImportExportConfig, DataTableBatchAction } from '@/components/ui/DataTable/types'
 import { CountryFlag } from '@/components/ui/CountryFlag'
@@ -227,8 +228,16 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
 
   if (isLoading) {
     return (
-      <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-        Chargement de l'historique…
+      <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-label="loading" aria-busy="true">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="flex items-start gap-2">
+            <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Skeleton className="h-3 w-2/3" />
+              <Skeleton className="h-2.5 w-1/3" />
+            </div>
+          </div>
+        ))}
       </div>
     )
   }

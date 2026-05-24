@@ -73,10 +73,11 @@ def _project_task_pob_daily_for_planner(task: ProjectTask) -> dict[str, int] | N
     if getattr(task, "pob_quota_mode", "constant") != "variable":
         return None
     raw = getattr(task, "pob_quota_daily", None)
-    if not isinstance(raw, dict) or not task.start_date:
+    task_start_date = getattr(task, "start_date", None)
+    if not isinstance(raw, dict) or not task_start_date:
         return None
 
-    base = task.start_date.date()
+    base = task_start_date.date()
     out: dict[str, int] = {}
     for key, value in raw.items():
         try:
@@ -741,7 +742,7 @@ async def _sync_linked_planner_activities_for_project_task(
             # Mirror the new POB to the activity. Project tasks store
             # variable POB relatively (J1/J2/...), while Planner stores
             # absolute date keys, so convert during sync.
-            activity.pax_quota = max(0, int(task.pob_quota or 0))
+            activity.pax_quota = max(0, int(getattr(task, "pob_quota", 0) or 0))
             activity.pax_quota_mode = getattr(task, "pob_quota_mode", "constant") or "constant"
             activity.pax_quota_daily = _project_task_pob_daily_for_planner(task)
             if activity.pax_quota_mode != "variable":

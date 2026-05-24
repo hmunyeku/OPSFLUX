@@ -184,7 +184,7 @@ export function VerificationsTab() {
               onClick={(e) => { e.stopPropagation(); openAuditValidation(item) }}
               disabled={!item.validation_moc_id}
               className="btn-sm btn-primary disabled:opacity-40"
-              title={t('conformite.audits.open_validation')}
+              title={t('conformite.rules.audits.open_validation')}
             >
               <ClipboardCheck size={12} />
             </button>

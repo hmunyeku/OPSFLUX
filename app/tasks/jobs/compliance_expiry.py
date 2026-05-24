@@ -97,6 +97,7 @@ async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
         return 0
 
     reminder_count = 0
+    reminded_record_ids: set[str] = set()
 
     for rule in rules_with_reminders:
         reminder_window = now + timedelta(days=rule.renewal_reminder_days)
@@ -115,6 +116,9 @@ async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
         expiring_records = records_result.scalars().all()
 
         for rec in expiring_records:
+            record_key = str(rec.id)
+            if record_key in reminded_record_ids:
+                continue
             if not await _record_rule_applies(db, rule, rec):
                 continue
             days_until = (rec.expires_at - now).days
@@ -129,6 +133,7 @@ async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
                 "rule_id": str(rule.id),
             })
             reminder_count += 1
+            reminded_record_ids.add(record_key)
 
     return reminder_count
 
@@ -387,6 +392,7 @@ async def _check_grace_periods(db: AsyncSession, now: datetime) -> int:
         return 0
 
     grace_count = 0
+    warned_record_ids: set[str] = set()
 
     for rule in rules_with_grace:
         grace_cutoff = now - timedelta(days=rule.grace_period_days)
@@ -404,6 +410,9 @@ async def _check_grace_periods(db: AsyncSession, now: datetime) -> int:
         past_grace_records = records_result.scalars().all()
 
         for rec in past_grace_records:
+            record_key = str(rec.id)
+            if record_key in warned_record_ids:
+                continue
             if not await _record_rule_applies(db, rule, rec):
                 continue
             await emit_event("conformite.record.past_grace", {
@@ -416,5 +425,6 @@ async def _check_grace_periods(db: AsyncSession, now: datetime) -> int:
                 "grace_days": rule.grace_period_days,
             })
             grace_count += 1
+            warned_record_ids.add(record_key)
 
     return grace_count

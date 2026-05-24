@@ -4550,6 +4550,9 @@ async def get_compliance_matrix(
     types_q = select(ComplianceType).where(
         ComplianceType.entity_id == entity_id,
         ComplianceType.active == True,  # noqa: E712
+        # Supplier audits are managed by ComplianceAudit, not by the legacy
+        # referential matrix. Keep audit templates out of record grids.
+        ComplianceType.category != "audit",
     )
     if category:
         types_q = types_q.where(ComplianceType.category == category)

@@ -39,8 +39,10 @@ import { Topbar } from './Topbar'
 import { DetachedPanelsPortal, renderRegisteredPanel } from './DetachedPanelRenderer'
 // Side-effect: register module renderers that should be available
 // app-wide (not bound to a specific page). Notifications can be opened
-// from the topbar Bell on any page.
+// from the topbar Bell on any page. MOC is also opened from polymorphic
+// validation surfaces (supplier audits, project changes) outside /moc.
 import '@/pages/notifications/NotificationsPanelRegister'
+import '@/pages/moc/MOCPanelRegister'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { useShellMode, useApplyShellMode } from '@/hooks/useShellMode'
 import { HelpProvider, HelpPanel } from './HelpSystem'
@@ -107,7 +109,7 @@ interface AppLayoutProps {
 // anywhere in the app (e.g. the topbar Bell). The page-specific
 // modules (planner, moc, projets, …) keep their own renderer wired
 // inline within their page component.
-const GLOBAL_PANEL_MODULES = new Set(['notifications'])
+const GLOBAL_PANEL_MODULES = new Set(['notifications', 'moc'])
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation()
@@ -129,7 +131,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   } = useUIStore()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const dynamicPanelMode = useUIStore((s) => s.dynamicPanelMode)
-  const showGlobalPanel = !!dynamicPanel && GLOBAL_PANEL_MODULES.has(dynamicPanel.module)
+  const showGlobalPanel =
+    !!dynamicPanel &&
+    GLOBAL_PANEL_MODULES.has(dynamicPanel.module) &&
+    moduleSlug !== dynamicPanel.module
   // When a global panel is in 'full' mode (e.g. on mobile via the
   // auto-fullscreen logic in DynamicPanelShell), it claims the whole
   // main area. The page's own <main> needs to step out of the flex

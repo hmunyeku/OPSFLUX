@@ -32,7 +32,6 @@ import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   renderRegisteredPanel,
-  registerPanelRenderer,
 } from '@/components/layout/DetachedPanelRenderer'
 import { PageNavBar } from '@/components/ui/Tabs'
 import { DataTable, BadgeCell } from '@/components/ui/DataTable'
@@ -47,8 +46,7 @@ import {
   type MOC,
   type MOCStatus,
 } from '@/services/mocService'
-import { MOCDetailPanel } from './panels/MOCDetailPanel'
-import { MOCCreatePanel } from './panels/MOCCreatePanel'
+import './MOCPanelRegister'
 
 type MOCTab = 'dashboard' | 'list'
 
@@ -56,14 +54,6 @@ const TABS: { id: MOCTab; labelKey: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', labelKey: 'common.tab_dashboard', icon: LayoutDashboard },
   { id: 'list', labelKey: 'moc.tabs.list', icon: ClipboardList },
 ]
-
-registerPanelRenderer('moc', (view) => {
-  if (view.type === 'create') return <MOCCreatePanel />
-  if (view.type === 'detail' && 'id' in view) {
-    return <MOCDetailPanel id={view.id} initialTab={view.meta?.tab === 'validation' ? 'validation' : undefined} />
-  }
-  return null
-})
 
 export function MOCPage() {
   const { t } = useTranslation()

@@ -3770,24 +3770,36 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           const progressBar = progress >= 75 ? 'bg-green-500' :
                               progress >= 40 ? 'bg-primary' :
                               progress > 0 ? 'bg-amber-500' : 'bg-muted-foreground/30'
-          const insightCardClass = 'group flex h-9 min-w-0 flex-col items-start justify-center gap-0 rounded-md border bg-card/40 px-1.5 py-0.5 text-left transition-colors sm:h-10 sm:px-2'
-          const insightLabelClass = 'truncate text-[7px] font-semibold uppercase leading-none tracking-wide text-muted-foreground/75 sm:text-[8px]'
-          const insightValueClass = 'w-full truncate text-[11px] font-bold leading-tight text-foreground sm:text-xs'
+          const metricCardClass = 'group flex h-[58px] min-w-0 flex-col items-start justify-between gap-1 overflow-hidden rounded-[10px] border-[1.5px] px-2.5 py-2 text-left shadow-[0_1px_4px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(37,99,235,0.14)] @[1280px]:h-16 @[1280px]:px-3.5 @[1280px]:py-2.5'
+          const metricLabelClass = 'min-w-0 truncate text-[9.5px] font-bold uppercase leading-none tracking-[0.05em] @[1280px]:text-[10px]'
+          const metricValueClass = 'w-full truncate text-base font-bold leading-none text-foreground'
+          const mutedMetricValueClass = 'text-muted-foreground/55'
+          const emptyTasks = (tasks?.length ?? 0) === 0
+          const emptyMembers = (members?.length ?? 0) === 0
+          const emptyMilestones = milestoneTasks.length === 0
 
           return (
-            <div className="grid grid-cols-4 gap-1 lg:grid-cols-8">
+            <div
+              data-metrics-wrapper
+              className="@container rounded-lg border border-border/60 bg-muted/20 p-2.5 shadow-sm dark:bg-card/20 @[1280px]:p-3"
+            >
+            <div data-metrics-grid className="grid grid-cols-2 gap-1.5 @[480px]:grid-cols-4 @[800px]:grid-cols-8 @[1280px]:gap-2">
               {/* Météo */}
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className={cn(insightCardClass, 'border-border/50 hover:border-border hover:bg-card/70')}
+                data-metric="weather"
+                className={cn(
+                  metricCardClass,
+                  'border-amber-300/70 bg-gradient-to-br from-amber-50 to-amber-100/70 hover:border-amber-400 dark:border-amber-500/35 dark:from-amber-500/10 dark:to-amber-500/5',
+                )}
                 title="Météo du projet — cliquer pour modifier"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <WeatherIcon weather={project.weather} size={11} />
-                  <span className={insightLabelClass}>{t('projets.insights.weather')}</span>
+                  <WeatherIcon weather={project.weather} size={12} />
+                  <span className={cn(metricLabelClass, 'text-amber-700 dark:text-amber-300')}>{t('projets.insights.weather')}</span>
                 </div>
-                <span className={insightValueClass}>
+                <span className="w-full truncate text-sm font-bold leading-none text-amber-900 dark:text-amber-100">
                   {projectWeatherLabels[project.weather] ?? project.weather ?? '—'}
                 </span>
               </button>
@@ -3796,19 +3808,23 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className={cn(insightCardClass, 'border-primary/30 bg-primary/5 hover:bg-primary/10')}
+                data-metric="progress"
+                className={cn(
+                  metricCardClass,
+                  'border-primary/55 bg-gradient-to-br from-primary/10 to-primary/5 hover:border-primary',
+                )}
                 title={`Avancement ${progress}%`}
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <Target size={11} className="text-primary" />
-                  <span className={insightLabelClass}>{t('projets.insights.progress')}</span>
+                  <Target size={12} className="text-primary" />
+                  <span className={cn(metricLabelClass, 'text-primary')}>{t('projets.insights.progress')}</span>
                 </div>
                 <div className="flex w-full items-end gap-1">
-                  <span className={cn('text-[12px] font-bold tabular-nums leading-none sm:text-sm', progressTone)}>{progress}</span>
-                  <span className={cn('text-[9px] font-medium leading-none sm:text-[10px]', progressTone)}>%</span>
+                  <span className={cn('text-lg font-bold tabular-nums leading-none @[1280px]:text-xl', progressTone)}>{progress}</span>
+                  <span className={cn('text-[10px] font-semibold leading-none', progressTone)}>%</span>
                 </div>
                 {/* Mini progress bar */}
-                <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-[3px] w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className={cn('h-full rounded-full transition-all', progressBar)}
                     style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
@@ -3820,45 +3836,48 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className={cn(insightCardClass, 'transition-all hover:brightness-105', trendCls)}
+                data-metric="trend"
+                className={cn(metricCardClass, 'hover:brightness-105', trendCls)}
                 title={`Tendance: ${trendLabel}`}
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <span className="text-xs font-bold leading-none sm:text-sm">{trendArrow}</span>
-                  <span className={insightLabelClass}>{t('projets.insights.trend')}</span>
+                  <span className="text-sm font-bold leading-none">{trendArrow}</span>
+                  <span className={metricLabelClass}>{t('projets.insights.trend')}</span>
                 </div>
-                <span className={insightValueClass}>{trendLabel}</span>
+                <span className={metricValueClass}>{trendLabel}</span>
               </button>
 
               {/* Tâches — total + sub-line breakdown */}
               <button
                 type="button"
                 onClick={() => setDetailTab('taches')}
-                className={cn(insightCardClass, 'border-border/50 hover:border-primary/40 hover:bg-card/70')}
+                data-metric="tasks"
+                className={cn(metricCardClass, 'border-border/70 bg-muted/35 hover:border-primary/40 hover:bg-card/80')}
                 title="Voir les tâches"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <ListTodo size={11} className="text-muted-foreground" />
-                  <span className={insightLabelClass}>{t('projets.insights.tasks')}</span>
+                  <ListTodo size={12} className="text-muted-foreground" />
+                  <span className={cn(metricLabelClass, 'text-muted-foreground')}>{t('projets.insights.tasks')}</span>
                 </div>
-                <span className={cn(insightValueClass, 'tabular-nums')}>{tasks?.length ?? 0}</span>
+                <span className={cn(metricValueClass, 'tabular-nums', emptyTasks && mutedMetricValueClass)}>{tasks?.length ?? 0}</span>
               </button>
 
               {/* Personnes */}
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className={cn(insightCardClass, 'border-border/50 hover:border-primary/40 hover:bg-card/70')}
+                data-metric="team"
+                className={cn(metricCardClass, 'border-border/70 bg-muted/35 hover:border-primary/40 hover:bg-card/80')}
                 title={t('projets.detail.team.view_team')}
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <Users size={11} className="text-muted-foreground" />
-                  <span className={insightLabelClass}>{t('projets.insights.team')}</span>
+                  <Users size={12} className="text-muted-foreground" />
+                  <span className={cn(metricLabelClass, 'text-muted-foreground')}>{t('projets.insights.team')}</span>
                 </div>
                 <span className={cn(
-                  insightValueClass,
+                  metricValueClass,
                   'tabular-nums',
-                  (members?.length ?? 0) === 0 ? 'text-muted-foreground/40' : 'text-foreground',
+                  emptyMembers && mutedMetricValueClass,
                 )}>{members?.length ?? 0}</span>
               </button>
 
@@ -3866,47 +3885,57 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDetailTab('fiche')}
-                className={cn(insightCardClass, 'border-border/50 hover:border-primary/40 hover:bg-card/70')}
+                data-metric="milestones"
+                className={cn(metricCardClass, 'border-border/70 bg-muted/35 hover:border-primary/40 hover:bg-card/80')}
                 title="Voir les jalons"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <Milestone size={11} className="text-muted-foreground" />
-                  <span className={insightLabelClass}>{t('projets.insights.milestones')}</span>
+                  <Milestone size={12} className="text-muted-foreground" />
+                  <span className={cn(metricLabelClass, 'text-muted-foreground')}>{t('projets.insights.milestones')}</span>
                 </div>
                 <span className={cn(
-                  insightValueClass,
+                  metricValueClass,
                   'tabular-nums',
-                  milestoneTasks.length === 0 ? 'text-muted-foreground/40' : 'text-foreground',
+                  emptyMilestones && mutedMetricValueClass,
                 )}>{milestoneTasks.length}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setDetailTab('budget')}
-                className={cn(insightCardClass, 'border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/10')}
+                data-metric="losses"
+                className={cn(
+                  metricCardClass,
+                  'border-orange-400/60 bg-gradient-to-br from-orange-50 to-orange-100/70 hover:border-orange-500 dark:border-orange-500/35 dark:from-orange-500/10 dark:to-orange-500/5',
+                )}
                 title="Voir les pertes de temps et coûts"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <Activity size={11} className="text-amber-600 dark:text-amber-400" />
-                  <span className={insightLabelClass}>{t('projets.insights.losses')}</span>
+                  <Activity size={12} className="text-orange-600 dark:text-orange-400" />
+                  <span className={cn(metricLabelClass, 'text-orange-700 dark:text-orange-300')}>{t('projets.insights.losses')}</span>
                 </div>
-                <span className={cn(insightValueClass, 'tabular-nums')}>{Math.round(lossSummary.hours)}h</span>
+                <span className={cn(metricValueClass, 'tabular-nums text-orange-900 dark:text-orange-100')}>{Math.round(lossSummary.hours)}h</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setDetailTab('changements')}
-                className={cn(insightCardClass, 'border-blue-500/25 bg-blue-500/5 hover:border-blue-500/40 hover:bg-blue-500/10')}
+                data-metric="changes"
+                className={cn(
+                  metricCardClass,
+                  'border-cyan-400/60 bg-gradient-to-br from-cyan-50 to-cyan-100/70 hover:border-cyan-500 dark:border-cyan-500/35 dark:from-cyan-500/10 dark:to-cyan-500/5',
+                )}
                 title="Voir le registre de changements"
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <History size={11} className="text-primary" />
-                  <span className={insightLabelClass}>{t('projets.insights.changes')}</span>
+                  <History size={12} className="text-cyan-700 dark:text-cyan-300" />
+                  <span className={cn(metricLabelClass, 'text-cyan-700 dark:text-cyan-300')}>{t('projets.insights.changes')}</span>
                 </div>
-                <span className={cn(insightValueClass, 'tabular-nums')}>
+                <span className={cn(metricValueClass, 'tabular-nums text-cyan-900 dark:text-cyan-100')}>
                   {changeSummary.open}/{changeSummary.total}
                 </span>
               </button>
+            </div>
             </div>
           )
         })()}

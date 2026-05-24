@@ -13,7 +13,7 @@
  * Permission-aware: workflow buttons, validation controls and delete action
  * are hidden for users who don't hold the matching permission.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ClipboardCheck,
@@ -163,6 +163,15 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
   const [transitionNote, setTransitionNote] = useState('')
   const [priorityPick, setPriorityPick] = useState<'1' | '2' | '3'>('2')
 
+  const isContextualWorkflow = moc?.workflow_profile === 'project_change' || moc?.workflow_profile === 'audit_validation'
+  const isAuditValidation = moc?.workflow_profile === 'audit_validation'
+
+  useEffect(() => {
+    if (isContextualWorkflow && (activeTab === 'production' || activeTab === 'execution')) {
+      setActiveTab('fiche')
+    }
+  }, [activeTab, isContextualWorkflow])
+
   if (isLoading || !moc) {
     return (
       <DynamicPanelShell title={t('common.loading')}>
@@ -171,6 +180,8 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
     )
   }
 
+  const isProcessMOC = moc.workflow_profile === 'process_moc'
+  const auditContext = (moc.context_payload || {}) as Record<string, unknown>
   const allAllowedFsm = fsm?.transitions[moc.status] ?? []
   const allowedTransitions = allAllowedFsm.filter(
     (tr) => hasPermission(tr.permission) || hasPermission('moc.change.manage'),
@@ -316,6 +327,18 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
     if (v.role !== 'metier') validationByRole.set(v.role as MOCValidationRole, v)
   }
   const metierValidations = matrixRows.filter((v) => v.role === 'metier')
+  const contextualValidationRows = [
+    ...metierValidations,
+    ...invitedRows,
+  ]
+  const isValidationReadOnly =
+    !canValidate ||
+    ['approved', 'implemented', 'closed', 'cancelled'].includes(moc.status)
+  const formatContextualValidatorLabel = (entry: MOCValidation) => {
+    const person = entry.validator_name || t('moc.invited_user_default')
+    const role = entry.metier_name || t('moc.audit.validator_role', 'Validation audit')
+    return `${person} - ${role}`
+  }
 
   const submitInvite = async () => {
     if (!inviteUserId) return
@@ -324,7 +347,9 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
         id: moc.id,
         payload: {
           user_id: inviteUserId,
-          role: inviteRole,
+          role: isAuditValidation ? 'metier' : inviteRole,
+          metier_code: isAuditValidation ? 'AUDIT' : undefined,
+          metier_name: isAuditValidation ? 'Audit' : undefined,
           level: inviteLevel || null,
           comments: inviteComments.trim() || null,
         },
@@ -344,21 +369,29 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
 
   const tabItems = [
     { id: 'fiche' as const, label: t('moc.detail_tab.fiche'), icon: Info },
-    {
-      id: 'production' as const,
-      label: t('moc.detail_tab.production'),
-      icon: Factory,
-    },
+    ...(isProcessMOC
+      ? [
+          {
+            id: 'production' as const,
+            label: t('moc.detail_tab.production'),
+            icon: Factory,
+          },
+        ]
+      : []),
     {
       id: 'validation' as const,
       label: t('moc.detail_tab.validation'),
       icon: ClipboardCheck,
     },
-    {
-      id: 'execution' as const,
-      label: t('moc.detail_tab.execution'),
-      icon: PlayCircle,
-    },
+    ...(isProcessMOC
+      ? [
+          {
+            id: 'execution' as const,
+            label: t('moc.detail_tab.execution'),
+            icon: PlayCircle,
+          },
+        ]
+      : []),
     {
       id: 'comments' as const,
       label: t('moc.detail_tab.comments'),
@@ -476,7 +509,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
             {/* FSM stepper — shows the 7 milestones of the Daxium/CDC flow
                 so the user understands where the MOC stands and what's
                 coming next. Hidden for terminal states (cancelled). */}
-            {moc.status !== 'cancelled' && (
+            {isProcessMOC && moc.status !== 'cancelled' && (
               <FormSection
                 title={t('moc.section.workflow_stepper')}
                 defaultExpanded
@@ -520,7 +553,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                       updates the record immediately via a PATCH so the
                       pre-flight re-runs on the next render and unlocks the
                       button. */}
-                  {allowedTransitions.some((tr) => tr.to === 'approved') && (
+                  {isProcessMOC && allowedTransitions.some((tr) => tr.to === 'approved') && (
                     <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-2">
                       <span className="text-xs font-medium text-foreground">
                         {t('moc.fields.is_real_change')}
@@ -601,12 +634,24 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                   label={t('moc.fields.platform')}
                   value={moc.platform_code}
                 />
+                {isAuditValidation && (
+                  <>
+                    <ReadOnlyRow
+                      label={t('moc.audit.reference', 'Audit')}
+                      value={String(auditContext.audit_reference || moc.context_id || '---')}
+                    />
+                    <ReadOnlyRow
+                      label={t('moc.audit.target', 'Cible')}
+                      value={String(auditContext.target_type || moc.context_type || '---')}
+                    />
+                  </>
+                )}
                 {moc.title && (
                   <ReadOnlyRow label={t('moc.fields.title')} value={moc.title} />
                 )}
                 {/* Type de MOC — editable while status = created via <select>,
                     read-only after (status locked) */}
-                {moc.status === 'created' && canUpdateFlags ? (
+                {isProcessMOC && moc.status === 'created' && canUpdateFlags ? (
                   <ReadOnlyRow
                     label={t('moc.fields.moc_type')}
                     value={
@@ -629,7 +674,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                       </select>
                     }
                   />
-                ) : (
+                ) : isProcessMOC ? (
                   <ReadOnlyRow
                     label={t('moc.fields.moc_type')}
                     value={
@@ -637,14 +682,14 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                       '—'
                     }
                   />
-                )}
-                {moc.nature && (
+                ) : null}
+                {isProcessMOC && moc.nature && (
                   <ReadOnlyRow
                     label={t('moc.fields.nature')}
                     value={t(`moc.nature.${moc.nature}`)}
                   />
                 )}
-                {moc.metiers && moc.metiers.length > 0 && (
+                {isProcessMOC && moc.metiers && moc.metiers.length > 0 && (
                   <ReadOnlyRow
                     label={t('moc.fields.metiers')}
                     value={moc.metiers.join(', ')}
@@ -720,7 +765,8 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                     }
                   />
                 )}
-                <ReadOnlyRow
+                {isProcessMOC && (
+                  <ReadOnlyRow
                   label={t('moc.fields.modification_type')}
                   value={
                     moc.modification_type === 'permanent'
@@ -729,8 +775,9 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                         ? t('moc.type_temporary')
                         : '—'
                   }
-                />
-                {moc.modification_type === 'temporary' && (
+                  />
+                )}
+                {isProcessMOC && moc.modification_type === 'temporary' && (
                   <>
                     <ReadOnlyRow
                       label={t('moc.fields.temporary_period')}
@@ -744,14 +791,16 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                     />
                   </>
                 )}
-                <ReadOnlyRow
+                {isProcessMOC && (
+                  <ReadOnlyRow
                   label={t('moc.fields.planned_date')}
                   value={
                     moc.planned_implementation_date
                       ? formatDate(moc.planned_implementation_date)
                       : '—'
                   }
-                />
+                  />
+                )}
               </DetailFieldGrid>
             </FormSection>
 
@@ -794,7 +843,11 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
         {activeTab === 'validation' && (
           <>
             <FormSection
-              title={t('moc.section.validation_matrix')}
+              title={
+                isAuditValidation
+                  ? t('moc.audit.validation_title', 'Validation du rapport audit')
+                  : t('moc.section.validation_matrix')
+              }
               defaultExpanded
               headerExtra={
                 canInviteValidator ? (
@@ -823,6 +876,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                         placeholder={t('moc.fields.invitee_ph') as string}
                       />
                     </div>
+                    {!isAuditValidation && (
                     <div>
                       <label className="text-[10px] font-medium text-muted-foreground">
                         {t('moc.fields.role')}
@@ -843,6 +897,18 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                         )}
                       </select>
                     </div>
+                    )}
+                    {isAuditValidation && (
+                      <div className="rounded-md border border-border/60 bg-background px-3 py-2 text-xs">
+                        <span className="text-muted-foreground">
+                          {t('moc.fields.role')}:
+                        </span>{' '}
+                        <span className="font-medium">
+                          {t('moc.audit.validator_role', 'Validation audit')}
+                        </span>
+                      </div>
+                    )}
+                    {!isAuditValidation && (
                     <div>
                       <label className="text-[10px] font-medium text-muted-foreground">
                         {t('moc.fields.level')}
@@ -862,6 +928,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                         <option value="DO_AND_DG">DO + DG</option>
                       </select>
                     </div>
+                    )}
                     <div className="md:col-span-2">
                       <label className="text-[10px] font-medium text-muted-foreground">
                         {t('moc.fields.invite_comment')}
@@ -887,7 +954,41 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                 </div>
               )}
               <div className="space-y-2">
-                {CORE_ROLES.map((role) => {
+                {!isProcessMOC && (
+                  <>
+                    {contextualValidationRows.length === 0 ? (
+                      <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
+                        {t(
+                          'moc.audit.no_validators',
+                          'Aucun validateur audit defini pour ce workflow.',
+                        )}
+                      </div>
+                    ) : (
+                      contextualValidationRows.map((v) => (
+                        <ValidationRow
+                          key={v.id}
+                          label={formatContextualValidatorLabel(v)}
+                          entry={v}
+                          onChange={(patch) =>
+                            validationMutation.mutate({
+                              id: moc.id,
+                              payload: {
+                                role: v.role,
+                                metier_code: v.metier_code,
+                                target_validator_id: v.validator_id,
+                                ...patch,
+                              },
+                            })
+                          }
+                          disabled={validationMutation.isPending || isValidationReadOnly}
+                          readOnly={isValidationReadOnly}
+                          showLevel={false}
+                        />
+                      ))
+                    )}
+                  </>
+                )}
+                {isProcessMOC && CORE_ROLES.map((role) => {
                   const v = validationByRole.get(role)
                   return (
                     <ValidationRow
@@ -900,7 +1001,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                     />
                   )
                 })}
-                {metierValidations.length > 0 && (
+                {isProcessMOC && metierValidations.length > 0 && (
                   <div className="mt-3 border-t border-border pt-3 space-y-2">
                     <h4 className="text-xs font-semibold text-muted-foreground">
                       {t('moc.section.metier_validations')}
@@ -926,7 +1027,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                     ))}
                   </div>
                 )}
-                {invitedRows.length > 0 && (
+                {isProcessMOC && invitedRows.length > 0 && (
                   <div className="mt-3 border-t border-border pt-3 space-y-2">
                     <h4 className="text-xs font-semibold text-muted-foreground">
                       {t('moc.section.invited_validators')}
@@ -960,6 +1061,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
               </div>
             </FormSection>
 
+            {isProcessMOC && (
             <FormSection title={t('moc.section.flags')} defaultExpanded>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <FlagRow
@@ -1004,8 +1106,10 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                 />
               </div>
             </FormSection>
+            )}
 
             {/* Coût du MOC — paper form page 5 */}
+            {isProcessMOC && (
             <FormSection title={t('moc.section.cost')} defaultExpanded>
               <div className="flex flex-wrap items-center gap-3">
                 <label className="text-xs font-medium text-muted-foreground">
@@ -1046,6 +1150,7 @@ export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
                 )}
               </div>
             </FormSection>
+            )}
 
             {/* DO/DG accord moved to the "Exécution" tab — that tab provides
                 the full flow (signature + motif de renvoi + accord/refus)

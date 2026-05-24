@@ -31,6 +31,7 @@ export function ValidationRow({
   onChange,
   disabled,
   readOnly,
+  showLevel = true,
 }: {
   label: string
   entry: MOCValidation | undefined
@@ -43,6 +44,7 @@ export function ValidationRow({
   }) => void
   disabled: boolean
   readOnly?: boolean
+  showLevel?: boolean
 }) {
   const { t } = useTranslation()
   return (
@@ -70,6 +72,7 @@ export function ValidationRow({
           </label>
           {!readOnly && (
             <>
+              {showLevel && (
               <select
                 className="gl-form-input h-6 text-[10px] px-1 py-0"
                 value={entry?.level ?? ''}
@@ -90,6 +93,7 @@ export function ValidationRow({
                 <option value="DG">DG</option>
                 <option value="DO_AND_DG">DO+DG</option>
               </select>
+              )}
               <button
                 type="button"
                 disabled={disabled}

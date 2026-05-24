@@ -262,6 +262,13 @@ export function missingPrereqsFor(
 ): string[] {
   const missing: string[] = []
   if (to === 'approved') {
+    if (moc.workflow_profile === 'project_change' || moc.workflow_profile === 'audit_validation') {
+      const unapproved = (moc.validations || []).filter(
+        (v) => v.required && !v.approved,
+      )
+      if (unapproved.length > 0) missing.push('moc.prereq.all_validators_approved')
+      return missing
+    }
     if (!moc.initiator_signature) missing.push('moc.prereq.initiator_signature')
     if (moc.is_real_change === null || moc.is_real_change === undefined) {
       missing.push('moc.prereq.is_real_change')

@@ -131,8 +131,12 @@ async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
     return reminder_count
 
 
-def _audit_rule_applies(rule, audit) -> bool:
-    """Best-effort matcher for audit reminder rules."""
+def _split_rule_values(value: str | None) -> set[str]:
+    return {item.strip() for item in str(value or "").split(",") if item.strip()}
+
+
+async def _audit_rule_applies(db: AsyncSession, rule, audit) -> bool:
+    """Return whether an audit reminder rule applies to an audit target."""
     condition = rule.condition_json or {}
     if str(condition.get("audit_template_id") or "") != str(audit.template_id):
         return False
@@ -140,10 +144,40 @@ def _audit_rule_applies(rule, audit) -> bool:
         return False
     if rule.target_type == "all":
         return True
-    if rule.target_type != audit.target_type:
+
+    values = _split_rule_values(rule.target_value)
+    wildcard = not values or bool(values & {"*", "all"})
+
+    if audit.target_type != "tier":
+        return rule.target_type == audit.target_type and (wildcard or str(audit.target_id) in values)
+
+    if rule.target_type == "tier":
+        return str(audit.target_id) in values
+
+    if rule.target_type not in {"tier_type", "tier_country", "tier_industry", "tier_tag"}:
         return False
-    values = [value.strip() for value in str(rule.target_value or "").split(",") if value.strip()]
-    return str(audit.target_id) in values
+
+    from app.models.common import Tag, Tier
+
+    tier = await db.get(Tier, audit.target_id)
+    if not tier:
+        return False
+
+    if rule.target_type == "tier_type":
+        return wildcard or (bool(tier.type) and tier.type in values)
+    if rule.target_type == "tier_country":
+        return wildcard or (bool(tier.country) and tier.country in values)
+    if rule.target_type == "tier_industry":
+        return wildcard or (bool(tier.industry) and tier.industry in values)
+
+    tag_rows = await db.execute(
+        select(Tag.name).where(
+            Tag.owner_type == "tier",
+            Tag.owner_id == audit.target_id,
+        )
+    )
+    tag_names = {name.lower() for name in tag_rows.scalars().all() if name}
+    return wildcard or bool({value.lower() for value in values} & tag_names)
 
 
 async def _expire_overdue_audits(db: AsyncSession, today: date) -> int:
@@ -212,7 +246,7 @@ async def _send_audit_renewal_reminders(db: AsyncSession, today: date) -> int:
         for rule in rules:
             if days_until > int(rule.renewal_reminder_days or 0):
                 continue
-            if not _audit_rule_applies(rule, audit):
+            if not await _audit_rule_applies(db, rule, audit):
                 continue
             await emit_event("conformite.audit.expiring_soon", {
                 "audit_id": str(audit.id),

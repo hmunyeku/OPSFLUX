@@ -81,7 +81,7 @@ async def _expire_overdue_records(db: AsyncSession, now: datetime) -> int:
 
 async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
     """Send reminders for records expiring within renewal_reminder_days."""
-    from app.models.common import ComplianceRecord, ComplianceRule, ComplianceType
+    from app.models.common import ComplianceRecord, ComplianceRule
 
     # Get rules with renewal_reminder_days set
     rules_result = await db.execute(
@@ -115,6 +115,8 @@ async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
         expiring_records = records_result.scalars().all()
 
         for rec in expiring_records:
+            if not await _record_rule_applies(db, rule, rec):
+                continue
             days_until = (rec.expires_at - now).days
             await emit_event("conformite.record.expiring_soon", {
                 "record_id": str(rec.id),
@@ -133,6 +135,109 @@ async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
 
 def _split_rule_values(value: str | None) -> set[str]:
     return {item.strip() for item in str(value or "").split(",") if item.strip()}
+
+
+def _owner_subject_scope(owner_type: str) -> str:
+    if owner_type in {"user", "tier_contact"}:
+        return "person"
+    if owner_type == "tier":
+        return "company"
+    if owner_type == "asset":
+        return "asset"
+    if owner_type == "packlog_cargo":
+        return "cargo"
+    return "all"
+
+
+def _is_audit_rule(rule) -> bool:
+    return isinstance(rule.condition_json, dict) and bool(rule.condition_json.get("audit_template_id"))
+
+
+async def _owner_tag_names(db: AsyncSession, owner_type: str, owner_id) -> set[str]:
+    from app.models.common import Tag
+
+    if not owner_id:
+        return set()
+    rows = await db.execute(
+        select(Tag.name).where(
+            Tag.owner_type == owner_type,
+            Tag.owner_id == owner_id,
+        )
+    )
+    return {name.lower() for name in rows.scalars().all() if name}
+
+
+async def _record_rule_applies(db: AsyncSession, rule, record) -> bool:
+    """Return whether a compliance reminder/grace rule applies to a record owner."""
+    if _is_audit_rule(rule):
+        return False
+
+    subject_scope = _owner_subject_scope(record.owner_type)
+    if rule.subject_scope not in {subject_scope, "all"}:
+        return False
+    if rule.target_type == "all":
+        return True
+
+    values = _split_rule_values(rule.target_value)
+    wildcard = not values or bool(values & {"*", "all"})
+    owner_id = record.owner_id
+    if not owner_id:
+        return False
+
+    if rule.target_type in {"asset", "packlog_cargo"}:
+        return record.owner_type == rule.target_type and (wildcard or str(owner_id) in values)
+
+    if record.owner_type in {"user", "tier_contact"}:
+        from app.models.common import BusinessUnit, TierContact, User
+
+        if rule.target_type == "job_position":
+            if record.owner_type == "user":
+                owner = await db.get(User, owner_id)
+            else:
+                owner = await db.get(TierContact, owner_id)
+            job_position_id = getattr(owner, "job_position_id", None) if owner else None
+            return bool(job_position_id) and str(job_position_id) in values
+
+        if rule.target_type == "department":
+            if record.owner_type == "tier_contact":
+                owner = await db.get(TierContact, owner_id)
+                department = getattr(owner, "department", None) if owner else None
+                return wildcard or (bool(department) and department in values)
+
+            owner = await db.get(User, owner_id)
+            business_unit_id = getattr(owner, "business_unit_id", None) if owner else None
+            if not business_unit_id:
+                return False
+            if str(business_unit_id) in values:
+                return True
+            business_unit = await db.get(BusinessUnit, business_unit_id)
+            return wildcard or bool(business_unit and ({business_unit.code, business_unit.name} & values))
+
+        if rule.target_type == "person_tag":
+            tag_names = await _owner_tag_names(db, record.owner_type, owner_id)
+            return wildcard or bool({value.lower() for value in values} & tag_names)
+
+        return False
+
+    if record.owner_type == "tier":
+        from app.models.common import Tier
+
+        tier = await db.get(Tier, owner_id)
+        if not tier:
+            return False
+        if rule.target_type == "tier":
+            return str(owner_id) in values
+        if rule.target_type == "tier_type":
+            return wildcard or (bool(tier.type) and tier.type in values)
+        if rule.target_type == "tier_country":
+            return wildcard or (bool(tier.country) and tier.country in values)
+        if rule.target_type == "tier_industry":
+            return wildcard or (bool(tier.industry) and tier.industry in values)
+        if rule.target_type == "tier_tag":
+            tag_names = await _owner_tag_names(db, "tier", owner_id)
+            return wildcard or bool({value.lower() for value in values} & tag_names)
+
+    return False
 
 
 async def _audit_rule_applies(db: AsyncSession, rule, audit) -> bool:
@@ -299,6 +404,8 @@ async def _check_grace_periods(db: AsyncSession, now: datetime) -> int:
         past_grace_records = records_result.scalars().all()
 
         for rec in past_grace_records:
+            if not await _record_rule_applies(db, rule, rec):
+                continue
             await emit_event("conformite.record.past_grace", {
                 "record_id": str(rec.id),
                 "compliance_type_id": str(rec.compliance_type_id),

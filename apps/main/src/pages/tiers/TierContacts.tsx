@@ -21,7 +21,6 @@ import {
   FormGrid,
   InlineEditableRow,
   InlineEditableSelect,
-  ReadOnlyRow,
   PanelContentLayout,
   SectionColumns,
   DetailFieldGrid,
@@ -485,6 +484,13 @@ export function ContactDetailPanel({
   const { data: contactAddresses } = useAddresses('tier_contact', contact?.id)
   const { data: contactNotes } = useNotes('tier_contact', contact?.id)
   const { data: contactAttachments } = useAttachments('tier_contact', contact?.id)
+  const primaryPolymorphicEmail = useMemo(() => {
+    const emails = contactCEmails ?? []
+    return emails.find((item) => item.is_default)?.email ?? emails[0]?.email ?? null
+  }, [contactCEmails])
+  const accessEmail = contact?.linked_user_email || contact?.email || primaryPolymorphicEmail || null
+  const contactPersonName = contact ? `${contact.first_name} ${contact.last_name}` : ''
+  const contactInitials = contact ? `${contact.first_name[0] ?? ''}${contact.last_name[0] ?? ''}`.toUpperCase() : ''
 
   const updateContact = useUpdateTierContact()
   const deleteContact = useDeleteTierContact()
@@ -519,6 +525,13 @@ export function ContactDetailPanel({
 
   const handlePromote = useCallback(async () => {
     try {
+      if (!contact?.email && primaryPolymorphicEmail) {
+        await updateContact.mutateAsync({
+          tierId,
+          contactId,
+          payload: { email: primaryPolymorphicEmail },
+        })
+      }
       await promoteContact.mutateAsync({
         tierId,
         contactId,
@@ -537,7 +550,7 @@ export function ContactDetailPanel({
         variant: 'error',
       })
     }
-  }, [tierId, contactId, promoteContact, toast, t])
+  }, [contact?.email, primaryPolymorphicEmail, tierId, contactId, updateContact, promoteContact, toast, t])
 
   const confirmContact = useConfirm()
 
@@ -642,6 +655,13 @@ export function ContactDetailPanel({
                   disabled={!canEdit}
                 />
                 <InlineEditableRow
+                  label={t('tiers.ui.photo_url')}
+                  value={contact.photo_url || ''}
+                  displayValue={contact.photo_url || '--'}
+                  onSave={(newValue) => { void saveContactPatch({ photo_url: newValue.trim() || null }) }}
+                  disabled={!canEdit}
+                />
+                <InlineEditableRow
                   label={t('tiers.ui.position')}
                   value={contact.position || ''}
                   displayValue={contact.position || '--'}
@@ -671,26 +691,70 @@ export function ContactDetailPanel({
             </FormSection>
 
             <FormSection title={t('tiers.ui.sections.access')} collapsible defaultExpanded storageKey="contact-detail-sections">
-              <DetailFieldGrid>
-                <ReadOnlyRow
-                  label={t('tiers.ui.linked_user')}
-                  value={contact.linked_user_id
-                    ? <CrossModuleLink module="users" id={contact.linked_user_id} label={contact.linked_user_email || t('tiers.ui.external_user')} showIcon={false} className="text-xs" />
-                    : t('tiers.ui.no_linked_user')}
-                />
-                <ReadOnlyRow label={t('common.email')} value={contact.email || '--'} />
-              </DetailFieldGrid>
+              <div className="grid gap-2 @[640px]:grid-cols-[minmax(0,1.2fr)_minmax(180px,0.8fr)]">
+                <div className="min-w-0 rounded-md border border-border/60 bg-background/60 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('tiers.ui.linked_user')}
+                  </div>
+                  {contact.linked_user_id ? (
+                    <div className="mt-2 flex min-w-0 items-center gap-2">
+                      {contact.photo_url ? (
+                        <img
+                          src={contact.photo_url}
+                          alt={contactPersonName}
+                          className="h-8 w-8 shrink-0 rounded-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                          {contactInitials}
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <CrossModuleLink
+                          module="users"
+                          id={contact.linked_user_id}
+                          label={contactPersonName || t('tiers.ui.external_user')}
+                          showIcon={false}
+                          className="text-sm font-semibold"
+                        />
+                        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                          <span className={cn(
+                            'h-1.5 w-1.5 shrink-0 rounded-full',
+                            contact.linked_user_active === false ? 'bg-muted-foreground' : 'bg-emerald-500',
+                          )} />
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {contact.linked_user_active === false ? t('common.inactive') : t('common.active')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-sm font-medium text-muted-foreground">
+                      {t('tiers.ui.no_linked_user')}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 rounded-md border border-border/60 bg-background/60 p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('tiers.ui.access_email')}
+                  </div>
+                  <div className="mt-1 min-w-0 truncate text-sm font-medium text-foreground" title={accessEmail || undefined}>
+                    {accessEmail || <span className="text-muted-foreground">{t('tiers.ui.no_access_email')}</span>}
+                  </div>
+                </div>
+              </div>
               {canPromote && !contact.linked_user_id && (
                 <div className="mt-3 space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    {contact.email ? t('tiers.ui.promote_hint') : t('tiers.ui.promote_missing_email')}
+                    {accessEmail ? t('tiers.ui.promote_hint') : t('tiers.ui.promote_missing_email')}
                   </p>
                   <button
                     onClick={handlePromote}
-                    disabled={!contact.email || promoteContact.isPending}
+                    disabled={!accessEmail || promoteContact.isPending || updateContact.isPending}
                     className="btn-sm btn-primary"
                   >
-                    {promoteContact.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
+                    {promoteContact.isPending || updateContact.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
                     {t('tiers.ui.promote_to_external_user')}
                   </button>
                 </div>

@@ -42,6 +42,7 @@ const notificationModules = [
   { key: 'planner', label: 'Planner' },
   { key: 'travelwiz', label: 'TravelWiz' },
   { key: 'packlog', label: 'PackLog' },
+  { key: 'papyrus', label: 'Papyrus' },
   { key: 'conformite', label: 'Conformité' },
   { key: 'workflow', label: 'Workflow' },
   { key: 'support', label: 'Support' },
@@ -57,36 +58,36 @@ const defaultNotificationMatrix = Object.fromEntries(
 )
 
 const notificationEvents = [
-  { key: 'ads.submitted', label: 'AdS soumise', module: 'PaxLog' },
-  { key: 'ads.rejected', label: 'AdS rejetée', module: 'PaxLog' },
-  { key: 'ads.compliance_failed', label: 'AdS bloquée en conformité', module: 'PaxLog' },
-  { key: 'ads.approved', label: 'AdS approuvée', module: 'PaxLog' },
-  { key: 'planner.activity.validated', label: 'Activité validée', module: 'Planner' },
-  { key: 'planner.activity.cancelled', label: 'Activité annulée', module: 'Planner' },
-  { key: 'planner.conflict.detected', label: 'Conflit de capacité détecté', module: 'Planner' },
-  { key: 'planner.revision.requested', label: 'Révision demandée', module: 'Planner' },
-  { key: 'planner.revision.responded', label: 'Réponse à une révision', module: 'Planner' },
-  { key: 'planner.revision.forced', label: 'Révision forcée', module: 'Planner' },
-  { key: 'project.status.changed', label: 'Statut projet modifié', module: 'Projects' },
-  { key: 'project.task.assigned', label: 'Tâche assignée', module: 'Projects' },
-  { key: 'project.task.planner_sync_required', label: 'Révision Planner suggérée', module: 'Projects' },
-  { key: 'conformite.record_verified', label: 'Conformité vérifiée / rejetée', module: 'Conformité' },
-  { key: 'conformite.rule.changed', label: 'Règle modifiée', module: 'Conformité' },
-  { key: 'conformite.record.expired', label: 'Conformité expirée', module: 'Conformité' },
-  { key: 'conformite.record.expiring_soon', label: 'Conformité à renouveler', module: 'Conformité' },
-  { key: 'conformite.audit.expired', label: 'Audit fournisseur expiré', module: 'Conformité' },
-  { key: 'conformite.audit.expiring_soon', label: 'Audit fournisseur à renouveler', module: 'Conformité' },
-  { key: 'conformite.audit.validation.submitted', label: 'Audit fournisseur soumis', module: 'Conformité' },
-  { key: 'conformite.audit.validation.approved', label: 'Audit fournisseur validé', module: 'Conformité' },
-  { key: 'conformite.audit.validation.rejected', label: 'Audit fournisseur rejeté', module: 'Conformité' },
-  { key: 'document.submitted', label: 'Document soumis', module: 'Papyrus' },
-  { key: 'document.approved', label: 'Document approuvé', module: 'Papyrus' },
-  { key: 'document.rejected', label: 'Document rejeté', module: 'Papyrus' },
-  { key: 'document.published', label: 'Document publié', module: 'Papyrus' },
-  { key: 'ticket.assigned', label: 'Ticket assigné', module: 'Support' },
-  { key: 'ticket.commented', label: 'Ticket commenté', module: 'Support' },
-  { key: 'ticket.resolved', label: 'Ticket résolu', module: 'Support' },
-  { key: 'travelwiz.pickup_reminder', label: 'Rappel de navette', module: 'TravelWiz' },
+  { key: 'ads.submitted', label: 'AdS soumise', moduleKey: 'paxlog' },
+  { key: 'ads.rejected', label: 'AdS rejetée', moduleKey: 'paxlog' },
+  { key: 'ads.compliance_failed', label: 'AdS bloquée en conformité', moduleKey: 'paxlog' },
+  { key: 'ads.approved', label: 'AdS approuvée', moduleKey: 'paxlog' },
+  { key: 'planner.activity.validated', label: 'Activité validée', moduleKey: 'planner' },
+  { key: 'planner.activity.cancelled', label: 'Activité annulée', moduleKey: 'planner' },
+  { key: 'planner.conflict.detected', label: 'Conflit de capacité détecté', moduleKey: 'planner' },
+  { key: 'planner.revision.requested', label: 'Révision demandée', moduleKey: 'planner' },
+  { key: 'planner.revision.responded', label: 'Réponse à une révision', moduleKey: 'planner' },
+  { key: 'planner.revision.forced', label: 'Révision forcée', moduleKey: 'planner' },
+  { key: 'project.status.changed', label: 'Statut projet modifié', moduleKey: 'projects' },
+  { key: 'project.task.assigned', label: 'Tâche assignée', moduleKey: 'projects' },
+  { key: 'project.task.planner_sync_required', label: 'Révision Planner suggérée', moduleKey: 'projects' },
+  { key: 'conformite.record_verified', label: 'Conformité vérifiée / rejetée', moduleKey: 'conformite' },
+  { key: 'conformite.rule.changed', label: 'Règle modifiée', moduleKey: 'conformite' },
+  { key: 'conformite.record.expired', label: 'Conformité expirée', moduleKey: 'conformite' },
+  { key: 'conformite.record.expiring_soon', label: 'Conformité à renouveler', moduleKey: 'conformite' },
+  { key: 'conformite.audit.expired', label: 'Audit fournisseur expiré', moduleKey: 'conformite' },
+  { key: 'conformite.audit.expiring_soon', label: 'Audit fournisseur à renouveler', moduleKey: 'conformite' },
+  { key: 'conformite.audit.validation.submitted', label: 'Audit fournisseur soumis', moduleKey: 'conformite' },
+  { key: 'conformite.audit.validation.approved', label: 'Audit fournisseur validé', moduleKey: 'conformite' },
+  { key: 'conformite.audit.validation.rejected', label: 'Audit fournisseur rejeté', moduleKey: 'conformite' },
+  { key: 'document.submitted', label: 'Document soumis', moduleKey: 'papyrus' },
+  { key: 'document.approved', label: 'Document approuvé', moduleKey: 'papyrus' },
+  { key: 'document.rejected', label: 'Document rejeté', moduleKey: 'papyrus' },
+  { key: 'document.published', label: 'Document publié', moduleKey: 'papyrus' },
+  { key: 'ticket.assigned', label: 'Ticket assigné', moduleKey: 'support' },
+  { key: 'ticket.commented', label: 'Ticket commenté', moduleKey: 'support' },
+  { key: 'ticket.resolved', label: 'Ticket résolu', moduleKey: 'support' },
+  { key: 'travelwiz.pickup_reminder', label: 'Rappel de navette', moduleKey: 'travelwiz' },
 ] as const
 
 const defaultNotificationEventMatrix = Object.fromEntries(
@@ -330,7 +331,7 @@ export function NotificationsTab() {
             const value = notificationEventMatrix[event.key] || defaultNotificationEventMatrix[event.key]
             return (
               <div key={event.key} className="grid grid-cols-[1.1fr_1.5fr_repeat(5,minmax(0,110px))] gap-0 px-4 py-3 border-b border-border/20 last:border-b-0 items-center">
-                <span className="text-sm text-muted-foreground">{event.module}</span>
+                <span className="text-sm text-muted-foreground">{t(`notifications.modules.${event.moduleKey}`)}</span>
                 <span className="text-sm text-foreground">{t(`notifications.events.${event.key}`, event.label)}</span>
                 {(['in_app', 'email', 'digest', 'sms', 'whatsapp'] as const).map((channel) => (
                   <label key={channel} className="flex items-center gap-2 text-sm text-foreground">

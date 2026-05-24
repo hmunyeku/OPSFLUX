@@ -7060,6 +7060,7 @@
       "planner": "Planner",
       "travelwiz": "TravelWiz",
       "packlog": "PackLog",
+      "papyrus": "Papyrus",
       "conformite": "Conformité",
       "workflow": "Workflow",
       "support": "Support",
@@ -7091,12 +7092,12 @@
       "ticket.commented": "Ticket commenté",
       "ticket.resolved": "Ticket résolu",
       "travelwiz.pickup_reminder": "Rappel de navette",
-      "conformite.record.expiring_soon": "Conformit? ? renouveler",
-      "conformite.audit.expired": "Audit fournisseur expir?",
-      "conformite.audit.expiring_soon": "Audit fournisseur ? renouveler",
+      "conformite.record.expiring_soon": "Conformité à renouveler",
+      "conformite.audit.expired": "Audit fournisseur expiré",
+      "conformite.audit.expiring_soon": "Audit fournisseur à renouveler",
       "conformite.audit.validation.submitted": "Audit fournisseur soumis",
-      "conformite.audit.validation.approved": "Audit fournisseur valid?",
-      "conformite.audit.validation.rejected": "Audit fournisseur rejet?"
+      "conformite.audit.validation.approved": "Audit fournisseur validé",
+      "conformite.audit.validation.rejected": "Audit fournisseur rejeté"
     },
     "ui": {
       "channel_allowed": "Autorisé",

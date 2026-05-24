@@ -928,7 +928,7 @@ export function DataTableToolbar({
             <HelpCircle size={13} />
           </button>
           {dropdown.type === 'action' && dropdown.id === '_search_help' && (
-            <div className="absolute right-0 top-full mt-1 z-50 w-[min(28rem,calc(100vw-1.5rem))] max-h-[min(70vh,32rem)] overflow-y-auto rounded-md border bg-popover shadow-lg">
+            <div className="absolute right-0 top-full mt-1 z-[var(--z-popover,60)] w-[min(22rem,calc(100vw-1.5rem))] max-h-[min(70vh,32rem)] overflow-y-auto overflow-x-hidden rounded-md border bg-popover shadow-lg">
               <div className="border-b border-border/50 px-3 py-2">
                 <p className="text-[11px] font-semibold text-foreground">Recherche visuelle</p>
                 <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">

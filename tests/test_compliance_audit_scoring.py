@@ -1,4 +1,5 @@
 from app.services.modules.compliance_audit_scoring import (
+    audit_response_has_content,
     classify_audit_score,
     normalize_audit_score_thresholds,
 )
@@ -29,3 +30,16 @@ def test_score_classification_uses_highest_matching_threshold():
     assert classify_audit_score(62, thresholds)["code"] == "watch"
     assert classify_audit_score(12, thresholds)["blocks_assignment"] is True
     assert classify_audit_score(None, thresholds) is None
+
+
+def test_audit_response_content_rejects_empty_payloads():
+    assert audit_response_has_content(None) is False
+    assert audit_response_has_content("") is False
+    assert audit_response_has_content("   ") is False
+    assert audit_response_has_content({"text": ""}) is False
+    assert audit_response_has_content({"value": {"label": "  "}}) is False
+    assert audit_response_has_content([]) is False
+
+    assert audit_response_has_content({"text": "Observation terrain"}) is True
+    assert audit_response_has_content({"value": False}) is True
+    assert audit_response_has_content({"score": 0}) is True

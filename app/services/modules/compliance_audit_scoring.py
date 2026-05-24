@@ -45,6 +45,19 @@ def audit_thresholds_or_default(thresholds: list[dict[str, Any]] | None) -> list
     return normalized or normalize_audit_score_thresholds(DEFAULT_AUDIT_SCORE_THRESHOLDS)
 
 
+def audit_response_has_content(value: Any) -> bool:
+    """Return whether an audit answer payload contains a real answer."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(audit_response_has_content(item) for item in value.values())
+    if isinstance(value, list):
+        return any(audit_response_has_content(item) for item in value)
+    return True
+
+
 def classify_audit_score(
     score: Decimal | float | int | None,
     thresholds: list[dict[str, Any]] | None,

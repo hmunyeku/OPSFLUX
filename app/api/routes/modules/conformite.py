@@ -17,6 +17,7 @@ from app.services.core.audit_service import add_event as add_audit_event
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.services.modules import compliance_service
 from app.services.modules.compliance_audit_scoring import (
+    audit_response_has_content,
     audit_thresholds_or_default,
     classify_audit_score,
     normalize_audit_score_thresholds,
@@ -77,6 +78,12 @@ def _ensure_audit_can_be_submitted(audit: ComplianceAudit) -> None:
             409,
             "This audit report is already submitted, validated or closed.",
         )
+
+
+def _audit_answer_is_answered(answer: ComplianceAuditAnswer) -> bool:
+    return answer.score is not None or audit_response_has_content(answer.response_value)
+
+
 def _snapshot_rule(rule: ComplianceRule) -> dict:
     """Create a JSON snapshot of a rule's current state for history."""
     return {
@@ -3127,7 +3134,7 @@ async def submit_compliance_audit(
     answered_question_ids = {
         answer.question_id
         for answer in audit.answers
-        if answer.score is not None or answer.response_value is not None
+        if _audit_answer_is_answered(answer)
     }
     missing = required_question_ids - answered_question_ids
     if missing:

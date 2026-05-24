@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { useToast } from '@/components/ui/Toast'
 import { useComplianceAudits, useComplianceAuditTemplates, useComplianceRules, useCreateComplianceAudit } from '@/hooks/useConformite'
 import { usePermission } from '@/hooks/usePermission'
+import { useTags } from '@/hooks/useSettings'
+import { useTier } from '@/hooks/useTiers'
 import { conformiteService } from '@/services/conformiteService'
 import type { ComplianceAudit, ComplianceAuditTemplate } from '@/types/api'
 
@@ -31,6 +33,10 @@ function auditTypeLabel(value: string | null | undefined) {
   return labels[key] ?? value.charAt(0).toUpperCase() + value.slice(1)
 }
 
+function splitRuleValues(value: string | null | undefined) {
+  return (value ?? '').split(',').map(item => item.trim()).filter(Boolean)
+}
+
 export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierAuditManagerProps) {
   const { t, i18n } = useTranslation()
   const { toast } = useToast()
@@ -38,6 +44,8 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
   const { data: audits = [], isLoading } = useComplianceAudits({ target_type: 'tier', target_id: tierId })
   const { data: templates = [] } = useComplianceAuditTemplates()
   const { data: rules = [] } = useComplianceRules()
+  const { data: tier } = useTier(tierId)
+  const { data: tierTags = [] } = useTags('tier', tierId)
   const createAudit = useCreateComplianceAudit()
   const createMenuRef = useRef<HTMLDivElement>(null)
   const [showCreateMenu, setShowCreateMenu] = useState(false)
@@ -62,6 +70,28 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
   const requiredAudits = useMemo<RequiredAuditItem[]>(() => {
     const templatesById = new Map(templates.map(template => [template.id, template]))
     const items = new Map<string, RequiredAuditItem>()
+    const tierTagNames = new Set(tierTags.map(tag => tag.name.trim().toLowerCase()).filter(Boolean))
+
+    const ruleAppliesToTier = (rule: typeof rules[number]) => {
+      if (rule.target_type === 'all') return true
+      const targetValues = splitRuleValues(rule.target_value)
+      if (targetValues.length === 0) return false
+
+      switch (rule.target_type) {
+        case 'tier':
+          return targetValues.includes(tierId)
+        case 'tier_type':
+          return !!tier?.type && targetValues.includes(tier.type)
+        case 'tier_country':
+          return !!tier?.country && targetValues.includes(tier.country)
+        case 'tier_industry':
+          return !!tier?.industry && targetValues.includes(tier.industry)
+        case 'tier_tag':
+          return targetValues.some(value => tierTagNames.has(value.toLowerCase()))
+        default:
+          return false
+      }
+    }
 
     for (const rule of rules) {
       const auditTemplateId = typeof rule.condition_json?.audit_template_id === 'string'
@@ -70,9 +100,7 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
       if (!auditTemplateId || !rule.active) continue
       if (rule.subject_scope !== 'company' && rule.subject_scope !== 'all') continue
 
-      const targetValues = (rule.target_value ?? '').split(',').map(value => value.trim()).filter(Boolean)
-      const appliesToTier = rule.target_type === 'all' || (rule.target_type === 'tier' && targetValues.includes(tierId))
-      if (!appliesToTier) continue
+      if (!ruleAppliesToTier(rule)) continue
 
       const template = templatesById.get(auditTemplateId)
       if (!template) continue
@@ -87,7 +115,7 @@ export function SupplierAuditManager({ tierId, compact, onOpenAudit }: SupplierA
     }
 
     return Array.from(items.values()).sort((a, b) => a.template.audit_type.localeCompare(b.template.audit_type))
-  }, [audits, rules, templates, tierId, today])
+  }, [audits, rules, templates, tier?.country, tier?.industry, tier?.type, tierId, tierTags, today])
 
   const validRequiredCount = requiredAudits.filter(item => item.validAudit).length
   const requiredByTemplateId = useMemo(

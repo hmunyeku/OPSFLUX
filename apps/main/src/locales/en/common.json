@@ -1831,7 +1831,9 @@
       "accreditation_period_until": "Accredited until {{end}}",
       "reactivate": "Reactivate",
       "remove": "Remove",
-      "no_centers": "No authorized center configured. The issuer field will remain limited to system issuers configured for this reference."
+      "no_centers": "No authorized center configured. The issuer field will remain limited to system issuers configured for this reference.",
+      "add_center": "Add an issuer",
+      "confirm_add_center": "Confirm addition"
     },
     "rules": {
       "title": "Compliance rules",

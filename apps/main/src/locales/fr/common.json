@@ -1964,7 +1964,9 @@
       "accreditation_period_until": "Accrédité jusqu'au {{end}}",
       "reactivate": "Réactiver",
       "remove": "Retirer",
-      "no_centers": "Aucun centre habilité configuré. Le champ émetteur restera limité aux émetteurs système configurés pour ce référentiel."
+      "no_centers": "Aucun centre habilité configuré. Le champ émetteur restera limité aux émetteurs système configurés pour ce référentiel.",
+      "add_center": "Ajouter un émetteur",
+      "confirm_add_center": "Confirmer l'ajout"
     },
     "rules": {
       "title": "Règles de conformité",

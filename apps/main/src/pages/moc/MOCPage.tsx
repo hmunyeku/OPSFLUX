@@ -59,7 +59,9 @@ const TABS: { id: MOCTab; labelKey: string; icon: typeof LayoutDashboard }[] = [
 
 registerPanelRenderer('moc', (view) => {
   if (view.type === 'create') return <MOCCreatePanel />
-  if (view.type === 'detail' && 'id' in view) return <MOCDetailPanel id={view.id} />
+  if (view.type === 'detail' && 'id' in view) {
+    return <MOCDetailPanel id={view.id} initialTab={view.meta?.tab === 'validation' ? 'validation' : undefined} />
+  }
   return null
 })
 

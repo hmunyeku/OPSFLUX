@@ -17,14 +17,16 @@
  * QuestionCard exporte depuis l'ancienne modal.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2, Lock, Pencil, Save, Send, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ClipboardCheck, ExternalLink, FileCheck2, Loader2, Lock, Pencil, Save, Send, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DynamicPanelShell, FormSection } from '@/components/layout/DynamicPanel'
 import { QuestionCard, scoreColor } from '@/components/shared/ComplianceAuditDetailModal'
-import { RichTextField } from '@/components/shared/RichTextField'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { RichTextDisplay, RichTextField } from '@/components/shared/RichTextField'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { useToast } from '@/components/ui/Toast'
 import { usePermission } from '@/hooks/usePermission'
+import { useUIStore } from '@/stores/uiStore'
 import {
   buildAuditAnswerDrafts,
   draftsToUpsertPayload,
@@ -51,6 +53,7 @@ export function ComplianceAuditDetailPanel({
   const { t } = useTranslation()
   const { toast } = useToast()
   const { hasPermission } = usePermission()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const updateAnswers = useUpdateComplianceAuditAnswers()
   const submitAudit = useSubmitComplianceAudit()
   const [drafts, setDrafts] = useState<ComplianceAuditAnswerDraft[]>([])
@@ -213,6 +216,17 @@ export function ComplianceAuditDetailPanel({
               </button>
             </>
           )}
+          {audit.validation_moc_id && (
+            <button
+              type="button"
+              onClick={() => openDynamicPanel({ type: 'detail', module: 'moc', id: audit.validation_moc_id!, meta: { tab: 'validation' } })}
+              className="btn-sm btn-secondary inline-flex items-center gap-1"
+              title={t('conformite.rules.audits.open_validation', 'Ouvrir la validation')}
+            >
+              <ExternalLink size={13} />
+              <span>{t('conformite.rules.audits.validation_short', 'Validation')}</span>
+            </button>
+          )}
           {canPrepareSubmission && (
             <button
               type="button"
@@ -291,13 +305,21 @@ export function ComplianceAuditDetailPanel({
           >
             <div className="space-y-3">
               {theme.drafts.map((draft, index) => (
-                <QuestionCard
-                  key={draft.question.id}
-                  index={index}
-                  draft={draft}
-                  readOnly={readOnly}
-                  onChange={(patch) => updateDraft(draft.question.id, patch)}
-                />
+                isEditing ? (
+                  <QuestionCard
+                    key={draft.question.id}
+                    index={index}
+                    draft={draft}
+                    readOnly={false}
+                    onChange={(patch) => updateDraft(draft.question.id, patch)}
+                  />
+                ) : (
+                  <ReadOnlyQuestionRow
+                    key={draft.question.id}
+                    index={index}
+                    draft={draft}
+                  />
+                )
               ))}
             </div>
           </FormSection>
@@ -377,5 +399,103 @@ export function ComplianceAuditDetailPanel({
         </FormSection>
       )}
     </DynamicPanelShell>
+  )
+}
+
+function auditAnswerText(draft: ComplianceAuditAnswerDraft, t: ReturnType<typeof useTranslation>['t']) {
+  const raw = draft.responseValue?.label ?? draft.responseValue?.value ?? draft.responseValue?.text
+  const value = typeof raw === 'string' ? raw.trim() : ''
+  if (draft.question.response_type === 'yes_no') {
+    if (value === 'yes') return t('conformite.rules.audits.yes', 'Oui')
+    if (value === 'no') return t('conformite.rules.audits.no', 'Non')
+    if (value === 'partial') return t('conformite.rules.audits.partial', 'Partiel')
+  }
+  return value
+}
+
+function ReadOnlyQuestionRow({
+  index,
+  draft,
+}: {
+  index: number
+  draft: ComplianceAuditAnswerDraft
+}) {
+  const { t } = useTranslation()
+  const answer = auditAnswerText(draft, t)
+  const hasAnswer = draft.score !== null || answer.length > 0
+  const missingEvidence = draft.question.attachment_required && draft.attachmentCount <= 0
+
+  return (
+    <article className="rounded-md border border-border bg-background/70">
+      <div className="grid min-w-0 gap-2 px-3 py-2 @[560px]:grid-cols-[minmax(0,1fr)_auto] @[560px]:items-start">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-muted px-1 text-[11px] font-semibold text-muted-foreground">
+              {index + 1}
+            </span>
+            {draft.question.code && (
+              <span className="max-w-full truncate text-[11px] font-semibold uppercase text-primary">
+                {draft.question.code}
+              </span>
+            )}
+            {draft.question.required && <span className="chip text-[10px]">{t('conformite.audit_templates.fields.required', 'Obligatoire')}</span>}
+            {draft.question.attachment_required && <span className="chip chip-warn text-[10px]">{t('conformite.rules.audits.proof_required', 'Preuve requise')}</span>}
+          </div>
+          <p className="mt-1.5 text-sm font-semibold leading-snug text-foreground">{draft.question.text}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 text-xs">
+          {hasAnswer ? <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" /> : <AlertTriangle size={14} className="text-muted-foreground" />}
+          <span className={cn('font-semibold tabular-nums', scoreColor(draft.score))}>{draft.score ?? '—'}%</span>
+          <span className={cn('inline-flex items-center gap-1 text-muted-foreground', missingEvidence && 'text-destructive')}>
+            <FileCheck2 size={13} />
+            {draft.attachmentCount}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-2 border-t border-border/60 px-3 py-2 text-sm @[680px]:grid-cols-[minmax(0,1fr)_minmax(10rem,16rem)]">
+        <div className="min-w-0 space-y-2">
+          <div className="min-w-0 rounded border border-border/50 bg-muted/20 px-2 py-1.5">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('conformite.rules.audits.answer', 'Réponse')}
+            </p>
+            {answer ? (
+              <RichTextDisplay value={answer} className="text-sm [&_p]:my-0.5" />
+            ) : (
+              <span className="text-sm text-muted-foreground">{t('conformite.rules.audits.no_answer', 'Aucune réponse')}</span>
+            )}
+          </div>
+          {draft.notes?.trim() && (
+            <div className="min-w-0 rounded border border-border/50 bg-muted/10 px-2 py-1.5">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('conformite.rules.audits.notes', 'Notes')}
+              </p>
+              <RichTextDisplay value={draft.notes} className="text-sm [&_p]:my-0.5" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 rounded border border-border/50 bg-muted/10 p-2">
+          <div className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <FileCheck2 size={13} />
+              {t('conformite.rules.audits.evidence', 'Preuves')}
+            </span>
+            <span className={missingEvidence ? 'text-destructive' : 'text-muted-foreground'}>{draft.attachmentCount}</span>
+          </div>
+          {draft.answerId ? (
+            <AttachmentManager
+              ownerType="compliance_audit_answer"
+              ownerId={draft.answerId}
+              compact
+              readOnly
+            />
+          ) : (
+            <p className="rounded border border-dashed border-border p-2 text-xs text-muted-foreground">
+              {t('conformite.rules.audits.no_evidence', 'Aucune preuve jointe.')}
+            </p>
+          )}
+        </div>
+      </div>
+    </article>
   )
 }

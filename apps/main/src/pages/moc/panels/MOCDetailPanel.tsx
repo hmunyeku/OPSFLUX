@@ -120,9 +120,10 @@ type DetailTab =
 
 interface Props {
   id: string
+  initialTab?: DetailTab
 }
 
-export function MOCDetailPanel({ id }: Props) {
+export function MOCDetailPanel({ id, initialTab = 'fiche' }: Props) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const confirm = useConfirm()
@@ -158,7 +159,7 @@ export function MOCDetailPanel({ id }: Props) {
     ROLE_LABELS as Record<string, string>,
   )
 
-  const [activeTab, setActiveTab] = useState<DetailTab>('fiche')
+  const [activeTab, setActiveTab] = useState<DetailTab>(initialTab)
   const [transitionNote, setTransitionNote] = useState('')
   const [priorityPick, setPriorityPick] = useState<'1' | '2' | '3'>('2')
 

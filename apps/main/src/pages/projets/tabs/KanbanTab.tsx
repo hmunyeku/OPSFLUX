@@ -293,8 +293,8 @@ export function KanbanView() {
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto p-3">
-          <div className="grid min-h-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="@container flex-1 min-h-0 overflow-hidden p-3">
+          <div className="grid h-full grid-cols-1 gap-3 @[640px]:grid-cols-2 @[1280px]:grid-cols-4">
             {KANBAN_COLUMNS.map(col => (
               <KanbanColumn
                 key={col.status}

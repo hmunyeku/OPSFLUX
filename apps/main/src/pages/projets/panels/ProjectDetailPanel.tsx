@@ -17,6 +17,7 @@ import {
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
   Sun, Cloud, CloudRain, CloudLightning, CalendarClock,
   CircleDollarSign, ListTree, Maximize2, Table2, Minimize2,
+  TrendingUp, TrendingDown, Minus as MinusIcon,
 } from 'lucide-react'
 import { TabBar } from '@/components/ui/Tabs'
 import { Info, Paperclip, LayoutList, BarChart3, Search, Lock, Users2 } from 'lucide-react'
@@ -3741,6 +3742,62 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         onTabChange={(id) => setDetailTab(id as typeof detailTab)}
       />
       <PanelContentLayout>
+        {/* Status / priority chips — always visible across tabs, so the
+            project's executive context (lifecycle stage, urgency) is
+            never more than a glance away. Same pattern as
+            AdsDetailPanel / TierDetailPanel for visual cohesion. */}
+        {(() => {
+          const status = project.status as string | null | undefined
+          const priority = project.priority as string | null | undefined
+          const statusToChip: Record<string, string> = {
+            active: 'chip-success',
+            in_progress: 'chip-success',
+            planned: 'chip-info',
+            draft: 'chip-info',
+            on_hold: 'chip-warn',
+            paused: 'chip-warn',
+            completed: 'chip-success',
+            done: 'chip-success',
+            cancelled: 'chip-danger',
+            archived: 'chip-danger',
+          }
+          const priorityToChip: Record<string, string> = {
+            low: '',
+            medium: '',
+            high: 'chip-warn',
+            critical: 'chip-danger',
+          }
+          const statusClass = status ? statusToChip[status] ?? '' : ''
+          const priorityClass = priority ? priorityToChip[priority] ?? '' : ''
+          const statusLabel = status ? projectStatusLabels[status] ?? status : null
+          const priorityLabel = priority ? projectPriorityLabels[priority] ?? priority : null
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {statusLabel && (
+                <span className={cn('chip', statusClass)} title={`Statut: ${statusLabel}`}>{statusLabel}</span>
+              )}
+              {priorityLabel && (priority === 'high' || priority === 'critical') && (
+                <span className={cn('chip', priorityClass)} title={`Priorité: ${priorityLabel}`}>{priorityLabel}</span>
+              )}
+              {project.tier_id && project.tier_name && (
+                <CrossModuleLink
+                  module="tiers"
+                  id={project.tier_id}
+                  label={project.tier_name}
+                  className="chip chip-info"
+                  showIcon={false}
+                />
+              )}
+              {project.parent_id && (
+                <span className="chip" title="Sous-projet">Sous-projet</span>
+              )}
+              {isGouti && (
+                <span className="chip chip-highlight" title="Projet synchronisé depuis Gouti">Gouti</span>
+              )}
+            </div>
+          )
+        })()}
+
         {/* Tag manager + Gouti banner shouldn't pollute the executive
             dashboard view. Both belong on the Fiche tab where the
             user actually edits descriptive metadata. */}
@@ -3753,10 +3810,13 @@ export function ProjectDetailPanel({ id }: { id: string }) {
 
         {/* KPI strip — clickable cards that jump to the relevant tab.
             Hidden on Métriques and execution tabs where it duplicates
-            the main content and pushes the work surface down. */}
+            the main content and pushes the work surface down.
+            Container queries (@container) so the strip adapts to the
+            panel width (docked ~420px, floating ~720px, full ~1200px+)
+            instead of the viewport — same pattern as Kanban/audit cards. */}
         {showProjectKpiStrip && (() => {
           const trend = project.trend ?? 'flat'
-          const trendArrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'
+          const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : MinusIcon
           const trendLabel = trend === 'up' ? t('projets.detail.trend.up') : trend === 'down' ? t('projets.detail.trend.down') : t('projets.detail.trend.stable')
           const trendCls = trend === 'up'
             ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400'
@@ -3770,12 +3830,12 @@ export function ProjectDetailPanel({ id }: { id: string }) {
           const progressBar = progress >= 75 ? 'bg-green-500' :
                               progress >= 40 ? 'bg-primary' :
                               progress > 0 ? 'bg-amber-500' : 'bg-muted-foreground/30'
-          const insightCardClass = 'group flex h-9 min-w-0 flex-col items-start justify-center gap-0 rounded-md border bg-card/40 px-1.5 py-0.5 text-left transition-colors sm:h-10 sm:px-2'
-          const insightLabelClass = 'truncate text-[7px] font-semibold uppercase leading-none tracking-wide text-muted-foreground/75 sm:text-[8px]'
-          const insightValueClass = 'w-full truncate text-[11px] font-bold leading-tight text-foreground sm:text-xs'
+          const insightCardClass = 'group flex h-9 min-w-0 flex-col items-start justify-center gap-0 rounded-md border bg-card/40 px-1.5 py-0.5 text-left transition-colors @[420px]:h-10 @[420px]:px-2'
+          const insightLabelClass = 'truncate text-[7px] font-semibold uppercase leading-none tracking-wide text-muted-foreground/75 @[420px]:text-[8px]'
+          const insightValueClass = 'w-full truncate text-[11px] font-bold leading-tight text-foreground @[420px]:text-xs'
 
           return (
-            <div className="grid grid-cols-4 gap-1 lg:grid-cols-8">
+            <div className="@container grid grid-cols-2 gap-1 @[420px]:grid-cols-4 @[820px]:grid-cols-8">
               {/* Météo */}
               <button
                 type="button"
@@ -3804,8 +3864,8 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                   <span className={insightLabelClass}>{t('projets.insights.progress')}</span>
                 </div>
                 <div className="flex w-full items-end gap-1">
-                  <span className={cn('text-[12px] font-bold tabular-nums leading-none sm:text-sm', progressTone)}>{progress}</span>
-                  <span className={cn('text-[9px] font-medium leading-none sm:text-[10px]', progressTone)}>%</span>
+                  <span className={cn('text-[12px] font-bold tabular-nums leading-none @[420px]:text-sm', progressTone)}>{progress}</span>
+                  <span className={cn('text-[9px] font-medium leading-none @[420px]:text-[10px]', progressTone)}>%</span>
                 </div>
                 {/* Mini progress bar */}
                 <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted">
@@ -3824,7 +3884,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
                 title={`Tendance: ${trendLabel}`}
               >
                 <div className="flex w-full min-w-0 items-center gap-1">
-                  <span className="text-xs font-bold leading-none sm:text-sm">{trendArrow}</span>
+                  <TrendIcon size={11} className="shrink-0" />
                   <span className={insightLabelClass}>{t('projets.insights.trend')}</span>
                 </div>
                 <span className={insightValueClass}>{trendLabel}</span>

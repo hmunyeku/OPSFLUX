@@ -1255,6 +1255,7 @@ async def list_compliance_types(
 async def create_compliance_type(
     body: ComplianceTypeCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.type.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1262,6 +1263,12 @@ async def create_compliance_type(
     db.add(ct)
     await db.commit()
     await db.refresh(ct)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="compliance_type", resource_id=ct.id,
+        details={"code": ct.code, "name": ct.name, "scope": ct.scope},
+    )
+    await db.commit()
     return ct
 
 
@@ -1270,6 +1277,7 @@ async def update_compliance_type(
     type_id: UUID,
     body: ComplianceTypeUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.type.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1283,10 +1291,17 @@ async def update_compliance_type(
             code="COMPLIANCE_TYPE_NOT_FOUND",
             message="Compliance type not found",
         )
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
         setattr(ct, field, value)
     await db.commit()
     await db.refresh(ct)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="compliance_type", resource_id=ct.id,
+        details={"fields_changed": sorted(update_data.keys())},
+    )
+    await db.commit()
     return ct
 
 
@@ -1614,6 +1629,7 @@ async def add_type_authorized_center(
     type_id: UUID,
     body: ComplianceAuthorizedCenterCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_compliance_type_or_404(db, type_id, entity_id)
@@ -1626,6 +1642,7 @@ async def add_type_authorized_center(
         )
     )
     link = result.scalars().first()
+    is_reactivation = bool(link)
     if link:
         link.active = True
         link.notes = body.notes
@@ -1644,6 +1661,13 @@ async def add_type_authorized_center(
         db.add(link)
     await db.commit()
     await db.refresh(link)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="reactivate" if is_reactivation else "create",
+        resource_type="compliance_type_authorized_center", resource_id=link.id,
+        details={"compliance_type_id": str(type_id), "tier_id": str(body.tier_id), "tier_name": tier.name},
+    )
+    await db.commit()
     return _authorized_center_payload(link, tier)
 
 
@@ -1657,6 +1681,7 @@ async def update_type_authorized_center(
     link_id: UUID,
     body: ComplianceAuthorizedCenterUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1681,6 +1706,12 @@ async def update_type_authorized_center(
         setattr(link, field, value)
     await db.commit()
     await db.refresh(link)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="compliance_type_authorized_center", resource_id=link.id,
+        details={"fields_changed": sorted(updates.keys()), "tier_name": tier.name},
+    )
+    await db.commit()
     return _authorized_center_payload(link, tier)
 
 
@@ -1692,6 +1723,7 @@ async def remove_type_authorized_center(
     type_id: UUID,
     link_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -1705,6 +1737,11 @@ async def remove_type_authorized_center(
     if not link:
         raise HTTPException(status_code=404, detail="Authorized center not found")
     link.active = False
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="archive", resource_type="compliance_type_authorized_center", resource_id=link.id,
+        details={"compliance_type_id": str(type_id), "tier_id": str(link.tier_id)},
+    )
     await db.commit()
     return {"detail": "Authorized center removed"}
 
@@ -2694,6 +2731,7 @@ async def list_audit_template_presets_route(
 async def install_audit_template_preset(
     preset_code: str,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.audit.template.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2713,7 +2751,14 @@ async def install_audit_template_preset(
     if template:
         return template
 
-    return await _create_audit_template_from_preset(db, entity_id, preset)
+    template = await _create_audit_template_from_preset(db, entity_id, preset)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="install_preset", resource_type="compliance_audit_template", resource_id=template.id,
+        details={"preset_code": preset_code, "code": template.code, "name": template.name},
+    )
+    await db.commit()
+    return template
 
 
 @router.get(
@@ -2924,6 +2969,7 @@ async def update_audit_template(
     template_id: UUID,
     body: ComplianceAuditTemplateUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.audit.template.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2954,6 +3000,15 @@ async def update_audit_template(
         setattr(template, key, value)
     if body.themes is not None:
         await _replace_audit_template_themes(db, template, body.themes)
+    await db.commit()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="compliance_audit_template", resource_id=template.id,
+        details={
+            "fields_changed": sorted(payload.keys()),
+            "themes_replaced": body.themes is not None,
+        },
+    )
     await db.commit()
     result = await db.execute(
         select(ComplianceAuditTemplate)
@@ -3030,6 +3085,7 @@ async def update_compliance_audit(
     audit_id: UUID,
     body: ComplianceAuditUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.audit.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3047,6 +3103,16 @@ async def update_compliance_audit(
         raise HTTPException(409, "Use the audit submission and validation workflow to lock this report")
     for key, value in payload.items():
         setattr(audit, key, value)
+    await db.commit()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="compliance_audit", resource_id=audit.id,
+        details={
+            "fields_changed": sorted(payload.keys()),
+            "status": audit.status,
+            "target_type": audit.target_type,
+        },
+    )
     await db.commit()
     return await _load_audit_for_read(db, audit.id, entity_id)
 
@@ -3300,6 +3366,7 @@ async def list_job_positions(
 async def create_job_position(
     body: JobPositionCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.job_position.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3309,6 +3376,12 @@ async def create_job_position(
     db.add(jp)
     await db.commit()
     await db.refresh(jp)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="job_position", resource_id=jp.id,
+        details={"code": jp.code, "name": jp.name, "department": jp.department},
+    )
+    await db.commit()
     return jp
 
 
@@ -3317,6 +3390,7 @@ async def update_job_position(
     jp_id: UUID,
     body: JobPositionUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.job_position.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3330,10 +3404,17 @@ async def update_job_position(
             code="JOB_POSITION_NOT_FOUND",
             message="Job position not found",
         )
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
         setattr(jp, field, value)
     await db.commit()
     await db.refresh(jp)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="job_position", resource_id=jp.id,
+        details={"fields_changed": sorted(update_data.keys())},
+    )
+    await db.commit()
     return jp
 
 
@@ -3735,6 +3816,7 @@ async def update_exemption(
     exemption_id: UUID,
     body: ComplianceExemptionUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("conformite.exemption.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3752,10 +3834,17 @@ async def update_exemption(
             code="EXEMPTION_NOT_FOUND",
             message="Exemption not found",
         )
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
         setattr(exemption, field, value)
     await db.commit()
     await db.refresh(exemption)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="compliance_exemption", resource_id=exemption.id,
+        details={"fields_changed": sorted(update_data.keys()), "status": exemption.status},
+    )
+    await db.commit()
     return await _enrich_exemption(db, exemption)
 
 

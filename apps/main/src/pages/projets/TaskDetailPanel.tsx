@@ -525,10 +525,23 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           })}
         </div>
 
-        {/* Status + priority badges + progress bar */}
+        {/* Status + priority badges + progress bar + milestone marker */}
         <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground mt-2">
           {statusBadge(task.status)}
           {priorityBadge(task.priority)}
+          {task.is_milestone && (
+            <span className="chip chip-highlight" title="Tâche jalon">Jalon</span>
+          )}
+          {(() => {
+            // Overdue chip — only when the task has a due date in the
+            // past and is not finished/cancelled. High-visibility cue
+            // for the responsable so they spot late items without
+            // having to scan the dates row.
+            if (!task.due_date || task.status === 'done' || task.status === 'cancelled') return null
+            const isOverdue = new Date(task.due_date).getTime() < Date.now()
+            if (!isOverdue) return null
+            return <span className="chip chip-danger" title="Échéance dépassée">En retard</span>
+          })()}
           <div className="flex items-center gap-1.5 ml-auto">
             <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
               <div
@@ -542,13 +555,18 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
 
         {/* KPI pills: dates, duration, assignee, child count */}
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-2">
-          {task.start_date && (
-            <div className="flex items-center gap-1">
-              <Calendar size={11} />
-              {new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-              {task.due_date && <> {'->'} {new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</>}
-            </div>
-          )}
+          {task.start_date && (() => {
+            const startD = new Date(task.start_date)
+            const dueD = task.due_date ? new Date(task.due_date) : null
+            const overdue = dueD && dueD.getTime() < Date.now() && task.status !== 'done' && task.status !== 'cancelled'
+            return (
+              <div className={cn('flex items-center gap-1', overdue && 'text-red-600 dark:text-red-400 font-medium')}>
+                <Calendar size={11} />
+                {startD.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                {dueD && <> → {dueD.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</>}
+              </div>
+            )
+          })()}
           {durationDays != null && (
             <div className="flex items-center gap-1">
               <Clock size={11} /> {durationDays}j

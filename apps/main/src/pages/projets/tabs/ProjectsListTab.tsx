@@ -99,21 +99,20 @@ export function ProjectsListView() {
     {
       accessorKey: 'status', header: t('projets.columns.status'), size: 100,
       cell: ({ row }) => {
-        const s = row.original.status
+        const s = row.original.status as string  // Allow runtime values outside the typed union (BDD legacy)
         // Coherent mapping with ProjectDetailPanel chip row :
-        // - active/in_progress -> success (le projet avance)
-        // - draft/planned -> info (avant le demarrage)
-        // - on_hold/paused -> warn (a debloquer)
-        // - completed/done -> success (termine)
-        // - cancelled/archived -> danger (sortie de scope)
-        // - tout autre (status corrompu en BDD) -> chip neutre avec
-        //   tiret pour ne pas afficher le slug brut comme `INVALID_STATUS`
-        const knownStatuses = new Set(['draft', 'planned', 'active', 'in_progress', 'on_hold', 'paused', 'completed', 'done', 'cancelled', 'archived'])
+        // - active / completed -> success
+        // - draft / planned -> info (avant le demarrage)
+        // - on_hold -> warn (a debloquer)
+        // - cancelled -> danger (sortie de scope)
+        // - tout autre (status corrompu en BDD comme `INVALID_STATUS`) ->
+        //   chip neutre avec tiret pour ne pas afficher le slug brut
+        const knownStatuses: ReadonlySet<string> = new Set(['draft', 'planned', 'active', 'on_hold', 'completed', 'cancelled'])
         const isKnown = knownStatuses.has(s)
-        const cls = (s === 'active' || s === 'in_progress' || s === 'completed' || s === 'done') ? 'chip-success'
+        const cls = (s === 'active' || s === 'completed') ? 'chip-success'
           : (s === 'draft' || s === 'planned') ? 'chip-info'
-          : (s === 'on_hold' || s === 'paused') ? 'chip-warn'
-          : (s === 'cancelled' || s === 'archived') ? 'chip-danger'
+          : (s === 'on_hold') ? 'chip-warn'
+          : (s === 'cancelled') ? 'chip-danger'
           : ''
         const label = isKnown ? (projectStatusLabels[s] ?? s) : '—'
         return <span className={cn('chip', cls)} title={isKnown ? undefined : `Statut inconnu : ${s}`}>{label}</span>

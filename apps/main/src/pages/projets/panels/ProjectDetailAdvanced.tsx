@@ -848,9 +848,17 @@ export function SubProjectsSection({ projectId }: { projectId: string }) {
           <FolderKanban size={11} className="text-primary shrink-0" />
           <span className="font-medium">{child.code}</span>
           <span className="text-muted-foreground truncate flex-1">{child.name}</span>
-          <span className={cn('chip', child.status === 'active' ? 'chip-success' : '')}>
-            {projectStatusLabels[child.status] ?? child.status}
-          </span>
+          {(() => {
+            const s = child.status
+            const known = new Set(['draft', 'planned', 'active', 'in_progress', 'on_hold', 'paused', 'completed', 'done', 'cancelled', 'archived'])
+            const cls = (s === 'active' || s === 'in_progress' || s === 'completed' || s === 'done') ? 'chip-success'
+              : (s === 'draft' || s === 'planned') ? 'chip-info'
+              : (s === 'on_hold' || s === 'paused') ? 'chip-warn'
+              : (s === 'cancelled' || s === 'archived') ? 'chip-danger'
+              : ''
+            const label = known.has(s) ? (projectStatusLabels[s] ?? s) : '—'
+            return <span className={cn('chip', cls)} title={known.has(s) ? undefined : `Statut inconnu : ${s}`}>{label}</span>
+          })()}
           <span className="text-[10px] text-muted-foreground tabular-nums">{child.progress}%</span>
           <ChevronRight size={12} className="text-muted-foreground" />
         </div>

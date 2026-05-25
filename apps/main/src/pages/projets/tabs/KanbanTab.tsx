@@ -88,15 +88,15 @@ function KanbanCard({ task }: { task: ProjectTaskEnriched }) {
       )}
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
         {(task.priority === 'high' || task.priority === 'critical') && (
-          <span className={cn(
-            'inline-block text-[9px] px-1.5 py-0.5 rounded-full font-medium',
-            task.priority === 'critical' ? 'bg-red-500/10 text-red-600' : 'bg-orange-500/10 text-orange-600',
-          )}>
+          <span className={cn('chip', task.priority === 'critical' ? 'chip-danger' : 'chip-warn')}>
             {projectPriorityLabels[task.priority] ?? task.priority}
           </span>
         )}
+        {isOverdue && (
+          <span className="chip chip-danger" title="Échéance dépassée">En retard</span>
+        )}
         {dueDate && (
-          <span className={cn('tabular-nums', isOverdue && 'text-red-500 font-medium')}>
+          <span className={cn('tabular-nums', isOverdue && 'text-red-600 dark:text-red-400 font-medium')}>
             {dueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
           </span>
         )}

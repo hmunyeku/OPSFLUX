@@ -100,8 +100,23 @@ export function ProjectsListView() {
       accessorKey: 'status', header: t('projets.columns.status'), size: 100,
       cell: ({ row }) => {
         const s = row.original.status
-        const cls = s === 'active' ? 'chip-success' : s === 'completed' ? 'chip-info' : s === 'on_hold' || s === 'cancelled' ? 'chip-danger' : ''
-        return <span className={cn('chip', cls)}>{projectStatusLabels[s] ?? s}</span>
+        // Coherent mapping with ProjectDetailPanel chip row :
+        // - active/in_progress -> success (le projet avance)
+        // - draft/planned -> info (avant le demarrage)
+        // - on_hold/paused -> warn (a debloquer)
+        // - completed/done -> success (termine)
+        // - cancelled/archived -> danger (sortie de scope)
+        // - tout autre (status corrompu en BDD) -> chip neutre avec
+        //   tiret pour ne pas afficher le slug brut comme `INVALID_STATUS`
+        const knownStatuses = new Set(['draft', 'planned', 'active', 'in_progress', 'on_hold', 'paused', 'completed', 'done', 'cancelled', 'archived'])
+        const isKnown = knownStatuses.has(s)
+        const cls = (s === 'active' || s === 'in_progress' || s === 'completed' || s === 'done') ? 'chip-success'
+          : (s === 'draft' || s === 'planned') ? 'chip-info'
+          : (s === 'on_hold' || s === 'paused') ? 'chip-warn'
+          : (s === 'cancelled' || s === 'archived') ? 'chip-danger'
+          : ''
+        const label = isKnown ? (projectStatusLabels[s] ?? s) : '—'
+        return <span className={cn('chip', cls)} title={isKnown ? undefined : `Statut inconnu : ${s}`}>{label}</span>
       },
     },
     { accessorKey: 'weather', header: t('projets.columns.weather'), size: 60, cell: ({ row }) => <WeatherIcon weather={row.original.weather} /> },

@@ -13,7 +13,12 @@ import type { DependencyType } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
 
-export const PROJECT_STATUS_VALUES = ['draft', 'planned', 'active', 'on_hold', 'completed', 'cancelled'] as const
+// `in_progress` n'est pas dans l'enum canonique côté BDD (cf.
+// app/models/common.py ligne 1937 : draft / planned / active / on_hold
+// / completed / cancelled), mais le service backend peut le produire
+// via auto-promotion depuis des statuts de tâches (projets.py L281).
+// On l'inclut côté front pour ne plus retomber sur le fallback `—`.
+export const PROJECT_STATUS_VALUES = ['draft', 'planned', 'active', 'in_progress', 'on_hold', 'completed', 'cancelled'] as const
 export const PROJECT_PRIORITY_VALUES = ['low', 'medium', 'high', 'critical'] as const
 export const PROJECT_WEATHER_VALUES = ['sunny', 'cloudy', 'rainy', 'stormy'] as const
 export const PROJECT_TASK_STATUS_VALUES = ['todo', 'in_progress', 'review', 'done', 'cancelled'] as const
@@ -24,6 +29,7 @@ export const PROJECT_STATUS_LABELS_FALLBACK: Record<string, string> = {
   draft: 'Brouillon',
   planned: 'Planifié',
   active: 'Actif',
+  in_progress: 'En cours',
   on_hold: 'Suspendu',
   completed: 'Terminé',
   cancelled: 'Annulé',

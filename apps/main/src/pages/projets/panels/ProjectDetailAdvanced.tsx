@@ -850,8 +850,8 @@ export function SubProjectsSection({ projectId }: { projectId: string }) {
           <span className="text-muted-foreground truncate flex-1">{child.name}</span>
           {(() => {
             const s = child.status as string  // Allow runtime values outside the typed union (BDD legacy)
-            const known: ReadonlySet<string> = new Set(['draft', 'planned', 'active', 'on_hold', 'completed', 'cancelled'])
-            const cls = (s === 'active' || s === 'completed') ? 'chip-success'
+            const known: ReadonlySet<string> = new Set(['draft', 'planned', 'active', 'in_progress', 'on_hold', 'completed', 'cancelled'])
+            const cls = (s === 'active' || s === 'in_progress' || s === 'completed') ? 'chip-success'
               : (s === 'draft' || s === 'planned') ? 'chip-info'
               : (s === 'on_hold') ? 'chip-warn'
               : (s === 'cancelled') ? 'chip-danger'

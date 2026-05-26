@@ -99,17 +99,16 @@ export function ProjectsListView() {
     {
       accessorKey: 'status', header: t('projets.columns.status'), size: 100,
       cell: ({ row }) => {
-        const s = row.original.status as string  // Allow runtime values outside the typed union (BDD legacy)
+        const s = row.original.status as string  // Allow runtime values outside the typed union (BDD legacy / corruption)
         // Coherent mapping with ProjectDetailPanel chip row :
-        // - active / completed -> success
+        // - active / in_progress / completed -> success
         // - draft / planned -> info (avant le demarrage)
         // - on_hold -> warn (a debloquer)
         // - cancelled -> danger (sortie de scope)
-        // - tout autre (status corrompu en BDD comme `INVALID_STATUS`) ->
-        //   chip neutre avec tiret pour ne pas afficher le slug brut
-        const knownStatuses: ReadonlySet<string> = new Set(['draft', 'planned', 'active', 'on_hold', 'completed', 'cancelled'])
+        // - tout autre (status corrompu en BDD) -> chip neutre avec tiret
+        const knownStatuses: ReadonlySet<string> = new Set(['draft', 'planned', 'active', 'in_progress', 'on_hold', 'completed', 'cancelled'])
         const isKnown = knownStatuses.has(s)
-        const cls = (s === 'active' || s === 'completed') ? 'chip-success'
+        const cls = (s === 'active' || s === 'in_progress' || s === 'completed') ? 'chip-success'
           : (s === 'draft' || s === 'planned') ? 'chip-info'
           : (s === 'on_hold') ? 'chip-warn'
           : (s === 'cancelled') ? 'chip-danger'

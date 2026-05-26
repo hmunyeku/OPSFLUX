@@ -1494,7 +1494,11 @@ export interface Project {
   code: string
   name: string
   description: string | null
-  status: 'draft' | 'planned' | 'active' | 'on_hold' | 'completed' | 'cancelled'
+  // `in_progress` is included because the backend service can auto-promote
+  // projects to it from task statuses (app/api/routes/modules/projets.py L281),
+  // even though the canonical DB enum is draft/planned/active/on_hold/
+  // completed/cancelled (app/models/common.py L1937).
+  status: 'draft' | 'planned' | 'active' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled'
   priority: 'low' | 'medium' | 'high' | 'critical'
   weather: 'sunny' | 'cloudy' | 'rainy' | 'stormy'
   trend: 'up' | 'flat' | 'down'

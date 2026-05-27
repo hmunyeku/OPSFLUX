@@ -125,8 +125,8 @@ function CreateRulePanelInner({ view }: { view?: DynamicPanelView }) {
       icon={<Scale size={14} className="text-primary" />}
       actionItems={actionItems}
     >
-      <div className="min-h-0">
-        <SmartFormToolbar className="sticky top-0 z-20 bg-background/95 backdrop-blur" />
+      <div className="flex min-h-0 flex-col">
+        <SmartFormToolbar className="sticky top-0 z-20 shrink-0 bg-background/95 backdrop-blur" />
         <SmartFormSimpleHint />
         <SmartFormInlineHelpDrawer />
 

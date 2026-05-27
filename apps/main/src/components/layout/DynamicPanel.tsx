@@ -296,7 +296,7 @@ export function DynamicPanelShell({
           )}
         </div>
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto @container">
+        <div className="flex-1 min-h-0 overflow-y-auto @container">
           {children}
         </div>
       </div>
@@ -427,7 +427,7 @@ export function DynamicPanelShell({
             action bar so the last form field stays scrollable above
             the buttons. */}
         <div className={cn(
-          'flex-1 min-w-0 overflow-y-auto overflow-x-hidden @container',
+          'flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden @container',
           actionsNode && 'pb-16 sm:pb-0',
         )}>
           {children}
@@ -550,7 +550,7 @@ export function DynamicPanelShell({
         )}
 
         {/* Scrollable content (container query scope) */}
-        <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden @container">
+        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden @container">
           {children}
         </div>
       </div>

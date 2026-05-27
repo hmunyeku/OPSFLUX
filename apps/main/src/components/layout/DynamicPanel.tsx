@@ -264,7 +264,7 @@ export function DynamicPanelShell({
     return (
       <div
         className={cn(
-          'shrink-0 border-l border-border flex flex-col bg-background overflow-hidden',
+          'shrink-0 min-h-0 border-l border-border flex flex-col bg-background overflow-hidden',
           className,
         )}
         style={{ width: typeof inlineWidth === 'number' ? `${inlineWidth}px` : inlineWidth }}
@@ -328,7 +328,7 @@ export function DynamicPanelShell({
   // ── FULL MODE — replaces the main content area ──
   if (mode === 'full') {
     return (
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+      <div className="flex-1 flex min-h-0 flex-col min-w-0 overflow-hidden bg-background">
         {/* Combined nav + header bar (April 2026 design v2) — fuses the
             previous two horizontal bars (h-9 nav + h-10 header = 76px)
             into a single h-11 row so the chrome eats less vertical
@@ -457,7 +457,7 @@ export function DynamicPanelShell({
   return (
     <aside
       className={cn(
-        'flex-shrink-0 flex overflow-hidden',
+        'flex-shrink-0 flex min-h-0 overflow-hidden',
         isLeft ? 'border-r border-border order-first' : 'border-l border-border',
       )}
       style={{ width: `${width}px` }}
@@ -472,7 +472,7 @@ export function DynamicPanelShell({
       )}
 
       {/* Panel body */}
-      <div className="flex flex-col flex-1 min-w-0 bg-background overflow-hidden">
+      <div className="flex min-h-0 flex-col flex-1 min-w-0 bg-background overflow-hidden">
         {/* Header — 40px, Pajamas style */}
         <div className="flex h-10 items-center gap-1.5 border-b border-border px-3 shrink-0">
           {icon && <span className="shrink-0">{icon}</span>}

@@ -261,7 +261,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <ActiveBanners />
 
       {/* ── Body: sidebar + main area ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Mobile overlay backdrop */}
         {mobileSidebarOpen && (
           <div
@@ -296,7 +296,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           id="main-content"
           data-tour="main-content"
           className={cn(
-            'flex-1 overflow-hidden min-w-0 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:delay-150',
+            'flex-1 min-h-0 overflow-hidden min-w-0 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:delay-150',
             isGlobalPanelFull && 'hidden',
           )}
         >

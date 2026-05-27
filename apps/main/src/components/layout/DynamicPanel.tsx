@@ -264,7 +264,7 @@ export function DynamicPanelShell({
     return (
       <div
         className={cn(
-          'shrink-0 min-h-0 border-l border-border flex flex-col bg-background overflow-hidden',
+          'shrink-0 h-full max-h-full min-h-0 border-l border-border flex flex-col bg-background overflow-hidden',
           className,
         )}
         style={{ width: typeof inlineWidth === 'number' ? `${inlineWidth}px` : inlineWidth }}
@@ -296,7 +296,7 @@ export function DynamicPanelShell({
           )}
         </div>
         {/* Scrollable content */}
-        <div className="flex-1 min-h-0 overflow-y-auto @container">
+        <div className="min-h-0 flex-1 basis-0 overflow-y-auto @container">
           {children}
         </div>
       </div>
@@ -312,13 +312,13 @@ export function DynamicPanelShell({
   // ── When inside a floating panel, skip all shell chrome ──
   if (isFloating) {
     return (
-      <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden">
         {actionsNode && (
           <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle min-w-0">
             {actionsNode}
           </div>
         )}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="min-h-0 flex-1 basis-0 overflow-y-auto">
           {children}
         </div>
       </div>
@@ -328,7 +328,7 @@ export function DynamicPanelShell({
   // ── FULL MODE — replaces the main content area ──
   if (mode === 'full') {
     return (
-      <div className="flex-1 flex min-h-0 flex-col min-w-0 overflow-hidden bg-background">
+      <div className="flex h-full max-h-full min-h-0 flex-1 flex-col min-w-0 overflow-hidden bg-background">
         {/* Combined nav + header bar (April 2026 design v2) — fuses the
             previous two horizontal bars (h-9 nav + h-10 header = 76px)
             into a single h-11 row so the chrome eats less vertical
@@ -427,7 +427,7 @@ export function DynamicPanelShell({
             action bar so the last form field stays scrollable above
             the buttons. */}
         <div className={cn(
-          'flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden @container',
+          'min-h-0 min-w-0 flex-1 basis-0 overflow-y-auto overflow-x-hidden @container',
           actionsNode && 'pb-16 sm:pb-0',
         )}>
           {children}
@@ -457,7 +457,7 @@ export function DynamicPanelShell({
   return (
     <aside
       className={cn(
-        'flex-shrink-0 flex min-h-0 overflow-hidden',
+        'flex h-full max-h-full min-h-0 flex-shrink-0 overflow-hidden',
         isLeft ? 'border-r border-border order-first' : 'border-l border-border',
       )}
       style={{ width: `${width}px` }}
@@ -472,7 +472,7 @@ export function DynamicPanelShell({
       )}
 
       {/* Panel body */}
-      <div className="flex min-h-0 flex-col flex-1 min-w-0 bg-background overflow-hidden">
+      <div className="flex h-full max-h-full min-h-0 flex-1 min-w-0 flex-col overflow-hidden bg-background">
         {/* Header — 40px, Pajamas style */}
         <div className="flex h-10 items-center gap-1.5 border-b border-border px-3 shrink-0">
           {icon && <span className="shrink-0">{icon}</span>}
@@ -550,7 +550,7 @@ export function DynamicPanelShell({
         )}
 
         {/* Scrollable content (container query scope) */}
-        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden @container">
+        <div className="min-h-0 min-w-0 flex-1 basis-0 overflow-y-auto overflow-x-hidden @container">
           {children}
         </div>
       </div>

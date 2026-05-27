@@ -425,7 +425,7 @@ export function ConformitePage() {
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 overflow-hidden">
       {!isFullPanel && <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader icon={ShieldCheck} title="Conformité" subtitle="Formations, certifications, habilitations, audits">
           {toolbarAction}

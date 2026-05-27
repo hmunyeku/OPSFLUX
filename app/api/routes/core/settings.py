@@ -20,6 +20,7 @@ from app.core.errors import StructuredHTTPException
 # config, or security rule, bypassing the tenant-admin gate.
 _ADMIN_ONLY_PREFIXES = (
     "integration.",
+    "ai.",
     "connector.",
     "gdpr.",
     "security.",

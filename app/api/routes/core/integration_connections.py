@@ -79,6 +79,8 @@ async def _dispatch_test(
         return await dokploy_service.test_connection(config, credentials)
     if conn_type == "agent_runner":
         return await _test_agent_runner(config, credentials)
+    if conn_type == "ai_provider":
+        return await _test_ai_provider(config, credentials)
     return False, f"Unknown connection_type: {conn_type}", {}
 
 
@@ -192,11 +194,65 @@ async def _test_agent_runner(
     return False, f"Unsupported runner_type: {runner_type}", {}
 
 
+async def _test_ai_provider(
+    config: dict[str, Any], credentials: dict[str, Any]
+) -> tuple[bool, str, dict[str, Any]]:
+    """Run a minimal inference ping for module-level AI providers."""
+    import litellm
+
+    provider = str(config.get("provider") or "")
+    model = str(config.get("model") or "")
+    if not provider or not model:
+        return False, "provider and model are required", {}
+
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "max_tokens": 8,
+        "temperature": 0,
+    }
+    if provider == "anthropic" and not model.startswith("anthropic/"):
+        kwargs["model"] = f"anthropic/{model}"
+    elif provider == "openai" and not model.startswith("openai/"):
+        kwargs["model"] = f"openai/{model}"
+    elif provider == "mistral" and not model.startswith("mistral/"):
+        kwargs["model"] = f"mistral/{model}"
+    elif provider == "ollama" and not model.startswith("ollama/"):
+        kwargs["model"] = f"ollama/{model}"
+
+    api_key = credentials.get("api_key_value")
+    base_url = config.get("base_url")
+    if provider != "ollama":
+        if not api_key:
+            return False, "api_key_value missing in credentials", {}
+        kwargs["api_key"] = api_key
+    if provider == "ollama" and base_url:
+        kwargs["api_base"] = str(base_url)
+
+    try:
+        response = await litellm.acompletion(
+            messages=[{"role": "user", "content": "ping"}],
+            **kwargs,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("AI provider ping failed")
+        return False, f"AI provider error: {str(exc)[:200]}", {
+            "provider": provider,
+            "model": kwargs["model"],
+        }
+
+    content = (response.choices[0].message.content or "").strip()
+    return True, f"AI provider reachable ({provider})", {
+        "provider": provider,
+        "model": kwargs["model"],
+        "sample": content[:80],
+    }
+
+
 # ─── List ──────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[IntegrationConnectionRead])
 async def list_integration_connections(
-    connection_type: str | None = Query(default=None, pattern="^(github|dokploy|agent_runner)$"),
+    connection_type: str | None = Query(default=None, pattern="^(github|dokploy|agent_runner|ai_provider)$"),
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):

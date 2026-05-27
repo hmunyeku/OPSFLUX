@@ -65,6 +65,7 @@ import { LegalIdentifierManager } from '@/components/shared/LegalIdentifierManag
 import { ReferentielManager } from '@/components/shared/ReferentielManager'
 import { SupplierAuditManager } from '@/components/shared/SupplierAuditManager'
 import { ComplianceAuditDetailPanel } from '@/components/shared/ComplianceAuditDetailPanel'
+import { BusinessAiPanel } from '@/components/shared/BusinessAiPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
@@ -1049,6 +1050,8 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             <span className="kpi-pp__caption">{t('tiers.ui.attached_files')}</span>
           </div>
         </div>
+
+        <BusinessAiPanel module="tiers" ownerType="tier" ownerId={tier.id} compact />
 
         {/* 2-col layout (Pajamas++ design pattern):
             - Main wide column (1fr) → Identité + Coordonnées (heavy content)

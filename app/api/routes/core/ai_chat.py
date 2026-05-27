@@ -9,20 +9,34 @@ awareness of OpsFlux modules and the caller's permissions.
 import json
 import logging
 import re
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_current_entity
+from app.api.deps import get_current_user, get_current_entity, has_user_permission
 from app.core.ai_config import get_ai_config
 from app.core.audit import record_audit
 from app.core.rbac import get_user_permissions
 from app.core.database import get_db
 from app.mcp.mcp_native import NativeToolContext, get_or_create_backend
-from app.models.common import User
+from app.models.common import (
+    IntegrationConnection,
+    Project,
+    ProjectChange,
+    ProjectMember,
+    ProjectMilestone,
+    ProjectTask,
+    ProjectTaskLoss,
+    Setting,
+    Tier,
+    TierContact,
+    User,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +110,31 @@ class ChatResponseNonStream(BaseModel):
     response: str
     model: str
     usage: dict | None = None
+
+
+class ModuleAIStatus(BaseModel):
+    module: Literal["tiers", "projets"]
+    enabled: bool
+    configured: bool
+    provider: str | None = None
+    model: str | None = None
+    connection_name: str | None = None
+    missing_reason: str | None = None
+    intents: list[str] = Field(default_factory=list)
+
+
+class ModuleAIInsightRequest(BaseModel):
+    module: Literal["tiers", "projets"]
+    owner_type: Literal["tier", "tier_contact", "project"]
+    owner_id: UUID
+    intent: Literal["summary", "risks", "next_actions", "data_quality"] = "summary"
+
+
+class ModuleAIInsightResponse(BaseModel):
+    response: str
+    model: str
+    provider: str
+    intent: str
 
 
 # ── System prompt builder ────────────────────────────────────────
@@ -505,7 +544,7 @@ async def _generate_chat_response(
 ) -> tuple[str, str]:
     import litellm
 
-    ai_cfg = await get_ai_config()
+    ai_cfg = await get_ai_config(entity_id=entity_id, db=db)
     if not ai_cfg.get("api_key") and ai_cfg.get("provider") != "ollama":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -575,6 +614,254 @@ async def _stream_text(text: str):
 
 
 # ── Endpoints ────────────────────────────────────────────────────
+
+MODULE_AI_INTENTS = ["summary", "risks", "next_actions", "data_quality"]
+
+
+async def _setting_value(db: AsyncSession, entity_id: UUID, key: str) -> object | None:
+    row = (
+        await db.execute(
+            select(Setting.value).where(
+                Setting.scope == "entity",
+                Setting.scope_id == str(entity_id),
+                Setting.key == key,
+            )
+        )
+    ).first()
+    if not row:
+        return None
+    value = row[0]
+    if isinstance(value, dict) and "v" in value:
+        return value["v"]
+    return value
+
+
+async def _module_ai_enabled(db: AsyncSession, entity_id: UUID, module: str) -> bool:
+    return bool(await _setting_value(db, entity_id, f"ai.modules.{module}.enabled"))
+
+
+async def _module_ai_connection(
+    db: AsyncSession,
+    entity_id: UUID,
+    module: str,
+) -> IntegrationConnection | None:
+    configured_id = await _setting_value(db, entity_id, f"ai.modules.{module}.connection_id")
+    stmt = select(IntegrationConnection).where(
+        IntegrationConnection.entity_id == entity_id,
+        IntegrationConnection.connection_type == "ai_provider",
+        IntegrationConnection.status == "active",
+    )
+    if isinstance(configured_id, str) and configured_id:
+        stmt = stmt.where(IntegrationConnection.id == configured_id)
+    stmt = stmt.order_by(IntegrationConnection.created_at.desc()).limit(1)
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def _require_module_ai_permission(
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+    module: str,
+) -> None:
+    permission = "project.read" if module == "projets" else "tier.tier.read"
+    if not await has_user_permission(current_user, entity_id, permission, db):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+
+
+def _intent_label(intent: str) -> str:
+    return {
+        "summary": "synthese operationnelle",
+        "risks": "risques, alertes et points de controle",
+        "next_actions": "prochaines actions recommandees",
+        "data_quality": "qualite des donnees et informations manquantes",
+    }.get(intent, intent)
+
+
+async def _build_module_context(
+    db: AsyncSession,
+    entity_id: UUID,
+    owner_type: str,
+    owner_id: UUID,
+) -> dict:
+    if owner_type == "tier":
+        tier = await db.scalar(select(Tier).where(Tier.id == owner_id, Tier.entity_id == entity_id))
+        if not tier:
+            raise HTTPException(status_code=404, detail="Tier not found")
+        contact_count = await db.scalar(
+            select(sqla_func.count(TierContact.id)).where(
+                TierContact.tier_id == owner_id,
+                TierContact.active == True,
+            )
+        )
+        return {
+            "type": "tier",
+            "name": tier.name,
+            "code": tier.code,
+            "tier_type": tier.type,
+            "country": tier.country,
+            "industry": tier.industry,
+            "registration_number": tier.registration_number,
+            "blocked": tier.is_blocked,
+            "authorization_center": tier.is_authorization_center,
+            "contact_count": int(contact_count or 0),
+        }
+    if owner_type == "tier_contact":
+        contact = await db.scalar(
+            select(TierContact).join(Tier, Tier.id == TierContact.tier_id).where(
+                TierContact.id == owner_id,
+                Tier.entity_id == entity_id,
+            )
+        )
+        if not contact:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        tier = await db.scalar(select(Tier).where(Tier.id == contact.tier_id))
+        return {
+            "type": "tier_contact",
+            "name": f"{contact.first_name} {contact.last_name}".strip(),
+            "position": contact.position,
+            "department": contact.department,
+            "job_position_id": str(contact.job_position_id) if contact.job_position_id else None,
+            "company": tier.name if tier else None,
+            "company_code": tier.code if tier else None,
+            "is_primary": contact.is_primary,
+            "linked_user_id": str(contact.linked_user_id) if contact.linked_user_id else None,
+        }
+    if owner_type == "project":
+        project = await db.scalar(select(Project).where(Project.id == owner_id, Project.entity_id == entity_id))
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        task_count = await db.scalar(select(sqla_func.count(ProjectTask.id)).where(ProjectTask.project_id == owner_id, ProjectTask.active == True))
+        milestone_count = await db.scalar(select(sqla_func.count(ProjectMilestone.id)).where(ProjectMilestone.project_id == owner_id, ProjectMilestone.active == True))
+        member_count = await db.scalar(select(sqla_func.count(ProjectMember.id)).where(ProjectMember.project_id == owner_id, ProjectMember.active == True))
+        loss_count = await db.scalar(select(sqla_func.count(ProjectTaskLoss.id)).where(ProjectTaskLoss.project_id == owner_id))
+        change_count = await db.scalar(select(sqla_func.count(ProjectChange.id)).where(ProjectChange.project_id == owner_id))
+        return {
+            "type": "project",
+            "name": project.name,
+            "code": project.code,
+            "status": project.status,
+            "priority": project.priority,
+            "progress": project.progress,
+            "weather": project.weather,
+            "trend": project.trend,
+            "start_date": project.start_date.isoformat() if project.start_date else None,
+            "end_date": project.end_date.isoformat() if project.end_date else None,
+            "budget": float(project.budget or 0),
+            "currency": project.currency,
+            "task_count": int(task_count or 0),
+            "milestone_count": int(milestone_count or 0),
+            "member_count": int(member_count or 0),
+            "loss_count": int(loss_count or 0),
+            "change_count": int(change_count or 0),
+        }
+    raise HTTPException(status_code=422, detail="Unsupported owner_type")
+
+
+@router.get("/module-status", response_model=ModuleAIStatus)
+async def module_ai_status(
+    module: Literal["tiers", "projets"],
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return module-level AI availability for the current entity."""
+    await _require_module_ai_permission(current_user, entity_id, db, module)
+    enabled = await _module_ai_enabled(db, entity_id, module)
+    conn = await _module_ai_connection(db, entity_id, module)
+    configured = conn is not None
+    missing_reason = None
+    if not enabled:
+        missing_reason = "module_ai_disabled"
+    elif not configured:
+        missing_reason = "ai_provider_connector_missing"
+    return ModuleAIStatus(
+        module=module,
+        enabled=enabled,
+        configured=configured,
+        provider=str((conn.config or {}).get("provider")) if conn else None,
+        model=str((conn.config or {}).get("model")) if conn else None,
+        connection_name=conn.name if conn else None,
+        missing_reason=missing_reason,
+        intents=MODULE_AI_INTENTS if enabled and configured else [],
+    )
+
+
+@router.post("/module-insight", response_model=ModuleAIInsightResponse)
+async def module_ai_insight(
+    body: ModuleAIInsightRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a read-only business insight for Tiers or Projets."""
+    import litellm
+
+    await _require_module_ai_permission(current_user, entity_id, db, body.module)
+    if body.module == "tiers" and body.owner_type not in {"tier", "tier_contact"}:
+        raise HTTPException(status_code=422, detail="Invalid owner_type for tiers")
+    if body.module == "projets" and body.owner_type != "project":
+        raise HTTPException(status_code=422, detail="Invalid owner_type for projets")
+    if not await _module_ai_enabled(db, entity_id, body.module):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Module AI is disabled")
+    conn = await _module_ai_connection(db, entity_id, body.module)
+    if not conn:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI provider connector not configured")
+
+    context = await _build_module_context(db, entity_id, body.owner_type, body.owner_id)
+    ai_cfg = await get_ai_config(entity_id=entity_id, db=db, connection_id=conn.id)
+    if not ai_cfg.get("api_key") and ai_cfg.get("provider") != "ollama":
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI provider missing credentials")
+    provider, llm_kwargs = _normalize_model_config(ai_cfg)
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Tu es l'assistant metier OpsFlux pour un ERP industriel. "
+                "Tu fournis une analyse courte, actionnable et prudente. "
+                "Tu ne proposes aucune modification automatique. "
+                "Tu respectes strictement le contexte fourni et tu signales les donnees manquantes."
+            ),
+        },
+        {
+            "role": "user",
+            "content": json.dumps(
+                {
+                    "module": body.module,
+                    "objectif": _intent_label(body.intent),
+                    "contexte": context,
+                    "format": "Markdown court en francais, 3 a 6 puces maximum, avec priorites si utile.",
+                },
+                ensure_ascii=False,
+            ),
+        },
+    ]
+    response = await litellm.acompletion(messages=messages, **llm_kwargs)
+    text = (response.choices[0].message.content or "").strip()
+    await record_audit(
+        db,
+        action="ai.module.insight",
+        resource_type=f"{body.module}.{body.owner_type}",
+        resource_id=str(body.owner_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "module": body.module,
+            "intent": body.intent,
+            "connection_id": str(conn.id),
+            "provider": provider,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    return ModuleAIInsightResponse(
+        response=text,
+        model=str(llm_kwargs["model"]),
+        provider=provider,
+        intent=body.intent,
+    )
+
 
 @router.post("/stream")
 async def chat_stream(

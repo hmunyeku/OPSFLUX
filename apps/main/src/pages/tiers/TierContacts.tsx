@@ -35,6 +35,7 @@ import { PhoneManager } from '@/components/shared/PhoneManager'
 import { ContactEmailManager } from '@/components/shared/ContactEmailManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { BusinessAiPanel } from '@/components/shared/BusinessAiPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import {
@@ -627,6 +628,8 @@ export function ContactDetailPanel({
             {t('tiers.ui.primary_contact')}
           </div>
         )}
+
+        <BusinessAiPanel module="tiers" ownerType="tier_contact" ownerId={contact.id} compact />
 
         {/* Main details + compact coordinates rail, driven by panel width. */}
         <SectionColumns sidebar="right-320">

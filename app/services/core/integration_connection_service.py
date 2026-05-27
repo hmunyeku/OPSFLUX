@@ -24,6 +24,7 @@ from app.core.encryption import ENCRYPTION_KEY
 from app.models.common import IntegrationConnection
 from app.schemas.integrations import (
     AgentRunnerConfig,
+    AiProviderConfig,
     DokployConfig,
     GithubConfig,
     mask_secret,
@@ -35,6 +36,7 @@ _CONFIG_VALIDATORS = {
     "github": GithubConfig,
     "dokploy": DokployConfig,
     "agent_runner": AgentRunnerConfig,
+    "ai_provider": AiProviderConfig,
 }
 
 
@@ -133,6 +135,9 @@ def build_credentials_preview(
             preview["api_key_value"] = mask_secret(credentials["api_key_value"])
         if credentials.get("oauth_token"):
             preview["oauth_token"] = mask_secret(credentials["oauth_token"])
+    elif connection_type == "ai_provider":
+        if credentials.get("api_key_value"):
+            preview["api_key_value"] = mask_secret(credentials["api_key_value"])
     return preview
 
 

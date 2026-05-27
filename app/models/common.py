@@ -3086,7 +3086,7 @@ class IntegrationConnection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "integration_connections"
     __table_args__ = (
         CheckConstraint(
-            "connection_type IN ('github', 'dokploy', 'agent_runner')",
+            "connection_type IN ('github', 'dokploy', 'agent_runner', 'ai_provider')",
             name="ck_integration_connection_type",
         ),
         CheckConstraint(

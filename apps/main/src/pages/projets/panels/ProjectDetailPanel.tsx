@@ -45,6 +45,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { BusinessAiPanel } from '@/components/shared/BusinessAiPanel'
 import { TagManager } from '@/components/shared/TagManager'
 import { useUIStore } from '@/stores/uiStore'
 import { useUserPref } from '@/hooks/useFilterPersistence'
@@ -3970,6 +3971,10 @@ export function ProjectDetailPanel({ id }: { id: string }) {
             </div>
           )
         })()}
+
+        {(detailTab === 'metriques' || detailTab === 'fiche') && (
+          <BusinessAiPanel module="projets" ownerType="project" ownerId={project.id} compact />
+        )}
 
         {detailTab === 'fiche' && <>
         {/* Description — shown above the Fiche section so the project's

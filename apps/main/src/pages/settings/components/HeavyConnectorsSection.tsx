@@ -12,6 +12,7 @@ import {
   Github,
   Rocket,
   Bot,
+  Sparkles,
   Plus,
   Trash2,
   Play,
@@ -48,6 +49,11 @@ const TYPE_META: Record<IntegrationConnectionType, { icon: typeof Github; label:
     icon: Bot,
     label: 'Agent Runner',
     description: 'Exécuteur d’agent IA (Claude Code ou Codex) pour les runs de maintenance.',
+  },
+  ai_provider: {
+    icon: Sparkles,
+    label: 'Fournisseur IA métier',
+    description: 'Service IA utilisé par les modules Tiers et Projets pour les synthèses, risques et contrôles.',
   },
 }
 
@@ -105,7 +111,7 @@ export function HeavyConnectorsSection() {
       storageKey="settings.integrations.collapse"
     >
       <div className="mt-2 space-y-4">
-        {(['github', 'dokploy', 'agent_runner'] as const).map((type) => {
+        {(['github', 'dokploy', 'agent_runner', 'ai_provider'] as const).map((type) => {
           const meta = TYPE_META[type]
           const Icon = meta.icon
           const rows = byType(type)
@@ -275,6 +281,9 @@ function ConfigSummary({ conn }: { conn: IntegrationConnection }) {
   } else if (conn.connection_type === 'agent_runner') {
     if (c.runner_type) parts.push(String(c.runner_type))
     if (c.model_preference) parts.push(String(c.model_preference))
+  } else if (conn.connection_type === 'ai_provider') {
+    if (c.provider) parts.push(String(c.provider))
+    if (c.model) parts.push(String(c.model))
   }
   if (parts.length === 0) return null
   return <p className="text-[11px] text-muted-foreground mt-0.5">{parts.join(' · ')}</p>
@@ -358,6 +367,9 @@ function ConnectorForm({
       {connectionType === 'agent_runner' && (
         <AgentRunnerFields config={config} setConfig={setConfig} credentials={credentials} setCredentials={setCredentials} isEdit={mode === 'edit'} preview={initial?.credentials_preview} />
       )}
+      {connectionType === 'ai_provider' && (
+        <AiProviderFields config={config} setConfig={setConfig} credentials={credentials} setCredentials={setCredentials} isEdit={mode === 'edit'} preview={initial?.credentials_preview} />
+      )}
       <div className="flex justify-end gap-2">
         <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>Annuler</button>
         <button type="submit" className="btn btn-sm btn-primary" disabled={busy}>
@@ -382,6 +394,16 @@ function getDefaultConfig(type: IntegrationConnectionType): Record<string, unkno
       health_check_url: '',
       health_check_timeout_seconds: 300,
       deployment_strategy: 'restart',
+    }
+  }
+  if (type === 'ai_provider') {
+    return {
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      base_url: '',
+      max_tokens: 2048,
+      temperature: 0.2,
+      monthly_budget_usd: 100,
     }
   }
   return {
@@ -720,6 +742,106 @@ function AgentRunnerFields({ config, setConfig, credentials, setCredentials, isE
           />
           <p className="text-[10px] text-muted-foreground mt-1">
             Un login initial doit être fait manuellement sur ce volume avant utilisation.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AiProviderFields({ config, setConfig, credentials, setCredentials, isEdit, preview }: FieldsProps) {
+  const provider = (config.provider as string) ?? 'anthropic'
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="gl-label-sm">Fournisseur</label>
+          <select
+            className="gl-form-input"
+            value={provider}
+            onChange={(e) => setConfig({
+              ...config,
+              provider: e.target.value,
+              model: e.target.value === 'openai' ? 'gpt-4.1-mini' : e.target.value === 'ollama' ? 'llama3.1' : 'claude-sonnet-4-6',
+            })}
+          >
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+            <option value="mistral">Mistral</option>
+            <option value="ollama">Ollama / local</option>
+          </select>
+        </div>
+        <div>
+          <label className="gl-label-sm">Modèle</label>
+          <input
+            type="text"
+            required
+            className="gl-form-input"
+            value={(config.model as string) ?? ''}
+            onChange={(e) => setConfig({ ...config, model: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className="gl-label-sm">Max tokens</label>
+          <input
+            type="number"
+            min={256}
+            max={32768}
+            className="gl-form-input"
+            value={(config.max_tokens as number) ?? 2048}
+            onChange={(e) => setConfig({ ...config, max_tokens: parseInt(e.target.value) || 2048 })}
+          />
+        </div>
+        <div>
+          <label className="gl-label-sm">Température</label>
+          <input
+            type="number"
+            min={0}
+            max={2}
+            step="0.1"
+            className="gl-form-input"
+            value={(config.temperature as number) ?? 0.2}
+            onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="gl-label-sm">Budget mensuel (USD)</label>
+          <input
+            type="number"
+            min={0}
+            className="gl-form-input"
+            value={(config.monthly_budget_usd as number) ?? 100}
+            onChange={(e) => setConfig({ ...config, monthly_budget_usd: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+      </div>
+      {provider === 'ollama' && (
+        <div>
+          <label className="gl-label-sm">Base URL</label>
+          <input
+            type="url"
+            className="gl-form-input"
+            placeholder="http://ollama:11434"
+            value={(config.base_url as string) ?? ''}
+            onChange={(e) => setConfig({ ...config, base_url: e.target.value })}
+          />
+        </div>
+      )}
+      {provider !== 'ollama' && (
+        <div>
+          <label className="gl-label-sm">API Key {isEdit && '(laisser vide pour conserver)'}</label>
+          <input
+            type="password"
+            required={!isEdit}
+            className="gl-form-input font-mono"
+            placeholder={preview?.api_key_value || 'sk-...'}
+            value={credentials.api_key_value ?? ''}
+            onChange={(e) => setCredentials({ ...credentials, api_key_value: e.target.value })}
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Utilisé uniquement par les fonctionnalités IA métier activées dans Tiers et Projets. Les clés sont chiffrées côté backend.
           </p>
         </div>
       )}

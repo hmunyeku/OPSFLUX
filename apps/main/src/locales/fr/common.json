@@ -17,6 +17,19 @@
       }
     }
   },
+  "ai": {
+    "business": {
+      "title": "Analyse IA",
+      "missing_connector": "IA activée, mais aucun connecteur IA métier actif n’est configuré.",
+      "error": "Analyse IA indisponible. Vérifiez le connecteur et les permissions.",
+      "intent": {
+        "summary": "Synthèse",
+        "risks": "Risques",
+        "next_actions": "Actions",
+        "data_quality": "Données"
+      }
+    }
+  },
   "validation": {
     "required": "{{label}} requis",
     "min_length": "{{label}} doit contenir au moins {{min}} caractères",

@@ -10,10 +10,11 @@
  *   - Preview digest button
  */
 import { useEffect, useState } from 'react'
-import { Bot, Loader2, Save, Send, AlertTriangle, Mail, Clock, Shield, ListX } from 'lucide-react'
+import { Bot, Loader2, Save, Send, AlertTriangle, Mail, Clock, Shield, ListX, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAgentConfig, useUpdateAgentConfig } from '@/hooks/useAgentRuns'
 import { useIntegrationConnections } from '@/hooks/useIntegrationConnections'
+import { useSaveScopedSetting, useScopedSettingsMap } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
 import api from '@/lib/api'
 
@@ -21,6 +22,8 @@ export function AgentIaTab() {
   const { t } = useTranslation()
   const { data: config, isLoading } = useAgentConfig()
   const { data: allConnectors } = useIntegrationConnections()
+  const { data: entitySettings = {} } = useScopedSettingsMap('entity')
+  const saveEntitySetting = useSaveScopedSetting('entity')
   const update = useUpdateAgentConfig()
   const { toast } = useToast()
 
@@ -44,6 +47,7 @@ export function AgentIaTab() {
   const githubConns = (allConnectors ?? []).filter((c) => c.connection_type === 'github' && c.status === 'active')
   const runnerConns = (allConnectors ?? []).filter((c) => c.connection_type === 'agent_runner' && c.status === 'active')
   const dokployConns = (allConnectors ?? []).filter((c) => c.connection_type === 'dokploy' && c.status === 'active')
+  const aiProviderConns = (allConnectors ?? []).filter((c) => c.connection_type === 'ai_provider' && c.status === 'active')
 
   const handleSave = async () => {
     try {
@@ -95,6 +99,16 @@ export function AgentIaTab() {
       toast({ title: t('settings.agent_ia.toast.digest_failed', 'Envoi impossible'), description: msg || String(err), variant: 'error' })
     } finally {
       setSendingDigest(false)
+    }
+  }
+
+  const handleSaveBusinessAI = async (module: 'tiers' | 'projets', field: 'enabled' | 'connection_id', value: unknown) => {
+    try {
+      await saveEntitySetting.mutateAsync({ key: `ai.modules.${module}.${field}`, value })
+      toast({ title: t('settings.agent_ia.toast.saved', 'Configuration agent sauvegardée'), variant: 'success' })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast({ title: t('common.error', 'Erreur'), description: msg || String(err), variant: 'error' })
     }
   }
 
@@ -157,6 +171,35 @@ export function AgentIaTab() {
             {dokployConns.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
           </select>
         </Row>
+      </Section>
+
+      <Section title={t('settings.agent_ia.section.business_ai', 'IA métier dans les modules')} icon={<Sparkles size={12} />}>
+        <p className="text-[11px] text-muted-foreground">
+          {t('settings.agent_ia.business_ai_help', 'Active les analyses IA lecture seule dans Tiers et Projets. Le service utilisé doit être un connecteur IA métier actif.')}
+        </p>
+        {(['tiers', 'projets'] as const).map((module) => {
+          const enabledKey = `ai.modules.${module}.enabled`
+          const connectionKey = `ai.modules.${module}.connection_id`
+          return (
+            <Row key={module} label={module === 'tiers' ? 'Tiers' : 'Projets'}>
+              <div className="flex items-center gap-2">
+                <Toggle
+                  checked={Boolean(entitySettings[enabledKey])}
+                  onChange={(v) => { void handleSaveBusinessAI(module, 'enabled', v) }}
+                />
+                <select
+                  className="gl-form-input w-56"
+                  value={String(entitySettings[connectionKey] ?? '')}
+                  onChange={(e) => { void handleSaveBusinessAI(module, 'connection_id', e.target.value || null) }}
+                  disabled={!Boolean(entitySettings[enabledKey])}
+                >
+                  <option value="">{t('settings.agent_ia.business_ai_auto_connector', 'Connecteur actif par défaut')}</option>
+                  {aiProviderConns.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              </div>
+            </Row>
+          )
+        })}
       </Section>
 
       {/* Mode auto / fenêtre horaire */}

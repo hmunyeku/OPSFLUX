@@ -1,6 +1,6 @@
 /**
  * useIntegrationConnections — React Query hooks for heavy integration
- * connectors (GitHub, Dokploy, Agent Runner).
+ * connectors (GitHub, Dokploy, Agent Runner, AI Provider).
  *
  * Lives alongside the legacy `Setting`-based light integrations hook.
  * CRUD + "Test connection" endpoint wired to /api/v1/integration-connections.
@@ -8,7 +8,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 
-export type IntegrationConnectionType = 'github' | 'dokploy' | 'agent_runner'
+export type IntegrationConnectionType = 'github' | 'dokploy' | 'agent_runner' | 'ai_provider'
 export type IntegrationConnectionStatus = 'active' | 'suspended' | 'error' | 'disabled'
 
 export interface IntegrationConnection {

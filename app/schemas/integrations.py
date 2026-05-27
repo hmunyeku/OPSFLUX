@@ -65,6 +65,16 @@ class AgentRunnerConfig(BaseModel):
     additional_flags: list[str] = Field(default_factory=list)
 
 
+class AiProviderConfig(BaseModel):
+    """Non-sensitive config for an AI inference provider used by modules."""
+    provider: Literal["anthropic", "openai", "mistral", "ollama"]
+    model: str = Field(..., min_length=1, max_length=100)
+    base_url: str | None = Field(default=None, max_length=500)
+    max_tokens: int = Field(default=2048, ge=256, le=32768)
+    temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    monthly_budget_usd: float = Field(default=100.0, ge=0.0, le=10_000.0)
+
+
 # ─── Credentials (write-only) ─────────────────────────────────────────
 
 class GithubCredentials(BaseModel):
@@ -89,11 +99,15 @@ class AgentRunnerCredentials(BaseModel):
     oauth_token: str | None = None
 
 
+class AiProviderCredentials(BaseModel):
+    api_key_value: str | None = None
+
+
 # ─── Requests ─────────────────────────────────────────────────────────
 
 class IntegrationConnectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    connection_type: Literal["github", "dokploy", "agent_runner"]
+    connection_type: Literal["github", "dokploy", "agent_runner", "ai_provider"]
     name: str = Field(..., min_length=1, max_length=255)
     config: dict[str, Any]
     credentials: dict[str, Any] = Field(default_factory=dict)

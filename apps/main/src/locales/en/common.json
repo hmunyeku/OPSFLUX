@@ -17,6 +17,19 @@
       }
     }
   },
+  "ai": {
+    "business": {
+      "title": "AI analysis",
+      "missing_connector": "AI is enabled, but no active business AI connector is configured.",
+      "error": "AI analysis is unavailable. Check the connector and permissions.",
+      "intent": {
+        "summary": "Summary",
+        "risks": "Risks",
+        "next_actions": "Actions",
+        "data_quality": "Data"
+      }
+    }
+  },
   "validation": {
     "required": "{{label}} is required",
     "min_length": "{{label}} must contain at least {{min}} characters",

@@ -2308,6 +2308,7 @@
     "create": "New project",
     "history": {
       "empty": "No events recorded for this project.",
+      "empty_task": "No events recorded for this task.",
       "empty_filtered": "No events match this filter.",
       "by": "by",
       "system": "System",

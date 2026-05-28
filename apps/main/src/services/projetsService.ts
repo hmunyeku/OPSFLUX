@@ -215,6 +215,26 @@ export const projetsService = {
     return data
   },
 
+  // ── Task audit-log (Historique d'une tache) ──
+  // Reutilise le meme ProjectAuditEvent — le backend filtre les events
+  // resource_type='project' avec details.task_id == taskId.
+  listTaskAuditLog: async (
+    projectId: string,
+    taskId: string,
+    limit = 50,
+    filters: ProjectAuditLogFilters = {},
+  ): Promise<ProjectAuditEvent[]> => {
+    const params: Record<string, unknown> = { limit }
+    if (filters.actions?.length) params.actions = filters.actions
+    if (filters.since) params.since = filters.since
+    if (filters.until) params.until = filters.until
+    const { data } = await api.get<ProjectAuditEvent[]>(
+      `/api/v1/projects/${projectId}/tasks/${taskId}/audit-log`,
+      { params },
+    )
+    return data
+  },
+
   // ── All Tasks (cross-project, spreadsheet view) ──
   listAllTasks: async (params: PaginationParams & {
     project_id?: string; status?: string; priority?: string;

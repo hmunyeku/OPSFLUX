@@ -17,14 +17,14 @@ import {
 } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import {
-  useProject, useAllProjectTasks, useUpdateProjectTask, useTaskComments, useCreateTaskComment, useTaskDependencies,
+  useProject, useAllProjectTasks, useUpdateProjectTask, useTaskComments, useCreateTaskComment, useTaskDependencies, useTaskAuditLog,
   usePlannerLinks, useSendToPlanner, useUnlinkTaskFromPlanner,
   useBreakdownPending, useResolveBreakdownPending,
 } from '@/hooks/useProjets'
 import { useRevisionDecisionRequests, useRespondRevisionDecisionRequest } from '@/hooks/usePlanner'
 import { useUsers } from '@/hooks/useUsers'
 import { useToast } from '@/components/ui/Toast'
-import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
+import { SkeletonDetailPanel, Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 import {
   DynamicPanelShell,
@@ -276,6 +276,116 @@ function buildAncestry(taskId: string, allTasks: ProjectTask[]): ProjectTask[] {
 // ── Tab type ─────────────────────────────────────────────────
 
 type TaskTab = 'details' | 'subtasks' | 'dependencies' | 'collaboration'
+
+// ── Task audit-log timeline (Historique d'une tache) ──────────────
+// Mirror simplifie du ProjectAuditTimeline : meme look-and-feel,
+// memes libelles (reuse de projets.audit_action.*) puisque les events
+// sont les memes que dans ProjectAuditTimeline (task_create,
+// task_update, task_status_change, task_delete, deliverable_*,
+// dependency_*) - le backend les filtre via details.task_id.
+
+const TASK_AUDIT_ACTION_LABELS: Record<string, string> = {
+  task_create: 'Tâche créée',
+  task_update: 'Tâche modifiée',
+  task_delete: 'Tâche supprimée',
+  task_status_change: 'Changement de statut',
+  deliverable_create: 'Livrable créé',
+  deliverable_update: 'Livrable modifié',
+  deliverable_delete: 'Livrable supprimé',
+  dependency_create: 'Dépendance créée',
+  dependency_delete: 'Dépendance supprimée',
+}
+
+const TASK_AUDIT_ACTION_CHIP: Record<string, string> = {
+  task_create: 'chip chip-success',
+  task_update: 'chip',
+  task_delete: 'chip chip-danger',
+  task_status_change: 'chip chip-highlight',
+  deliverable_create: 'chip chip-success',
+  deliverable_update: 'chip',
+  deliverable_delete: 'chip chip-danger',
+  dependency_create: 'chip chip-info',
+  dependency_delete: 'chip chip-warn',
+}
+
+function TaskAuditTimeline({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const { t, i18n } = useTranslation()
+  const [limit, setLimit] = useState(50)
+  const { data: events = [], isLoading } = useTaskAuditLog(projectId, taskId, limit)
+  const hasMore = events.length === limit && limit < 200
+
+  if (isLoading) {
+    return (
+      <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="task-detail-audit-log">
+        <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-busy="true">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </FormSection>
+    )
+  }
+  if (events.length === 0) {
+    return (
+      <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="task-detail-audit-log">
+        <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          {t('projets.history.empty_task', 'Aucun évènement enregistré sur cette tâche.')}
+        </div>
+      </FormSection>
+    )
+  }
+  const fmt = (iso: string) => {
+    try {
+      return new Intl.DateTimeFormat(i18n.language, {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      }).format(new Date(iso))
+    } catch {
+      return iso.slice(0, 16).replace('T', ' ')
+    }
+  }
+  return (
+    <FormSection title={`Historique (${events.length})`} collapsible defaultExpanded={false} storageKey="task-detail-audit-log">
+      <ol className="relative space-y-2 border-l border-border pl-4">
+        {events.map((evt) => {
+          const actionLabel = t(
+            `projets.audit_action.${evt.action}`,
+            TASK_AUDIT_ACTION_LABELS[evt.action] ?? evt.action,
+          )
+          const chipClass = TASK_AUDIT_ACTION_CHIP[evt.action] ?? 'chip'
+          return (
+            <li key={evt.id} className="relative">
+              <span className="absolute -left-[19px] top-1 inline-block h-2 w-2 rounded-full bg-primary" />
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className={chipClass}>{actionLabel}</span>
+                <span className="text-xs text-muted-foreground">{t('projets.history.by', 'par')}</span>
+                <span className="text-xs font-semibold text-foreground">{evt.user_name ?? t('projets.history.system', 'Système')}</span>
+                <span className="text-[11px] text-muted-foreground">·</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+      {hasMore && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => setLimit(200)}
+            className="text-xs text-primary hover:underline focus:outline-none focus:underline"
+          >
+            {t('projets.history.load_more', 'Voir tout l\'historique')} →
+          </button>
+        </div>
+      )}
+    </FormSection>
+  )
+}
 
 // ── Component ───────────────────────────────────────────────────
 
@@ -1253,6 +1363,9 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             >
               <AttachmentManager ownerType="project_task" ownerId={taskId} compact />
             </FormSection>
+
+            {/* Historique audit-log de la tache */}
+            <TaskAuditTimeline projectId={projectId} taskId={taskId} />
 
             {/* Commentaires */}
             <FormSection

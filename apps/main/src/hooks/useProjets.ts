@@ -91,6 +91,19 @@ export function useProjectAuditLog(
   })
 }
 
+export function useTaskAuditLog(
+  projectId: string | undefined,
+  taskId: string | undefined,
+  limit = 50,
+  filters: ProjectAuditLogFilters = {},
+) {
+  return useQuery({
+    queryKey: ['task-audit-log', projectId, taskId, limit, filters],
+    queryFn: () => projetsService.listTaskAuditLog(projectId!, taskId!, limit, filters),
+    enabled: !!projectId && !!taskId,
+  })
+}
+
 // ── All Tasks (cross-project spreadsheet) ──
 
 export function useAllProjectTasks(params: PaginationParams & {

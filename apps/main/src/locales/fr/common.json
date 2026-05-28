@@ -2404,6 +2404,7 @@
     "create": "Nouveau projet",
     "history": {
       "empty": "Aucun évènement enregistré sur ce projet.",
+      "empty_task": "Aucun évènement enregistré sur cette tâche.",
       "empty_filtered": "Aucun évènement pour ce filtre.",
       "by": "par",
       "system": "Système",

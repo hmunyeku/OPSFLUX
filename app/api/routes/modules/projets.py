@@ -2751,6 +2751,84 @@ async def delete_project_task(
     return {"detail": "Task deleted"}
 
 
+# ── Task audit-log timeline (Historique d'une tache) ───────────────────────
+# Note : on N'EMET PAS d'event distinct resource_type='project_task'. Les
+# events sont deja emis resource_type='project' avec details.task_id = ...
+# On filtre dynamiquement via JSONB ->> 'task_id' = :task_id. Evite la
+# duplication de lignes audit_log et garde une seule source de verite.
+
+
+@router.get("/{project_id}/tasks/{task_id}/audit-log", response_model=list[ProjectAuditEventRead])
+async def list_task_audit_log(
+    project_id: UUID,
+    task_id: UUID,
+    limit: int = 50,
+    actions: list[str] | None = Query(default=None),
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Récupère l'historique audit-log d'une task (max 200 events).
+
+    Filtre :
+    - resource_type='project' AND resource_id=str(project_id)
+      pour profiter de l'index existant
+    - PLUS AuditLog.details->>'task_id' = str(task_id)
+      pour ne garder que les events qui CONCERNENT cette task
+      (task_create, task_update, task_status_change, task_delete,
+       deliverable_*, dependency_* avec task_id dans details).
+
+    Garde-fou : verifie projet ET task appartiennent a l'entity courante.
+    """
+    project = await _get_project_or_404(db, project_id, entity_id)
+    task = await db.scalar(
+        select(ProjectTask).where(
+            ProjectTask.id == task_id,
+            ProjectTask.project_id == project.id,
+        )
+    )
+    if not task:
+        raise HTTPException(404, "Task not found")
+    limit = max(1, min(limit, 200))
+    conds = [
+        AuditLog.entity_id == entity_id,
+        AuditLog.resource_type == "project",
+        AuditLog.resource_id == str(project.id),
+        # JSONB filter : on cast details->>'task_id' en text et compare
+        AuditLog.details.op("->>")("task_id") == str(task_id),
+    ]
+    if actions:
+        conds.append(AuditLog.action.in_(actions))
+    if since is not None:
+        conds.append(AuditLog.created_at >= since)
+    if until is not None:
+        conds.append(AuditLog.created_at <= until)
+    result = await db.execute(
+        select(AuditLog, User.first_name, User.last_name, User.email)
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .where(*conds)
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+    )
+    events: list[ProjectAuditEventRead] = []
+    for evt, fn, ln, email in result.all():
+        full_name = " ".join(filter(None, [fn, ln])).strip()
+        events.append(ProjectAuditEventRead(
+            id=evt.id,
+            action=evt.action,
+            resource_type=evt.resource_type,
+            user_id=evt.user_id,
+            user_name=full_name or email or None,
+            details=evt.details,
+            ip_address=evt.ip_address,
+            created_at=evt.created_at,
+        ))
+    return events
+
+
 @router.patch("/{project_id}/tasks/reorder")
 async def reorder_project_tasks(
     project_id: UUID,

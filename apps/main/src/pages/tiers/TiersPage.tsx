@@ -306,7 +306,15 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
   return (
     <ol className="relative space-y-2 border-l border-border pl-4">
       {events.map((evt) => {
-        const actionLabel = AUDIT_ACTION_LABELS[evt.action] ?? evt.action
+        // Use i18n key with FR hardcoded fallback so :
+        //  - les events historiques ont un libelle FR meme sans i18n entry
+        //  - l'utilisateur EN voit la traduction des nouvelles cles
+        //  - un event inconnu (nouveau action backend pas encore mappe)
+        //    retombe sur le slug brut, jamais sur undefined
+        const actionLabel = t(
+          `tiers.audit_action.${evt.action}`,
+          AUDIT_ACTION_LABELS[evt.action] ?? evt.action,
+        )
         const chipClass = AUDIT_ACTION_CHIP[evt.action] ?? 'chip'
         const detailFields = evt.details && typeof evt.details === 'object'
           ? Object.entries(evt.details).filter(([k]) => k !== 'source').slice(0, 4)
@@ -316,8 +324,8 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
             <span className="absolute -left-[19px] top-1 inline-block h-2 w-2 rounded-full bg-primary" />
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className={chipClass}>{actionLabel}</span>
-              <span className="text-xs text-muted-foreground">par</span>
-              <span className="text-xs font-semibold text-foreground">{evt.user_name ?? 'Système'}</span>
+              <span className="text-xs text-muted-foreground">{t('tiers.history.by', 'par')}</span>
+              <span className="text-xs font-semibold text-foreground">{evt.user_name ?? t('tiers.history.system', 'Système')}</span>
               <span className="text-[11px] text-muted-foreground">·</span>
               <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
             </div>

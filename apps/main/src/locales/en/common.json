@@ -2305,7 +2305,17 @@
     "audit_action": {
       "create": "Created",
       "update": "Updated",
-      "archive": "Archived"
+      "archive": "Archived",
+      "member_add": "Member added",
+      "member_update": "Member updated",
+      "member_remove": "Member removed",
+      "task_create": "Task created",
+      "task_update": "Task updated",
+      "task_delete": "Task deleted",
+      "task_status_change": "Task: status change",
+      "milestone_create": "Milestone created",
+      "milestone_update": "Milestone updated",
+      "milestone_delete": "Milestone deleted"
     },
     "search": {
       "visual_placeholder": "Free search: project, task, reference, status, priority, owner..."

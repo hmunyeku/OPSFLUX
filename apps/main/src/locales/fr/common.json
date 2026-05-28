@@ -2401,7 +2401,17 @@
     "audit_action": {
       "create": "Création",
       "update": "Modification",
-      "archive": "Archivage"
+      "archive": "Archivage",
+      "member_add": "Membre ajouté",
+      "member_update": "Membre modifié",
+      "member_remove": "Membre retiré",
+      "task_create": "Tâche créée",
+      "task_update": "Tâche modifiée",
+      "task_delete": "Tâche supprimée",
+      "task_status_change": "Tâche : changement de statut",
+      "milestone_create": "Jalon créé",
+      "milestone_update": "Jalon modifié",
+      "milestone_delete": "Jalon supprimé"
     },
     "search": {
       "visual_placeholder": "Recherche libre : projet, tâche, référence, statut, priorité, responsable..."

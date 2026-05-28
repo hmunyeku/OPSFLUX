@@ -1512,6 +1512,7 @@ async def add_project_member(
     project_id: UUID,
     body: ProjectMemberCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1540,6 +1541,17 @@ async def add_project_member(
         payload["currency"] = project.currency
     member = ProjectMember(project_id=project_id, **payload)
     db.add(member)
+    await db.flush()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="member_add", resource_type="project", resource_id=project.id,
+        details={
+            "member_id": str(member.id),
+            "user_id": str(member.user_id) if member.user_id else None,
+            "contact_id": str(member.contact_id) if member.contact_id else None,
+            "role": member.role,
+        },
+    )
     await db.commit()
     await db.refresh(member)
     d = {c.key: getattr(member, c.key) for c in member.__table__.columns}
@@ -1557,6 +1569,7 @@ async def update_project_member(
     member_id: UUID,
     body: ProjectMemberUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.member.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1566,8 +1579,17 @@ async def update_project_member(
     )
     if not member:
         raise HTTPException(404, "Member not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
         setattr(member, key, value)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="member_update", resource_type="project", resource_id=project_id,
+        details={
+            "member_id": str(member.id),
+            "fields": sorted(update_data.keys()),
+        },
+    )
     await db.commit()
     await db.refresh(member)
     d = {c.key: getattr(member, c.key) for c in member.__table__.columns}
@@ -1595,6 +1617,16 @@ async def remove_project_member(
     member = result.scalars().first()
     if not member:
         raise HTTPException(404, "Member not found")
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="member_remove", resource_type="project", resource_id=project_id,
+        details={
+            "member_id": str(member.id),
+            "user_id": str(member.user_id) if member.user_id else None,
+            "contact_id": str(member.contact_id) if member.contact_id else None,
+            "role": member.role,
+        },
+    )
     await delete_entity(member, db, "project_member", entity_id=member.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Member removed"}
@@ -2518,6 +2550,7 @@ async def create_project_task(
     project_id: UUID,
     body: ProjectTaskCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.task.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2529,6 +2562,18 @@ async def create_project_task(
     )
     task = ProjectTask(project_id=project_id, order=(max_order.scalar() or 0) + 1, **body.model_dump())
     db.add(task)
+    await db.flush()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="task_create", resource_type="project", resource_id=project_id,
+        details={
+            "task_id": str(task.id),
+            "title": task.title,
+            "status": task.status,
+            "priority": task.priority,
+            "is_milestone": bool(getattr(task, "is_milestone", False)),
+        },
+    )
     await db.commit()
     await db.refresh(task)
     await _update_project_progress(db, project_id)
@@ -2571,7 +2616,9 @@ async def update_project_task(
         "progress": "progress_change", "estimated_hours": "scope_change", "actual_hours": "scope_change",
         "pob_quota": "pob_change", "pob_quota_mode": "pob_change", "pob_quota_daily": "pob_change",
     }
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_payload = body.model_dump(exclude_unset=True)
+    old_status = task.status
+    for field, value in update_payload.items():
         old_value = getattr(task, field)
         if field in TRACKED_FIELDS and str(old_value) != str(value):
             db.add(TaskChangeLog(
@@ -2583,6 +2630,32 @@ async def update_project_task(
                 changed_by=current_user.id,
             ))
         setattr(task, field, value)
+
+    # Audit-log : on emet 1 event task_update (resource_type='project')
+    # consolidant tous les champs touches. Si status a change, on emet en
+    # plus un event task_status_change distinct pour qu'il soit filtrable
+    # facilement dans l'UI (les status transitions sont les events les
+    # plus consultes dans l'historique).
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="task_update", resource_type="project", resource_id=project_id,
+        details={
+            "task_id": str(task_id),
+            "title": task.title,
+            "fields": sorted(update_payload.keys()),
+        },
+    )
+    if "status" in update_payload and old_status != task.status:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="task_status_change", resource_type="project", resource_id=project_id,
+            details={
+                "task_id": str(task_id),
+                "title": task.title,
+                "old_status": old_status,
+                "new_status": task.status,
+            },
+        )
 
     await db.commit()
     await db.refresh(task)
@@ -2634,6 +2707,19 @@ async def delete_project_task(
     task = result.scalars().first()
     if not task:
         raise HTTPException(404, "Task not found")
+
+    # Snapshot avant suppression pour l'audit-log (delete_entity peut
+    # rendre task indisponible).
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="task_delete", resource_type="project", resource_id=project_id,
+        details={
+            "task_id": str(task_id),
+            "title": task.title,
+            "status": task.status,
+            "priority": task.priority,
+        },
+    )
 
     # Hard-delete owned child rows first (FKs have no ON DELETE CASCADE):
     # deliverables, actions, changelog entries. ProjectTaskDependency already
@@ -2697,12 +2783,23 @@ async def create_project_milestone(
     project_id: UUID,
     body: ProjectMilestoneCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.milestone.create"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
     ms = ProjectMilestone(project_id=project_id, **body.model_dump())
     db.add(ms)
+    await db.flush()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="milestone_create", resource_type="project", resource_id=project_id,
+        details={
+            "milestone_id": str(ms.id),
+            "title": getattr(ms, "title", None) or getattr(ms, "name", None),
+            "target_date": str(getattr(ms, "target_date", None) or getattr(ms, "due_date", "")),
+        },
+    )
     await db.commit()
     await db.refresh(ms)
     return ms
@@ -2714,6 +2811,7 @@ async def update_project_milestone(
     milestone_id: UUID,
     body: ProjectMilestoneUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.milestone.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2724,8 +2822,17 @@ async def update_project_milestone(
     ms = result.scalars().first()
     if not ms:
         raise HTTPException(404, "Milestone not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
         setattr(ms, field, value)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="milestone_update", resource_type="project", resource_id=project_id,
+        details={
+            "milestone_id": str(ms.id),
+            "fields": sorted(update_data.keys()),
+        },
+    )
     await db.commit()
     await db.refresh(ms)
     return ms
@@ -2747,6 +2854,14 @@ async def delete_project_milestone(
     ms = result.scalars().first()
     if not ms:
         raise HTTPException(404, "Milestone not found")
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="milestone_delete", resource_type="project", resource_id=project_id,
+        details={
+            "milestone_id": str(ms.id),
+            "title": getattr(ms, "title", None) or getattr(ms, "name", None),
+        },
+    )
     await delete_entity(ms, db, "project_milestone", entity_id=ms.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Milestone deleted"}

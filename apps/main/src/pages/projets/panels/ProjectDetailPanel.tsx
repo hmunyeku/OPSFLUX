@@ -3185,12 +3185,39 @@ const PROJECT_AUDIT_ACTION_LABELS: Record<string, string> = {
   create: 'Création',
   update: 'Modification',
   archive: 'Archivage',
+  // Members
+  member_add: 'Membre ajouté',
+  member_update: 'Membre modifié',
+  member_remove: 'Membre retiré',
+  // Tasks
+  task_create: 'Tâche créée',
+  task_update: 'Tâche modifiée',
+  task_delete: 'Tâche supprimée',
+  task_status_change: 'Tâche : changement de statut',
+  // Milestones
+  milestone_create: 'Jalon créé',
+  milestone_update: 'Jalon modifié',
+  milestone_delete: 'Jalon supprimé',
 }
 
 const PROJECT_AUDIT_ACTION_CHIP: Record<string, string> = {
   create: 'chip chip-success',
   update: 'chip',
   archive: 'chip chip-danger',
+  // Members : ajouts succès, modifs neutres, retraits danger
+  member_add: 'chip chip-success',
+  member_update: 'chip',
+  member_remove: 'chip chip-danger',
+  // Tasks : creation success, update neutre, suppression danger,
+  // status_change highlight (event structurant pour le pilotage).
+  task_create: 'chip chip-success',
+  task_update: 'chip',
+  task_delete: 'chip chip-danger',
+  task_status_change: 'chip chip-highlight',
+  // Milestones : meme logique que tasks mais pas de status change.
+  milestone_create: 'chip chip-success',
+  milestone_update: 'chip',
+  milestone_delete: 'chip chip-danger',
 }
 
 function ProjectAuditTimeline({ projectId }: { projectId: string }) {

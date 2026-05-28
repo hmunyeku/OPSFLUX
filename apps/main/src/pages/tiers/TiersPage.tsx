@@ -215,6 +215,16 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   contact_promote_user: 'Contact promu utilisateur',
   external_ref_create: 'Référence externe ajoutée',
   external_ref_delete: 'Référence externe supprimée',
+  // Polymorphic sub-resources (addresses, phones, legal identifiers)
+  address_create: 'Adresse ajoutée',
+  address_update: 'Adresse modifiée',
+  address_delete: 'Adresse supprimée',
+  phone_create: 'Téléphone ajouté',
+  phone_update: 'Téléphone modifié',
+  phone_delete: 'Téléphone supprimé',
+  legal_identifier_create: 'Identifiant légal ajouté',
+  legal_identifier_update: 'Identifiant légal modifié',
+  legal_identifier_delete: 'Identifiant légal supprimé',
 }
 
 const AUDIT_ACTION_CHIP: Record<string, string> = {
@@ -236,6 +246,15 @@ const AUDIT_ACTION_CHIP: Record<string, string> = {
   contact_promote_user: 'chip chip-highlight',
   external_ref_create: 'chip chip-success',
   external_ref_delete: 'chip chip-danger',
+  address_create: 'chip chip-success',
+  address_update: 'chip',
+  address_delete: 'chip chip-danger',
+  phone_create: 'chip chip-success',
+  phone_update: 'chip',
+  phone_delete: 'chip chip-danger',
+  legal_identifier_create: 'chip chip-success',
+  legal_identifier_update: 'chip',
+  legal_identifier_delete: 'chip chip-danger',
 }
 
 function TierAuditTimeline({ tierId }: { tierId: string }) {

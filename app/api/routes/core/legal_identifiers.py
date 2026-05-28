@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_entity
 from app.core.database import get_db
+from app.services.core.audit_service import add_event as add_audit_event
 from app.services.core.delete_service import delete_entity
 from app.models.common import LegalIdentifier, User
 from app.schemas.common import LegalIdentifierCreate, LegalIdentifierRead, LegalIdentifierUpdate
@@ -37,10 +38,21 @@ async def create_legal_identifier(
     owner_id: UUID,
     body: LegalIdentifierCreate,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     obj = LegalIdentifier(**body.model_dump(), owner_type=owner_type, owner_id=owner_id)
     db.add(obj)
+    await db.flush()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="legal_identifier_create", resource_type=owner_type, resource_id=owner_id,
+        details={
+            "identifier_id": str(obj.id),
+            "type": getattr(obj, "type", None),
+            "value": getattr(obj, "value", None),
+        },
+    )
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -51,6 +63,7 @@ async def update_legal_identifier(
     ident_id: UUID,
     body: LegalIdentifierUpdate,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(LegalIdentifier).where(LegalIdentifier.id == ident_id))
@@ -70,6 +83,14 @@ async def update_legal_identifier(
         )
     for field, value in update_data.items():
         setattr(obj, field, value)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="legal_identifier_update", resource_type=obj.owner_type, resource_id=obj.owner_id,
+        details={
+            "identifier_id": str(obj.id),
+            "fields": list(update_data.keys()),
+        },
+    )
     await db.commit()
     await db.refresh(obj)
     return obj
@@ -79,6 +100,7 @@ async def update_legal_identifier(
 async def delete_legal_identifier(
     ident_id: UUID,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(LegalIdentifier).where(LegalIdentifier.id == ident_id))
@@ -89,5 +111,14 @@ async def delete_legal_identifier(
             code="LEGAL_IDENTIFIER_NOT_FOUND",
             message="Legal identifier not found",
         )
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="legal_identifier_delete", resource_type=obj.owner_type, resource_id=obj.owner_id,
+        details={
+            "identifier_id": str(obj.id),
+            "type": getattr(obj, "type", None),
+            "value": getattr(obj, "value", None),
+        },
+    )
     await delete_entity(obj, db, "legal_identifier", entity_id=obj.id, user_id=current_user.id)
     await db.commit()

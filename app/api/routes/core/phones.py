@@ -12,10 +12,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.api.deps import get_current_user, get_current_entity, check_polymorphic_owner_access
 from app.core.database import get_db
 from app.models.common import Phone, User
 from app.schemas.common import PhoneCreate, PhoneRead, PhoneUpdate
+from app.services.core.audit_service import add_event as add_audit_event
 from app.services.core.delete_service import delete_entity
 from app.core.errors import StructuredHTTPException
 
@@ -45,6 +46,7 @@ async def create_phone(
     body: PhoneCreate,
     request: Request,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a phone number to any object."""
@@ -71,6 +73,18 @@ async def create_phone(
     )
     db.add(phone)
     try:
+        await db.flush()  # populate phone.id pour le payload audit
+        # Audit-log : remonte sur la timeline du Tier quand owner_type=tier
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="phone_create", resource_type=body.owner_type, resource_id=body.owner_id,
+            details={
+                "phone_id": str(phone.id),
+                "label": body.label,
+                "number": body.number,
+                "is_default": bool(body.is_default),
+            },
+        )
         await db.commit()
     except IntegrityError:
         # Unique constraint (owner_type, owner_id, number) — caller
@@ -102,6 +116,7 @@ async def update_phone(
     body: PhoneUpdate,
     request: Request,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a phone number."""
@@ -140,6 +155,14 @@ async def update_phone(
     for field, value in update_data.items():
         setattr(phone, field, value)
 
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="phone_update", resource_type=phone.owner_type, resource_id=phone.owner_id,
+        details={
+            "phone_id": str(phone.id),
+            "fields": list(update_data.keys()),
+        },
+    )
     await db.commit()
     await db.refresh(phone)
     return phone
@@ -150,6 +173,7 @@ async def delete_phone(
     phone_id: UUID,
     request: Request,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a phone number."""
@@ -163,6 +187,15 @@ async def delete_phone(
         )
 
     await check_polymorphic_owner_access(phone.owner_type, phone.owner_id, current_user, db, request, write=True)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="phone_delete", resource_type=phone.owner_type, resource_id=phone.owner_id,
+        details={
+            "phone_id": str(phone.id),
+            "label": phone.label,
+            "number": phone.number,
+        },
+    )
     await delete_entity(phone, db, "phone", entity_id=phone_id, user_id=current_user.id)
     await db.commit()
 

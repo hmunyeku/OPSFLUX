@@ -11,10 +11,11 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.api.deps import get_current_user, get_current_entity, check_polymorphic_owner_access
 from app.core.database import get_db
 from app.models.common import Address, User
 from app.schemas.common import AddressCreate, AddressRead, AddressUpdate
+from app.services.core.audit_service import add_event as add_audit_event
 from app.services.core.delete_service import delete_entity
 from app.core.errors import StructuredHTTPException
 
@@ -44,6 +45,7 @@ async def create_address(
     body: AddressCreate,
     request: Request,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new address linked to any object."""
@@ -74,6 +76,22 @@ async def create_address(
         is_default=body.is_default,
     )
     db.add(address)
+    await db.flush()  # populate address.id pour le payload audit
+    # Audit-log : tracé sur l'owner polymorphe (tier/user/asset/entity).
+    # L'endpoint GET /tiers/{id}/audit-log filtre par resource_type='tier'
+    # donc les évènements address_create d'un tier remontent automatiquement
+    # dans la timeline Historique du Tier.
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="address_create", resource_type=body.owner_type, resource_id=body.owner_id,
+        details={
+            "address_id": str(address.id),
+            "label": body.label,
+            "city": body.city,
+            "country": body.country,
+            "is_default": bool(body.is_default),
+        },
+    )
     await db.commit()
     await db.refresh(address)
     return address
@@ -85,6 +103,7 @@ async def update_address(
     body: AddressUpdate,
     request: Request,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Update an existing address."""
@@ -123,6 +142,14 @@ async def update_address(
     for field, value in update_data.items():
         setattr(address, field, value)
 
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="address_update", resource_type=address.owner_type, resource_id=address.owner_id,
+        details={
+            "address_id": str(address.id),
+            "fields": list(update_data.keys()),
+        },
+    )
     await db.commit()
     await db.refresh(address)
     return address
@@ -133,6 +160,7 @@ async def delete_address(
     address_id: UUID,
     request: Request,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an address."""
@@ -148,5 +176,15 @@ async def delete_address(
         )
 
     await check_polymorphic_owner_access(address.owner_type, address.owner_id, current_user, db, request, write=True)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="address_delete", resource_type=address.owner_type, resource_id=address.owner_id,
+        details={
+            "address_id": str(address.id),
+            "label": address.label,
+            "city": address.city,
+            "country": address.country,
+        },
+    )
     await delete_entity(address, db, "address", entity_id=address_id, user_id=current_user.id)
     await db.commit()

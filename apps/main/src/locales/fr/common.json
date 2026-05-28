@@ -1296,12 +1296,21 @@
     "tab_contacts": "Employés",
     "history": {
       "empty": "Aucun évènement enregistré sur ce tiers.",
+      "empty_filtered": "Aucun évènement pour ce filtre.",
       "by": "par",
       "system": "Système",
       "event_count": "évènement(s)",
       "load_more": "Voir tout l'historique",
       "cap_hit": "Plafond 200 atteint",
-      "cap_hit_title": "Plafond serveur atteint — affinez la recherche pour voir plus."
+      "cap_hit_title": "Plafond serveur atteint — affinez la recherche pour voir plus.",
+      "filter": {
+        "all": "Tous",
+        "create": "Créations",
+        "update": "Modifs",
+        "delete": "Suppressions",
+        "audit": "Audits",
+        "link": "Statut & liens"
+      }
     },
     "audit_action": {
       "create": "Création",
@@ -2391,12 +2400,21 @@
     "create": "Nouveau projet",
     "history": {
       "empty": "Aucun évènement enregistré sur ce projet.",
+      "empty_filtered": "Aucun évènement pour ce filtre.",
       "by": "par",
       "system": "Système",
       "event_count": "évènement(s)",
       "load_more": "Voir tout l'historique",
       "cap_hit": "Plafond 200 atteint",
-      "cap_hit_title": "Plafond serveur atteint — affinez la recherche pour voir plus."
+      "cap_hit_title": "Plafond serveur atteint — affinez la recherche pour voir plus.",
+      "filter": {
+        "all": "Tous",
+        "create": "Créations",
+        "update": "Modifs",
+        "delete": "Suppressions",
+        "tasks": "Tâches & jalons",
+        "team": "Équipe"
+      }
     },
     "audit_action": {
       "create": "Création",

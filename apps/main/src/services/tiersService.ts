@@ -10,6 +10,12 @@ import type {
   PaginatedResponse, PaginationParams, UserRead,
 } from '@/types/api'
 
+export interface AuditLogFilters {
+  actions?: string[]
+  since?: string  // ISO datetime
+  until?: string  // ISO datetime
+}
+
 export interface TierAuditEvent {
   id: string
   action: string
@@ -65,8 +71,15 @@ export const tiersService = {
     return data
   },
 
-  listAuditLog: async (tierId: string, limit = 50): Promise<TierAuditEvent[]> => {
-    const { data } = await api.get(`/api/v1/tiers/${tierId}/audit-log`, { params: { limit } })
+  listAuditLog: async (tierId: string, limit = 50, filters: AuditLogFilters = {}): Promise<TierAuditEvent[]> => {
+    // axios serialise un array `actions` en plusieurs `?actions=...` params
+    // grace au `paramsSerializer` par defaut (style indices/repeat).
+    // FastAPI Query(default=None) recoit la liste correctement.
+    const params: Record<string, unknown> = { limit }
+    if (filters.actions?.length) params.actions = filters.actions
+    if (filters.since) params.since = filters.since
+    if (filters.until) params.until = filters.until
+    const { data } = await api.get(`/api/v1/tiers/${tierId}/audit-log`, { params })
     return data
   },
 

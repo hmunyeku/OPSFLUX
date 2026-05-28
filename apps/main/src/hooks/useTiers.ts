@@ -90,10 +90,20 @@ export function useBulkArchiveTiers() {
   })
 }
 
-export function useTierAuditLog(tierId: string | undefined, limit = 50) {
+export interface TierAuditLogFilters {
+  actions?: string[]
+  since?: string
+  until?: string
+}
+
+export function useTierAuditLog(
+  tierId: string | undefined,
+  limit = 50,
+  filters: TierAuditLogFilters = {},
+) {
   return useQuery({
-    queryKey: ['tier-audit-log', tierId, limit],
-    queryFn: () => tiersService.listAuditLog(tierId!, limit),
+    queryKey: ['tier-audit-log', tierId, limit, filters],
+    queryFn: () => tiersService.listAuditLog(tierId!, limit, filters),
     enabled: !!tierId,
   })
 }

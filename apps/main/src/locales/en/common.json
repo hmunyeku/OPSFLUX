@@ -1199,12 +1199,21 @@
     "tab_contacts": "Employees",
     "history": {
       "empty": "No events recorded for this company.",
+      "empty_filtered": "No events match this filter.",
       "by": "by",
       "system": "System",
       "event_count": "event(s)",
       "load_more": "View full history",
       "cap_hit": "200-event cap reached",
-      "cap_hit_title": "Server cap reached — refine your search to see more."
+      "cap_hit_title": "Server cap reached — refine your search to see more.",
+      "filter": {
+        "all": "All",
+        "create": "Created",
+        "update": "Updated",
+        "delete": "Deleted",
+        "audit": "Audits",
+        "link": "Status & links"
+      }
     },
     "audit_action": {
       "create": "Created",
@@ -2295,12 +2304,21 @@
     "create": "New project",
     "history": {
       "empty": "No events recorded for this project.",
+      "empty_filtered": "No events match this filter.",
       "by": "by",
       "system": "System",
       "event_count": "event(s)",
       "load_more": "View full history",
       "cap_hit": "200-event cap reached",
-      "cap_hit_title": "Server cap reached — refine your search to see more."
+      "cap_hit_title": "Server cap reached — refine your search to see more.",
+      "filter": {
+        "all": "All",
+        "create": "Created",
+        "update": "Updated",
+        "delete": "Deleted",
+        "tasks": "Tasks & milestones",
+        "team": "Team"
+      }
     },
     "audit_action": {
       "create": "Created",

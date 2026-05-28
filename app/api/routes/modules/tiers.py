@@ -5,7 +5,7 @@ import logging
 from datetime import date as date_type, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import and_, case, select, func as sqla_func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -392,6 +392,9 @@ class TierAuditEventRead(BaseModel):
 async def list_tier_audit_log(
     tier_id: UUID,
     limit: int = 50,
+    actions: list[str] | None = Query(default=None, description="Filter by action types (multi)"),
+    since: datetime | None = Query(default=None, description="ISO datetime lower bound (inclusive)"),
+    until: datetime | None = Query(default=None, description="ISO datetime upper bound (inclusive)"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.tier.read"),
@@ -405,20 +408,33 @@ async def list_tier_audit_log(
 
     Garde-fou : verifie d'abord que le tier appartient bien a l'entity
     courante (sinon retourne 404 silencieux, pas leak existence).
+
+    Filtres optionnels :
+    - `actions` : liste de slugs d'action a inclure (e.g. ?actions=create&actions=block).
+      Si omis, toutes les actions sont retournees.
+    - `since` / `until` : bornes temporelles inclusives sur created_at.
     """
     # Verif tier existe + scope
     tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     # Cap limit
     limit = max(1, min(limit, 200))
+    # Build filter conditions
+    conds = [
+        AuditLog.entity_id == entity_id,
+        AuditLog.resource_type == "tier",
+        AuditLog.resource_id == str(tier.id),
+    ]
+    if actions:
+        conds.append(AuditLog.action.in_(actions))
+    if since is not None:
+        conds.append(AuditLog.created_at >= since)
+    if until is not None:
+        conds.append(AuditLog.created_at <= until)
     # Query audit_log avec join sur users
     result = await db.execute(
         select(AuditLog, User.first_name, User.last_name, User.email)
         .outerjoin(User, AuditLog.user_id == User.id)
-        .where(
-            AuditLog.entity_id == entity_id,
-            AuditLog.resource_type == "tier",
-            AuditLog.resource_id == str(tier.id),
-        )
+        .where(*conds)
         .order_by(AuditLog.created_at.desc())
         .limit(limit)
     )

@@ -3,6 +3,13 @@
  */
 import api from '@/lib/api'
 
+// Mirror du tiersService.AuditLogFilters — meme contrat backend.
+export interface ProjectAuditLogFilters {
+  actions?: string[]
+  since?: string
+  until?: string
+}
+
 // Mirror du TierAuditEvent — meme structure cote backend, on garde une
 // interface dediee pour eviter une dependance croisee entre services.
 export interface ProjectAuditEvent {
@@ -192,10 +199,18 @@ export const projetsService = {
   },
 
   // ── Audit-log timeline (Historique) ──
-  listAuditLog: async (projectId: string, limit = 50): Promise<ProjectAuditEvent[]> => {
+  listAuditLog: async (
+    projectId: string,
+    limit = 50,
+    filters: ProjectAuditLogFilters = {},
+  ): Promise<ProjectAuditEvent[]> => {
+    const params: Record<string, unknown> = { limit }
+    if (filters.actions?.length) params.actions = filters.actions
+    if (filters.since) params.since = filters.since
+    if (filters.until) params.until = filters.until
     const { data } = await api.get<ProjectAuditEvent[]>(
       `/api/v1/projects/${projectId}/audit-log`,
-      { params: { limit } },
+      { params },
     )
     return data
   },

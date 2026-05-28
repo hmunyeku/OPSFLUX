@@ -3234,25 +3234,86 @@ const PROJECT_AUDIT_ACTION_CHIP: Record<string, string> = {
   dependency_delete: 'chip chip-warn',
 }
 
+// Groupes predefinis pour filtrer la timeline projet par INTENTION
+type ProjectFilterGroup = 'all' | 'create' | 'update' | 'delete' | 'tasks' | 'team'
+
+const PROJECT_FILTER_GROUPS: Record<ProjectFilterGroup, string[] | undefined> = {
+  all: undefined,
+  create: [
+    'create', 'task_create', 'milestone_create',
+    'deliverable_create', 'dependency_create', 'member_add',
+  ],
+  update: [
+    'update', 'task_update', 'milestone_update', 'deliverable_update', 'member_update',
+  ],
+  delete: [
+    'archive', 'task_delete', 'milestone_delete',
+    'deliverable_delete', 'dependency_delete', 'member_remove',
+  ],
+  tasks: [
+    'task_create', 'task_update', 'task_delete', 'task_status_change',
+    'milestone_create', 'milestone_update', 'milestone_delete',
+    'deliverable_create', 'deliverable_update', 'deliverable_delete',
+    'dependency_create', 'dependency_delete',
+  ],
+  team: ['member_add', 'member_update', 'member_remove'],
+}
+
 function ProjectAuditTimeline({ projectId }: { projectId: string }) {
   const { t, i18n } = useTranslation()
   const [limit, setLimit] = useState(50)
-  const { data: events = [], isLoading } = useProjectAuditLog(projectId, limit)
+  const [filterGroup, setFilterGroup] = useState<ProjectFilterGroup>('all')
+  const actionsFilter = PROJECT_FILTER_GROUPS[filterGroup]
+  const { data: events = [], isLoading } = useProjectAuditLog(
+    projectId, limit, actionsFilter ? { actions: actionsFilter } : {},
+  )
   const hasMore = events.length === limit && limit < 200
+
+  // Filter bar — declared early so it can be reused in loading/empty states
+  const FILTER_BUTTONS: { key: ProjectFilterGroup; labelKey: string; fallback: string }[] = [
+    { key: 'all', labelKey: 'projets.history.filter.all', fallback: 'Tous' },
+    { key: 'create', labelKey: 'projets.history.filter.create', fallback: 'Créations' },
+    { key: 'update', labelKey: 'projets.history.filter.update', fallback: 'Modifs' },
+    { key: 'delete', labelKey: 'projets.history.filter.delete', fallback: 'Suppressions' },
+    { key: 'tasks', labelKey: 'projets.history.filter.tasks', fallback: 'Tâches & jalons' },
+    { key: 'team', labelKey: 'projets.history.filter.team', fallback: 'Équipe' },
+  ]
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {FILTER_BUTTONS.map(({ key, labelKey, fallback }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => setFilterGroup(key)}
+          className={cn(
+            'inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium transition-colors border',
+            filterGroup === key
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+          )}
+        >
+          {t(labelKey, fallback)}
+        </button>
+      ))}
+    </div>
+  )
 
   if (isLoading) {
     return (
       <FormSection title="Historique" collapsible defaultExpanded storageKey="project-detail-audit-log">
-        <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-label="loading" aria-busy="true">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex items-start gap-2">
-              <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <Skeleton className="h-3 w-2/3" />
-                <Skeleton className="h-2.5 w-1/3" />
+        <div className="space-y-2">
+          {filterBar}
+          <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-label="loading" aria-busy="true">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-2.5 w-1/3" />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </FormSection>
     )
@@ -3260,8 +3321,13 @@ function ProjectAuditTimeline({ projectId }: { projectId: string }) {
   if (events.length === 0) {
     return (
       <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="project-detail-audit-log">
-        <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-          {t('projets.history.empty', 'Aucun évènement enregistré sur ce projet.')}
+        <div className="space-y-2">
+          {filterBar}
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            {filterGroup === 'all'
+              ? t('projets.history.empty', 'Aucun évènement enregistré sur ce projet.')
+              : t('projets.history.empty_filtered', 'Aucun évènement pour ce filtre.')}
+          </div>
         </div>
       </FormSection>
     )
@@ -3278,6 +3344,7 @@ function ProjectAuditTimeline({ projectId }: { projectId: string }) {
   return (
     <FormSection title="Historique" collapsible defaultExpanded storageKey="project-detail-audit-log">
       <div className="space-y-2">
+        {filterBar}
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
           <span>{events.length} {t('projets.history.event_count', 'évènement(s)')}</span>
           {limit === 200 && events.length === 200 && (

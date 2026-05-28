@@ -1428,6 +1428,9 @@ class ProjectAuditEventRead(BaseModel):
 async def list_project_audit_log(
     project_id: UUID,
     limit: int = 50,
+    actions: list[str] | None = Query(default=None, description="Filter by action types (multi)"),
+    since: datetime | None = Query(default=None, description="ISO datetime lower bound (inclusive)"),
+    until: datetime | None = Query(default=None, description="ISO datetime upper bound (inclusive)"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("project.read"),
@@ -1441,17 +1444,30 @@ async def list_project_audit_log(
 
     Garde-fou : verifie d'abord que le projet appartient bien a l'entity
     courante (sinon retourne 404 silencieux, pas leak existence).
+
+    Filtres optionnels :
+    - `actions` : liste de slugs d'action a inclure
+      (e.g. ?actions=task_create&actions=member_add).
+      Si omis, toutes les actions sont retournees.
+    - `since` / `until` : bornes temporelles inclusives sur created_at.
     """
     project = await _get_project_or_404(db, project_id, entity_id)
     limit = max(1, min(limit, 200))
+    conds = [
+        AuditLog.entity_id == entity_id,
+        AuditLog.resource_type == "project",
+        AuditLog.resource_id == str(project.id),
+    ]
+    if actions:
+        conds.append(AuditLog.action.in_(actions))
+    if since is not None:
+        conds.append(AuditLog.created_at >= since)
+    if until is not None:
+        conds.append(AuditLog.created_at <= until)
     result = await db.execute(
         select(AuditLog, User.first_name, User.last_name, User.email)
         .outerjoin(User, AuditLog.user_id == User.id)
-        .where(
-            AuditLog.entity_id == entity_id,
-            AuditLog.resource_type == "project",
-            AuditLog.resource_id == str(project.id),
-        )
+        .where(*conds)
         .order_by(AuditLog.created_at.desc())
         .limit(limit)
     )

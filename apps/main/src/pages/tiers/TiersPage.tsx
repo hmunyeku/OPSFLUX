@@ -279,6 +279,34 @@ const AUDIT_ACTION_CHIP: Record<string, string> = {
   project_archive: 'chip chip-danger',
 }
 
+// Groupes predefinis pour filtrer la timeline par INTENTION metier
+// plutot que par slug technique. Plus parlant pour l'utilisateur final
+// qu'un multi-select sur 25+ actions.
+type TierFilterGroup = 'all' | 'create' | 'update' | 'delete' | 'audit' | 'link'
+
+const TIER_FILTER_GROUPS: Record<TierFilterGroup, string[] | undefined> = {
+  all: undefined,
+  create: [
+    'create', 'contact_create', 'external_ref_create',
+    'address_create', 'phone_create', 'legal_identifier_create',
+    'project_create',
+  ],
+  update: [
+    'update', 'contact_update', 'address_update',
+    'phone_update', 'legal_identifier_update',
+  ],
+  delete: [
+    'archive', 'contact_delete', 'external_ref_delete',
+    'address_delete', 'phone_delete', 'legal_identifier_delete',
+    'project_unlink', 'project_archive',
+  ],
+  audit: [
+    'audit_create', 'audit_submit', 'audit_validated', 'audit_rejected',
+    'mark_validated', 'external_verify', 'approve', 'reject',
+  ],
+  link: ['block', 'unblock', 'transfer', 'contact_promote_user', 'project_link', 'project_unlink'],
+}
+
 function TierAuditTimeline({ tierId }: { tierId: string }) {
   const { t, i18n } = useTranslation()
   // Progressive disclosure : on commence a 50 events (fast first paint),
@@ -286,30 +314,73 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
   // 50 couvre la quasi-totalite des tiers ; les ~5% restants ont assez
   // d'activite pour justifier de voir l'historique etendu.
   const [limit, setLimit] = useState(50)
-  const { data: events = [], isLoading } = useTierAuditLog(tierId, limit)
+  const [filterGroup, setFilterGroup] = useState<TierFilterGroup>('all')
+  const actionsFilter = TIER_FILTER_GROUPS[filterGroup]
+  const { data: events = [], isLoading } = useTierAuditLog(
+    tierId, limit, actionsFilter ? { actions: actionsFilter } : {},
+  )
   // Heuristic : si on a atteint le plafond demande ET qu'on n'est pas
   // deja au max backend, c'est probablement qu'il y en a plus.
   const hasMore = events.length === limit && limit < 200
 
+  // Filter buttons declared early so they can be reused dans le bloc loading
+  // ET le bloc empty (sans ca, filtrer sur un slug vide vire toute l'UI et
+  // l'utilisateur ne peut plus revenir a "Tous").
+  const FILTER_BUTTONS: { key: TierFilterGroup; labelKey: string; fallback: string }[] = [
+    { key: 'all', labelKey: 'tiers.history.filter.all', fallback: 'Tous' },
+    { key: 'create', labelKey: 'tiers.history.filter.create', fallback: 'Créations' },
+    { key: 'update', labelKey: 'tiers.history.filter.update', fallback: 'Modifs' },
+    { key: 'delete', labelKey: 'tiers.history.filter.delete', fallback: 'Suppressions' },
+    { key: 'audit', labelKey: 'tiers.history.filter.audit', fallback: 'Audits' },
+    { key: 'link', labelKey: 'tiers.history.filter.link', fallback: 'Statut & liens' },
+  ]
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {FILTER_BUTTONS.map(({ key, labelKey, fallback }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => setFilterGroup(key)}
+          className={cn(
+            'inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium transition-colors border',
+            filterGroup === key
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+          )}
+        >
+          {t(labelKey, fallback)}
+        </button>
+      ))}
+    </div>
+  )
+
   if (isLoading) {
     return (
-      <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-label="loading" aria-busy="true">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="flex items-start gap-2">
-            <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <Skeleton className="h-3 w-2/3" />
-              <Skeleton className="h-2.5 w-1/3" />
+      <div className="space-y-2">
+        {filterBar}
+        <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-label="loading" aria-busy="true">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="flex items-start gap-2">
+              <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-1/3" />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     )
   }
   if (events.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-        {t('tiers.history.empty', 'Aucun evenement enregistre sur ce tiers.')}
+      <div className="space-y-2">
+        {filterBar}
+        <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          {filterGroup === 'all'
+            ? t('tiers.history.empty', 'Aucun evenement enregistre sur ce tiers.')
+            : t('tiers.history.empty_filtered', 'Aucun évènement pour ce filtre.')}
+        </div>
       </div>
     )
   }
@@ -324,6 +395,7 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
   }
   return (
     <div className="space-y-2">
+      {filterBar}
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
         <span>{events.length} {t('tiers.history.event_count', 'évènement(s)')}</span>
         {limit === 200 && events.length === 200 && (

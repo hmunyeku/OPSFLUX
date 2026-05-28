@@ -73,10 +73,20 @@ export function useArchiveProject() {
 // Mirror du pattern useTierAuditLog : meme structure pour l'event,
 // meme cap a 200 cote backend, meme React Query stale-while-revalidate.
 
-export function useProjectAuditLog(projectId: string | undefined, limit = 50) {
+export interface ProjectAuditLogFilters {
+  actions?: string[]
+  since?: string
+  until?: string
+}
+
+export function useProjectAuditLog(
+  projectId: string | undefined,
+  limit = 50,
+  filters: ProjectAuditLogFilters = {},
+) {
   return useQuery({
-    queryKey: ['project-audit-log', projectId, limit],
-    queryFn: () => projetsService.listAuditLog(projectId!, limit),
+    queryKey: ['project-audit-log', projectId, limit, filters],
+    queryFn: () => projetsService.listAuditLog(projectId!, limit, filters),
     enabled: !!projectId,
   })
 }

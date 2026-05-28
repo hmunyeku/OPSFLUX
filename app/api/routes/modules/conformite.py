@@ -3668,6 +3668,31 @@ async def create_transfer(
             "transfer_date": transfer.transfer_date.isoformat() if transfer.transfer_date else None,
         },
     )
+    # Cross-references Tier : emis sur les DEUX tiers concernes.
+    # Le tier source voit "Contact transfere vers X", le tier dest
+    # voit "Contact recu depuis Y". Sans ces 2 events, un audit
+    # downstream sur le contact disparu serait incomprehensible.
+    contact_name = f"{contact.first_name} {contact.last_name}".strip()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="contact_transfer_out", resource_type="tier", resource_id=body.from_tier_id,
+        details={
+            "transfer_id": str(transfer.id),
+            "contact_id": str(transfer.contact_id),
+            "contact_name": contact_name,
+            "to_tier_id": str(transfer.to_tier_id),
+        },
+    )
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="contact_transfer_in", resource_type="tier", resource_id=body.to_tier_id,
+        details={
+            "transfer_id": str(transfer.id),
+            "contact_id": str(transfer.contact_id),
+            "contact_name": contact_name,
+            "from_tier_id": str(transfer.from_tier_id),
+        },
+    )
 
     await db.commit()
     await db.refresh(transfer)

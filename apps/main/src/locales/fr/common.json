@@ -1345,7 +1345,11 @@
       "project_create": "Projet créé et lié",
       "project_link": "Projet rattaché",
       "project_unlink": "Projet détaché",
-      "project_archive": "Projet archivé"
+      "project_archive": "Projet archivé",
+      "user_link": "Utilisateur lié",
+      "user_unlink": "Utilisateur détaché",
+      "contact_transfer_out": "Contact transféré (sortie)",
+      "contact_transfer_in": "Contact reçu (entrée)"
     },
     "ui": {
       "sections": {

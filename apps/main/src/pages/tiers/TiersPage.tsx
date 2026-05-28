@@ -235,6 +235,12 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   project_link: 'Projet rattaché',
   project_unlink: 'Projet détaché',
   project_archive: 'Projet archivé',
+  // Cross-reference depuis users.py (UserTierLink)
+  user_link: 'Utilisateur lié',
+  user_unlink: 'Utilisateur détaché',
+  // Cross-reference depuis Conformité (transferts de contacts)
+  contact_transfer_out: 'Contact transféré (sortie)',
+  contact_transfer_in: 'Contact reçu (entrée)',
 }
 
 const AUDIT_ACTION_CHIP: Record<string, string> = {
@@ -277,6 +283,12 @@ const AUDIT_ACTION_CHIP: Record<string, string> = {
   project_link: 'chip chip-success',
   project_unlink: 'chip chip-warn',
   project_archive: 'chip chip-danger',
+  // Cross-ref User-Tier : lien etabli -> success, lien rompu -> warn.
+  user_link: 'chip chip-success',
+  user_unlink: 'chip chip-warn',
+  // Cross-ref transferts contact : event structurant -> highlight.
+  contact_transfer_out: 'chip chip-warn',
+  contact_transfer_in: 'chip chip-info',
 }
 
 // Groupes predefinis pour filtrer la timeline par INTENTION metier
@@ -304,7 +316,11 @@ const TIER_FILTER_GROUPS: Record<TierFilterGroup, string[] | undefined> = {
     'audit_create', 'audit_submit', 'audit_validated', 'audit_rejected',
     'mark_validated', 'external_verify', 'approve', 'reject',
   ],
-  link: ['block', 'unblock', 'transfer', 'contact_promote_user', 'project_link', 'project_unlink'],
+  link: [
+    'block', 'unblock', 'transfer', 'contact_promote_user',
+    'project_link', 'project_unlink', 'user_link', 'user_unlink',
+    'contact_transfer_in', 'contact_transfer_out',
+  ],
 }
 
 function TierAuditTimeline({ tierId }: { tierId: string }) {

@@ -1574,6 +1574,21 @@ async def link_user_to_tier(
 
     link = UserTierLink(user_id=user_id, tier_id=body.tier_id, role=body.role)
     db.add(link)
+    await db.flush()
+    # Cross-reference Tier audit-log : un user vient d'etre lie a ce tier
+    # (typiquement un utilisateur externe). Visible dans l'onglet
+    # Historique du panel Tier.
+    from app.services.core.audit_service import add_event as add_audit_event
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="user_link", resource_type="tier", resource_id=body.tier_id,
+        details={
+            "link_id": str(link.id),
+            "user_id": str(user_id),
+            "user_email": user.email if user else None,
+            "role": body.role,
+        },
+    )
     await db.commit()
     await db.refresh(link)
 
@@ -1616,6 +1631,17 @@ async def unlink_user_from_tier(
             message="Tier link not found",
         )
 
+    # Cross-reference Tier audit-log : un user vient d'etre detache du tier.
+    from app.services.core.audit_service import add_event as add_audit_event
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="user_unlink", resource_type="tier", resource_id=link_obj.tier_id,
+        details={
+            "link_id": str(link_obj.id),
+            "user_id": str(user_id),
+            "role": link_obj.role,
+        },
+    )
     await db.delete(link_obj)
     await db.commit()
 

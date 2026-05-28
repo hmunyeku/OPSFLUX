@@ -1248,7 +1248,11 @@
       "project_create": "Project created & linked",
       "project_link": "Project linked",
       "project_unlink": "Project unlinked",
-      "project_archive": "Project archived"
+      "project_archive": "Project archived",
+      "user_link": "User linked",
+      "user_unlink": "User unlinked",
+      "contact_transfer_out": "Contact transferred out",
+      "contact_transfer_in": "Contact received"
     },
     "ui": {
       "sections": {

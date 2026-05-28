@@ -2293,6 +2293,20 @@
     "title": "Projects",
     "subtitle": "Project management, tasks and planning",
     "create": "New project",
+    "history": {
+      "empty": "No events recorded for this project.",
+      "by": "by",
+      "system": "System",
+      "event_count": "event(s)",
+      "load_more": "View full history",
+      "cap_hit": "200-event cap reached",
+      "cap_hit_title": "Server cap reached — refine your search to see more."
+    },
+    "audit_action": {
+      "create": "Created",
+      "update": "Updated",
+      "archive": "Archived"
+    },
     "search": {
       "visual_placeholder": "Free search: project, task, reference, status, priority, owner..."
     },

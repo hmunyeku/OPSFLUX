@@ -2,6 +2,20 @@
  * Projets (project management) API service.
  */
 import api from '@/lib/api'
+
+// Mirror du TierAuditEvent — meme structure cote backend, on garde une
+// interface dediee pour eviter une dependance croisee entre services.
+export interface ProjectAuditEvent {
+  id: string
+  action: string
+  resource_type: string
+  user_id: string | null
+  user_name: string | null
+  details: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+}
+
 import type {
   Project, ProjectCreate, ProjectUpdate,
   ProjectMember, ProjectMemberCreate, ProjectMemberUpdate,
@@ -175,6 +189,15 @@ export const projetsService = {
 
   archive: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/projects/${id}`)
+  },
+
+  // ── Audit-log timeline (Historique) ──
+  listAuditLog: async (projectId: string, limit = 50): Promise<ProjectAuditEvent[]> => {
+    const { data } = await api.get<ProjectAuditEvent[]>(
+      `/api/v1/projects/${projectId}/audit-log`,
+      { params: { limit } },
+    )
+    return data
   },
 
   // ── All Tasks (cross-project, spreadsheet view) ──

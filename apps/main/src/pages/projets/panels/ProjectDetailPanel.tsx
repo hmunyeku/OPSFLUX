@@ -51,14 +51,14 @@ import { useUIStore } from '@/stores/uiStore'
 import { useUserPref } from '@/hooks/useFilterPersistence'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
-import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
+import { SkeletonDetailPanel, Skeleton } from '@/components/ui/Skeleton'
 import { DataTableToolbar, type DataTableFilterDef } from '@/components/ui/DataTable'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { PaxAvatar } from '@/components/shared/PaxAvatar'
 import {
-  useProject, useUpdateProject, useArchiveProject,
+  useProject, useUpdateProject, useArchiveProject, useProjectAuditLog,
   useProjectTasks, useCreateProjectTask, useUpdateProjectTask, useDeleteProjectTask,
   useProjectMembers, useAddProjectMember, useRemoveProjectMember,
   useGoutiStatus, useGoutiSyncOne,
@@ -3173,6 +3173,128 @@ function fmtFieldValue(field: string | undefined, v: unknown): string {
   return s.length > 40 ? s.slice(0, 40) + '…' : s
 }
 
+// -- Project audit-log timeline (Historique) -------------------------------
+// Mirror du TierAuditTimeline, meme look-and-feel pour coherence inter-modules.
+// Affiche les events emis sur resource_type='project' avec :
+//  - chips colorees par intent (create/link/archive/...)
+//  - libelles via i18n key projets.audit_action.* + fallback hardcode
+//  - pagination progressive 50 -> 200
+//  - skeleton pendant chargement + etat vide
+
+const PROJECT_AUDIT_ACTION_LABELS: Record<string, string> = {
+  create: 'Création',
+  update: 'Modification',
+  archive: 'Archivage',
+}
+
+const PROJECT_AUDIT_ACTION_CHIP: Record<string, string> = {
+  create: 'chip chip-success',
+  update: 'chip',
+  archive: 'chip chip-danger',
+}
+
+function ProjectAuditTimeline({ projectId }: { projectId: string }) {
+  const { t, i18n } = useTranslation()
+  const [limit, setLimit] = useState(50)
+  const { data: events = [], isLoading } = useProjectAuditLog(projectId, limit)
+  const hasMore = events.length === limit && limit < 200
+
+  if (isLoading) {
+    return (
+      <FormSection title="Historique" collapsible defaultExpanded storageKey="project-detail-audit-log">
+        <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-label="loading" aria-busy="true">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </FormSection>
+    )
+  }
+  if (events.length === 0) {
+    return (
+      <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="project-detail-audit-log">
+        <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          {t('projets.history.empty', 'Aucun évènement enregistré sur ce projet.')}
+        </div>
+      </FormSection>
+    )
+  }
+  const fmt = (iso: string) => {
+    try {
+      return new Intl.DateTimeFormat(i18n.language, {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      }).format(new Date(iso))
+    } catch {
+      return iso.slice(0, 16).replace('T', ' ')
+    }
+  }
+  return (
+    <FormSection title="Historique" collapsible defaultExpanded storageKey="project-detail-audit-log">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
+          <span>{events.length} {t('projets.history.event_count', 'évènement(s)')}</span>
+          {limit === 200 && events.length === 200 && (
+            <span className="chip chip-warn" title={t('projets.history.cap_hit_title', 'Plafond serveur atteint.')}>
+              {t('projets.history.cap_hit', 'Plafond 200 atteint')}
+            </span>
+          )}
+        </div>
+        <ol className="relative space-y-2 border-l border-border pl-4">
+          {events.map((evt) => {
+            const actionLabel = t(
+              `projets.audit_action.${evt.action}`,
+              PROJECT_AUDIT_ACTION_LABELS[evt.action] ?? evt.action,
+            )
+            const chipClass = PROJECT_AUDIT_ACTION_CHIP[evt.action] ?? 'chip'
+            const detailFields = evt.details && typeof evt.details === 'object'
+              ? Object.entries(evt.details).filter(([k]) => k !== 'source').slice(0, 4)
+              : []
+            return (
+              <li key={evt.id} className="relative">
+                <span className="absolute -left-[19px] top-1 inline-block h-2 w-2 rounded-full bg-primary" />
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className={chipClass}>{actionLabel}</span>
+                  <span className="text-xs text-muted-foreground">{t('projets.history.by', 'par')}</span>
+                  <span className="text-xs font-semibold text-foreground">{evt.user_name ?? t('projets.history.system', 'Système')}</span>
+                  <span className="text-[11px] text-muted-foreground">·</span>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
+                </div>
+                {detailFields.length > 0 && (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {detailFields.map(([k, v]) => (
+                      <span key={k} className="mr-3">
+                        <span className="font-medium text-foreground/70">{k}:</span>{' '}
+                        <span className="font-mono">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ol>
+        {hasMore && (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setLimit(200)}
+              className="text-xs text-primary hover:underline focus:outline-none focus:underline"
+            >
+              {t('projets.history.load_more', 'Voir tout l\'historique')} →
+            </button>
+          </div>
+        )}
+      </div>
+    </FormSection>
+  )
+}
+
 function ActivityFeedSection({
   projectId,
   onNavigateToTask,
@@ -4255,6 +4377,11 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         )}
 
         {detailTab === 'historique' && <>
+          {/* Audit-log timeline — source de verite "qui a fait quoi quand"
+              sur le projet. En tete de l'onglet pour etre la premiere
+              chose vue, avant les autres sections plus annexes. */}
+          <ProjectAuditTimeline projectId={id} />
+
           {/* Custom Fields (EAV) */}
           <CustomFieldsSection projectId={id} />
 

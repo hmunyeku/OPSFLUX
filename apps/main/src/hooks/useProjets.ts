@@ -69,6 +69,18 @@ export function useArchiveProject() {
   })
 }
 
+// ── Project audit-log timeline (onglet Historique) ──
+// Mirror du pattern useTierAuditLog : meme structure pour l'event,
+// meme cap a 200 cote backend, meme React Query stale-while-revalidate.
+
+export function useProjectAuditLog(projectId: string | undefined, limit = 50) {
+  return useQuery({
+    queryKey: ['project-audit-log', projectId, limit],
+    queryFn: () => projetsService.listAuditLog(projectId!, limit),
+    enabled: !!projectId,
+  })
+}
+
 // ── All Tasks (cross-project spreadsheet) ──
 
 export function useAllProjectTasks(params: PaginationParams & {

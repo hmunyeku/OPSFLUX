@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete as sql_delete, select, func as sqla_func, text, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1406,6 +1406,69 @@ async def archive_project(
     await delete_entity(project, db, "project", entity_id=project.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Project archived"}
+
+
+# ── Project audit-log timeline (Historique) ─────────────────────────────
+
+
+class ProjectAuditEventRead(BaseModel):
+    """Audit event exposé dans l'onglet Historique du panel Project."""
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    action: str
+    resource_type: str
+    user_id: UUID | None
+    user_name: str | None
+    details: dict | None
+    ip_address: str | None
+    created_at: datetime
+
+
+@router.get("/{project_id}/audit-log", response_model=list[ProjectAuditEventRead])
+async def list_project_audit_log(
+    project_id: UUID,
+    limit: int = 50,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Récupère l'historique audit-log d'un projet (max 200 events).
+
+    Filtre sur AuditLog.resource_type='project' AND resource_id=str(project_id).
+    LEFT JOIN User pour exposer first_name/last_name (pas juste user_id).
+    Le scope entity_id est applique pour eviter cross-tenant leak.
+
+    Garde-fou : verifie d'abord que le projet appartient bien a l'entity
+    courante (sinon retourne 404 silencieux, pas leak existence).
+    """
+    project = await _get_project_or_404(db, project_id, entity_id)
+    limit = max(1, min(limit, 200))
+    result = await db.execute(
+        select(AuditLog, User.first_name, User.last_name, User.email)
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.resource_type == "project",
+            AuditLog.resource_id == str(project.id),
+        )
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+    )
+    events: list[ProjectAuditEventRead] = []
+    for evt, fn, ln, email in result.all():
+        full_name = " ".join(filter(None, [fn, ln])).strip()
+        events.append(ProjectAuditEventRead(
+            id=evt.id,
+            action=evt.action,
+            resource_type=evt.resource_type,
+            user_id=evt.user_id,
+            user_name=full_name or email or None,
+            details=evt.details,
+            ip_address=evt.ip_address,
+            created_at=evt.created_at,
+        ))
+    return events
 
 
 # ── Project Members ───────────────────────────────────────────────────────

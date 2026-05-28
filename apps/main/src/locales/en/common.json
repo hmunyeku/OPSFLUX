@@ -1235,7 +1235,11 @@
       "audit_create": "Audit launched",
       "audit_submit": "Audit submitted for validation",
       "audit_validated": "Audit validated",
-      "audit_rejected": "Audit rejected"
+      "audit_rejected": "Audit rejected",
+      "project_create": "Project created & linked",
+      "project_link": "Project linked",
+      "project_unlink": "Project unlinked",
+      "project_archive": "Project archived"
     },
     "ui": {
       "sections": {

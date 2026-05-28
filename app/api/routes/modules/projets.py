@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.audit import record_audit
+from app.services.core.audit_service import add_event as add_audit_event
 from app.core.database import get_db
 from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT
 from app.core.references import generate_reference
@@ -890,6 +891,7 @@ async def list_projects(
 async def create_project(
     body: ProjectCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -985,6 +987,30 @@ async def create_project(
                 )
             except Exception:
                 pass  # Table may not exist or have different schema
+
+    # Audit-log : creation projet (resource_type='project').
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="project", resource_id=project.id,
+        details={
+            "code": project.code,
+            "name": project.name,
+            "status": project.status,
+            "tier_id": str(project.tier_id) if project.tier_id else None,
+        },
+    )
+    # Cross-reference Tier : "Projet cree et lie a ce tiers" si tier_id present.
+    # Permet a la timeline du panel Tier d'afficher le rattachement projet.
+    if project.tier_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="project_create", resource_type="tier", resource_id=project.tier_id,
+            details={
+                "project_id": str(project.id),
+                "project_code": project.code,
+                "project_name": project.name,
+            },
+        )
 
     await db.commit()
     await db.refresh(project)
@@ -1240,6 +1266,7 @@ async def update_project(
                 )
 
     old_status = project.status
+    old_tier_id = project.tier_id  # snapshot pour audit-log cross-reference Tier
     method_changed = (
         "progress_weight_method" in update_data
         and update_data["progress_weight_method"] != project.progress_weight_method
@@ -1251,6 +1278,48 @@ async def update_project(
         setattr(project, field, value)
     await db.commit()
     await db.refresh(project)
+
+    # Audit-log : mise a jour projet (resource_type='project').
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="project", resource_id=project.id,
+        details={
+            "code": project.code,
+            "fields": sorted(update_data.keys()),
+            "status_changed": "status" in update_data and old_status != project.status,
+        },
+    )
+    # Cross-reference Tier : rattachement / detachement / changement de tiers
+    if "tier_id" in update_data:
+        new_tier_id = project.tier_id
+        if old_tier_id != new_tier_id:
+            # Detacher de l'ancien tier (si existe) — apparait dans son
+            # audit-log comme "Projet detache" -> info gracieuse pour
+            # comprendre pourquoi le projet a disparu du tier.
+            if old_tier_id:
+                add_audit_event(
+                    db, user=current_user, entity_id=entity_id,
+                    action="project_unlink", resource_type="tier", resource_id=old_tier_id,
+                    details={
+                        "project_id": str(project.id),
+                        "project_code": project.code,
+                        "project_name": project.name,
+                        "new_tier_id": str(new_tier_id) if new_tier_id else None,
+                    },
+                )
+            # Attacher au nouveau tier (si present)
+            if new_tier_id:
+                add_audit_event(
+                    db, user=current_user, entity_id=entity_id,
+                    action="project_link", resource_type="tier", resource_id=new_tier_id,
+                    details={
+                        "project_id": str(project.id),
+                        "project_code": project.code,
+                        "project_name": project.name,
+                        "previous_tier_id": str(old_tier_id) if old_tier_id else None,
+                    },
+                )
+    await db.commit()
 
     # If the weighting method changed, recalculate the project's progress
     # immediately so the UI reflects the new value without waiting for the
@@ -1307,6 +1376,33 @@ async def archive_project(
     db: AsyncSession = Depends(get_db),
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
+    # Snapshot infos avant archivage : delete_entity peut soft-archiver
+    # ou retirer le projet de la session — on les fige pour l'audit-log.
+    p_code = project.code
+    p_name = project.name
+    p_tier_id = project.tier_id
+    # Audit-log : archivage projet (resource_type='project').
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="archive", resource_type="project", resource_id=project.id,
+        details={
+            "code": p_code,
+            "name": p_name,
+            "tier_id": str(p_tier_id) if p_tier_id else None,
+        },
+    )
+    # Cross-reference Tier : projet archive remonte dans la timeline du tier
+    # pour eviter qu'un projet disparu de la liste reste opaque.
+    if p_tier_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="project_archive", resource_type="tier", resource_id=p_tier_id,
+            details={
+                "project_id": str(project.id),
+                "project_code": p_code,
+                "project_name": p_name,
+            },
+        )
     await delete_entity(project, db, "project", entity_id=project.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Project archived"}

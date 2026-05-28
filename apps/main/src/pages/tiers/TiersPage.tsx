@@ -230,6 +230,11 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   audit_submit: 'Audit soumis pour validation',
   audit_validated: 'Audit validé',
   audit_rejected: 'Audit rejeté',
+  // Cross-reference depuis Projets (sur les projets lies a ce Tier)
+  project_create: 'Projet créé et lié',
+  project_link: 'Projet rattaché',
+  project_unlink: 'Projet détaché',
+  project_archive: 'Projet archivé',
 }
 
 const AUDIT_ACTION_CHIP: Record<string, string> = {
@@ -266,6 +271,12 @@ const AUDIT_ACTION_CHIP: Record<string, string> = {
   audit_submit: 'chip chip-warn',
   audit_validated: 'chip chip-success',
   audit_rejected: 'chip chip-danger',
+  // Cross-ref Projets : creation/rattachement -> success (lien etabli),
+  // detachement -> warn (lien rompu, info importante), archive -> danger.
+  project_create: 'chip chip-success',
+  project_link: 'chip chip-success',
+  project_unlink: 'chip chip-warn',
+  project_archive: 'chip chip-danger',
 }
 
 function TierAuditTimeline({ tierId }: { tierId: string }) {

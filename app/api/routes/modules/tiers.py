@@ -738,6 +738,18 @@ async def create_tier_contact(
     await _validate_job_position_scope(db, body.job_position_id, entity_id)
     contact = TierContact(tier_id=tier.id, **body.model_dump())
     db.add(contact)
+    await db.flush()  # ensure contact.id is populated before audit-log
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="contact_create", resource_type="tier", resource_id=tier.id,
+        details={
+            "contact_id": str(contact.id),
+            "first_name": body.first_name,
+            "last_name": body.last_name,
+            "email": body.email,
+            "is_primary": bool(body.is_primary),
+        },
+    )
     await db.commit()
     return await _get_contact_or_404(db, contact.id, tier.id, include_promoted_user=True)
 
@@ -759,6 +771,14 @@ async def update_tier_contact(
         await _validate_job_position_scope(db, update_data["job_position_id"], entity_id)
     for field, value in update_data.items():
         setattr(contact, field, value)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="contact_update", resource_type="tier", resource_id=tier_id,
+        details={
+            "contact_id": str(contact.id),
+            "fields": list(update_data.keys()),
+        },
+    )
     await db.commit()
     return await _get_contact_or_404(db, contact.id, tier_id, include_promoted_user=True)
 
@@ -774,6 +794,16 @@ async def delete_tier_contact(
     await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     contact = await _get_contact_or_404(db, contact_id, tier_id)
     contact.active = False
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="contact_delete", resource_type="tier", resource_id=tier_id,
+        details={
+            "contact_id": str(contact.id),
+            "first_name": contact.first_name,
+            "last_name": contact.last_name,
+            "email": contact.email,
+        },
+    )
     await db.commit()
     return {"detail": "Contact deactivated"}
 
@@ -838,6 +868,17 @@ async def promote_tier_contact_to_user(
     await db.flush()
 
     db.add(UserTierLink(user_id=user.id, tier_id=tier.id, role=body.role))
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="contact_promote_user", resource_type="tier", resource_id=tier.id,
+        details={
+            "contact_id": str(contact.id),
+            "promoted_user_id": str(user.id),
+            "email": user.email,
+            "role": body.role,
+            "send_invitation": bool(body.send_invitation),
+        },
+    )
     await db.commit()
     await db.refresh(user)
 
@@ -1034,6 +1075,17 @@ async def create_external_ref(
         created_by=current_user.id,
     )
     db.add(ref)
+    await db.flush()  # ensure ref.id is populated before audit-log
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="external_ref_create", resource_type="tier", resource_id=tier_id,
+        details={
+            "ref_id": str(ref.id),
+            "system": body.system,
+            "code": body.code,
+            "label": body.label,
+        },
+    )
     await db.commit()
     await db.refresh(ref)
     return ref
@@ -1064,6 +1116,16 @@ async def delete_external_ref(
             code="EXTERNAL_REFERENCE_NOT_FOUND",
             message="External reference not found",
         )
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="external_ref_delete", resource_type="tier", resource_id=tier_id,
+        details={
+            "ref_id": str(ref.id),
+            "system": ref.system,
+            "code": ref.code,
+            "label": ref.label,
+        },
+    )
     await delete_entity(ref, db, "external_reference", entity_id=entity_id, user_id=current_user.id)
     await db.commit()
     return {"detail": "External reference deleted"}

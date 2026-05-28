@@ -208,6 +208,13 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   external_verify: 'Vérification externe',
   approve: 'Approbation',
   reject: 'Rejet',
+  // Sub-resources (sync avec tiers.py)
+  contact_create: 'Contact ajouté',
+  contact_update: 'Contact modifié',
+  contact_delete: 'Contact supprimé',
+  contact_promote_user: 'Contact promu utilisateur',
+  external_ref_create: 'Référence externe ajoutée',
+  external_ref_delete: 'Référence externe supprimée',
 }
 
 const AUDIT_ACTION_CHIP: Record<string, string> = {
@@ -221,6 +228,14 @@ const AUDIT_ACTION_CHIP: Record<string, string> = {
   external_verify: 'chip chip-info',
   approve: 'chip chip-success',
   reject: 'chip chip-danger',
+  // Sub-resources : ajouts -> success, suppressions -> danger,
+  // modifications neutre, promotion -> highlight (action structurante).
+  contact_create: 'chip chip-success',
+  contact_update: 'chip',
+  contact_delete: 'chip chip-danger',
+  contact_promote_user: 'chip chip-highlight',
+  external_ref_create: 'chip chip-success',
+  external_ref_delete: 'chip chip-danger',
 }
 
 function TierAuditTimeline({ tierId }: { tierId: string }) {

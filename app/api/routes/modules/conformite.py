@@ -3076,6 +3076,20 @@ async def create_compliance_audit(
     )
     db.add(audit)
     await db.flush()
+    # Cross-reference dans l'audit-log du Tier : on emet aussi un event
+    # resource_type='tier' / resource_id=tier.id pour que la timeline
+    # Historique du panel Tier affiche "Audit lance".
+    if body.target_type == "tier":
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="audit_create", resource_type="tier", resource_id=tier.id,
+            details={
+                "audit_id": str(audit.id),
+                "reference": ref,
+                "template": template.name,
+                "title": audit.title,
+            },
+        )
     await db.commit()
     return await _load_audit_for_read(db, audit.id, entity_id)
 
@@ -3283,6 +3297,18 @@ async def submit_compliance_audit(
             "validation_moc_id": str(moc.id),
         },
     )
+    # Cross-reference timeline Tier : rapport audit soumis pour validation
+    if audit.target_type == "tier":
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="audit_submit", resource_type="tier", resource_id=audit.target_id,
+            details={
+                "audit_id": str(audit.id),
+                "reference": audit.reference,
+                "score_percent": float(audit.score_percent) if audit.score_percent is not None else None,
+                "validation_moc_id": str(moc.id),
+            },
+        )
     await db.commit()
     return await _load_audit_for_read(db, audit.id, entity_id)
 

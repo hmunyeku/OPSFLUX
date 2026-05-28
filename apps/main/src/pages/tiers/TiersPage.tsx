@@ -225,6 +225,11 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   legal_identifier_create: 'Identifiant légal ajouté',
   legal_identifier_update: 'Identifiant légal modifié',
   legal_identifier_delete: 'Identifiant légal supprimé',
+  // Cross-reference depuis Conformité (sur les audits fournisseur du Tier)
+  audit_create: 'Audit lancé',
+  audit_submit: 'Audit soumis pour validation',
+  audit_validated: 'Audit validé',
+  audit_rejected: 'Audit rejeté',
 }
 
 const AUDIT_ACTION_CHIP: Record<string, string> = {
@@ -255,6 +260,12 @@ const AUDIT_ACTION_CHIP: Record<string, string> = {
   legal_identifier_create: 'chip chip-success',
   legal_identifier_update: 'chip',
   legal_identifier_delete: 'chip chip-danger',
+  // Cross-reference audits Conformite : lancement neutre, soumis warn,
+  // validation -> success (audit reussi), rejet -> danger.
+  audit_create: 'chip chip-info',
+  audit_submit: 'chip chip-warn',
+  audit_validated: 'chip chip-success',
+  audit_rejected: 'chip chip-danger',
 }
 
 function TierAuditTimeline({ tierId }: { tierId: string }) {

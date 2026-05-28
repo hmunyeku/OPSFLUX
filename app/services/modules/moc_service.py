@@ -35,6 +35,7 @@ from app.models.moc import (
     MOCTypeValidationRule,
     MOCValidation,
 )
+from app.services.core.audit_service import add_event as add_audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -756,6 +757,24 @@ async def _sync_audit_validation_workflow(
 
     if audit.status == previous_status:
         return
+
+    # Cross-reference Tier audit-log : quand l'audit conformite passe a
+    # validated/rejected via le workflow MOC, on remonte l'evenement dans
+    # la timeline Historique du panel Tier (resource_type='tier').
+    # Garantit que la decision de validation/rejet d'un audit fournisseur
+    # est tracee sur le tiers concerne, pas seulement sur l'audit lui-meme.
+    if audit.target_type == "tier" and audit.status in {"validated", "rejected"}:
+        add_audit_event(
+            db, user=actor, entity_id=audit.entity_id,
+            action=f"audit_{audit.status}",
+            resource_type="tier", resource_id=audit.target_id,
+            details={
+                "audit_id": str(audit.id),
+                "validation_moc_id": str(moc.id),
+                "valid_until": audit.valid_until.isoformat() if audit.valid_until else None,
+                "previous_status": previous_status,
+            },
+        )
 
     try:
         from app.core.events import emit_event

@@ -2411,7 +2411,12 @@
       "task_status_change": "Tâche : changement de statut",
       "milestone_create": "Jalon créé",
       "milestone_update": "Jalon modifié",
-      "milestone_delete": "Jalon supprimé"
+      "milestone_delete": "Jalon supprimé",
+      "deliverable_create": "Livrable créé",
+      "deliverable_update": "Livrable modifié",
+      "deliverable_delete": "Livrable supprimé",
+      "dependency_create": "Dépendance créée",
+      "dependency_delete": "Dépendance supprimée"
     },
     "search": {
       "visual_placeholder": "Recherche libre : projet, tâche, référence, statut, priorité, responsable..."

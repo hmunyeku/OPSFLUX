@@ -3398,6 +3398,7 @@ async def create_deliverable(
     task_id: UUID,
     body: TaskDeliverableCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.deliverable.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3406,6 +3407,17 @@ async def create_deliverable(
     await _ensure_dictionary_code(db, category="project_deliverable_type", code=payload.get("type_code"))
     deliv = TaskDeliverable(task_id=task_id, **payload)
     db.add(deliv)
+    await db.flush()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="deliverable_create", resource_type="project", resource_id=project_id,
+        details={
+            "deliverable_id": str(deliv.id),
+            "task_id": str(task_id),
+            "title": payload.get("title") or payload.get("name"),
+            "type_code": payload.get("type_code"),
+        },
+    )
     await db.commit()
     await db.refresh(deliv)
     return deliv
@@ -3418,6 +3430,7 @@ async def update_deliverable(
     deliverable_id: UUID,
     body: TaskDeliverableUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.deliverable.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3433,6 +3446,15 @@ async def update_deliverable(
         await _ensure_dictionary_code(db, category="project_deliverable_type", code=payload.get("type_code"))
     for field, value in payload.items():
         setattr(deliv, field, value)
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="deliverable_update", resource_type="project", resource_id=project_id,
+        details={
+            "deliverable_id": str(deliv.id),
+            "task_id": str(task_id),
+            "fields": sorted(payload.keys()),
+        },
+    )
     await db.commit()
     await db.refresh(deliv)
     return deliv
@@ -3455,6 +3477,15 @@ async def delete_deliverable(
     deliv = result.scalars().first()
     if not deliv:
         raise HTTPException(404, "Deliverable not found")
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="deliverable_delete", resource_type="project", resource_id=project_id,
+        details={
+            "deliverable_id": str(deliv.id),
+            "task_id": str(task_id),
+            "title": getattr(deliv, "title", None) or getattr(deliv, "name", None),
+        },
+    )
     await delete_entity(deliv, db, "task_deliverable", entity_id=deliv.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Deliverable deleted"}
@@ -3628,6 +3659,7 @@ async def create_task_dependency(
     project_id: UUID,
     body: TaskDependencyCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("project.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3672,6 +3704,17 @@ async def create_task_dependency(
 
     dep = ProjectTaskDependency(**body.model_dump())
     db.add(dep)
+    await db.flush()
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="dependency_create", resource_type="project", resource_id=project_id,
+        details={
+            "dependency_id": str(dep.id),
+            "from_task_id": str(body.from_task_id),
+            "to_task_id": str(body.to_task_id),
+            "dependency_type": getattr(body, "dependency_type", "finish_to_start"),
+        },
+    )
     await db.commit()
     await db.refresh(dep)
     return dep
@@ -3707,6 +3750,15 @@ async def delete_task_dependency(
     dep = result.scalar_one_or_none()
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found")
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="dependency_delete", resource_type="project", resource_id=project_id,
+        details={
+            "dependency_id": str(dep.id),
+            "from_task_id": str(dep.from_task_id),
+            "to_task_id": str(dep.to_task_id),
+        },
+    )
     await delete_entity(dep, db, "project_task_dependency", entity_id=dep.id, user_id=current_user.id)
     await db.commit()
 

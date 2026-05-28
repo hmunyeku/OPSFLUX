@@ -3198,6 +3198,13 @@ const PROJECT_AUDIT_ACTION_LABELS: Record<string, string> = {
   milestone_create: 'Jalon créé',
   milestone_update: 'Jalon modifié',
   milestone_delete: 'Jalon supprimé',
+  // Deliverables (livrables attachés aux tâches)
+  deliverable_create: 'Livrable créé',
+  deliverable_update: 'Livrable modifié',
+  deliverable_delete: 'Livrable supprimé',
+  // Task dependencies (lien entre 2 tâches)
+  dependency_create: 'Dépendance créée',
+  dependency_delete: 'Dépendance supprimée',
 }
 
 const PROJECT_AUDIT_ACTION_CHIP: Record<string, string> = {
@@ -3218,6 +3225,13 @@ const PROJECT_AUDIT_ACTION_CHIP: Record<string, string> = {
   milestone_create: 'chip chip-success',
   milestone_update: 'chip',
   milestone_delete: 'chip chip-danger',
+  // Deliverables : meme logique creation/update/delete.
+  deliverable_create: 'chip chip-success',
+  deliverable_update: 'chip',
+  deliverable_delete: 'chip chip-danger',
+  // Dependencies : info (lien structurel, pas une action sur du contenu).
+  dependency_create: 'chip chip-info',
+  dependency_delete: 'chip chip-warn',
 }
 
 function ProjectAuditTimeline({ projectId }: { projectId: string }) {

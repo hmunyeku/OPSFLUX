@@ -2315,7 +2315,12 @@
       "task_status_change": "Task: status change",
       "milestone_create": "Milestone created",
       "milestone_update": "Milestone updated",
-      "milestone_delete": "Milestone deleted"
+      "milestone_delete": "Milestone deleted",
+      "deliverable_create": "Deliverable created",
+      "deliverable_update": "Deliverable updated",
+      "deliverable_delete": "Deliverable deleted",
+      "dependency_create": "Dependency created",
+      "dependency_delete": "Dependency deleted"
     },
     "search": {
       "visual_placeholder": "Free search: project, task, reference, status, priority, owner..."

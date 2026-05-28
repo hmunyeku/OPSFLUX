@@ -1200,7 +1200,11 @@
     "history": {
       "empty": "No events recorded for this company.",
       "by": "by",
-      "system": "System"
+      "system": "System",
+      "event_count": "event(s)",
+      "load_more": "View full history",
+      "cap_hit": "200-event cap reached",
+      "cap_hit_title": "Server cap reached — refine your search to see more."
     },
     "audit_action": {
       "create": "Created",

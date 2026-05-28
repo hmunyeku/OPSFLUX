@@ -270,7 +270,15 @@ const AUDIT_ACTION_CHIP: Record<string, string> = {
 
 function TierAuditTimeline({ tierId }: { tierId: string }) {
   const { t, i18n } = useTranslation()
-  const { data: events = [], isLoading } = useTierAuditLog(tierId, 50)
+  // Progressive disclosure : on commence a 50 events (fast first paint),
+  // l'utilisateur peut demander jusqu'a 200 (cap backend) si besoin.
+  // 50 couvre la quasi-totalite des tiers ; les ~5% restants ont assez
+  // d'activite pour justifier de voir l'historique etendu.
+  const [limit, setLimit] = useState(50)
+  const { data: events = [], isLoading } = useTierAuditLog(tierId, limit)
+  // Heuristic : si on a atteint le plafond demande ET qu'on n'est pas
+  // deja au max backend, c'est probablement qu'il y en a plus.
+  const hasMore = events.length === limit && limit < 200
 
   if (isLoading) {
     return (
@@ -304,7 +312,16 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
     }
   }
   return (
-    <ol className="relative space-y-2 border-l border-border pl-4">
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
+        <span>{events.length} {t('tiers.history.event_count', 'évènement(s)')}</span>
+        {limit === 200 && events.length === 200 && (
+          <span className="chip chip-warn" title={t('tiers.history.cap_hit_title', 'Plafond serveur atteint — affinez la recherche pour voir plus.')}>
+            {t('tiers.history.cap_hit', 'Plafond 200 atteint')}
+          </span>
+        )}
+      </div>
+      <ol className="relative space-y-2 border-l border-border pl-4">
       {events.map((evt) => {
         // Use i18n key with FR hardcoded fallback so :
         //  - les events historiques ont un libelle FR meme sans i18n entry
@@ -342,7 +359,19 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
           </li>
         )
       })}
-    </ol>
+      </ol>
+      {hasMore && (
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={() => setLimit(200)}
+            className="text-xs text-primary hover:underline focus:outline-none focus:underline"
+          >
+            {t('tiers.history.load_more', 'Voir tout l\'historique')} →
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 

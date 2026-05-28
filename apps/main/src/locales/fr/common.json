@@ -1297,7 +1297,11 @@
     "history": {
       "empty": "Aucun évènement enregistré sur ce tiers.",
       "by": "par",
-      "system": "Système"
+      "system": "Système",
+      "event_count": "évènement(s)",
+      "load_more": "Voir tout l'historique",
+      "cap_hit": "Plafond 200 atteint",
+      "cap_hit_title": "Plafond serveur atteint — affinez la recherche pour voir plus."
     },
     "audit_action": {
       "create": "Création",

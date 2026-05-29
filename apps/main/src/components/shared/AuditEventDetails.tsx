@@ -46,8 +46,70 @@ function truncateUuid(s: string): string {
   return s.slice(0, 8) + '…'
 }
 
+// Mapping des cles d'event details (snake_case) -> libelle humanise FR.
+// Couvre AUSSI les noms de champs qui peuvent apparaitre :
+// - en tant que cle de detail   (k = 'fields', 'title', 'rejection_reason')
+// - en tant que valeur de fields[] (item = 'title', 'status')
+// Memes labels, meme map, pas de duplication.
+// Pour une cle/valeur absente du map, on retombe sur la version snake_case
+// (acceptable : l'utilisateur peut deduire le sens dans 99% des cas).
+// Note : on ne couvre pas TOUS les champs - juste les plus frequents
+// dans les events update. Pour un champ absent, on retombe sur le
+// snake_case (acceptable car l'utilisateur peut deduire le sens).
+const FIELD_NAME_LABELS_FR: Record<string, string> = {
+  title: 'Titre',
+  name: 'Nom',
+  description: 'Description',
+  status: 'Statut',
+  priority: 'Priorité',
+  code: 'Code',
+  type: 'Type',
+  start_date: 'Date de début',
+  end_date: 'Date de fin',
+  due_date: 'Échéance',
+  target_date: 'Date cible',
+  assignee_id: 'Responsable',
+  manager_id: 'Manager',
+  tier_id: 'Tier',
+  project_id: 'Projet',
+  asset_id: 'Asset',
+  budget: 'Budget',
+  currency: 'Devise',
+  progress: 'Avancement',
+  weather: 'Météo',
+  trend: 'Tendance',
+  is_primary: 'Principal',
+  is_blocked: 'Bloqué',
+  is_milestone: 'Jalon',
+  email: 'Email',
+  phone: 'Téléphone',
+  pax_quota: 'PAX quota',
+  pax_quota_mode: 'PAX mode',
+  pax_quota_daily: 'PAX journalier',
+  rejection_reason: 'Raison du rejet',
+  // Cles d'event details specifiques (pas des field SQL)
+  fields: 'Champs',
+  reason: 'Raison',
+  block_type: 'Type de blocage',
+  role: 'Rôle',
+  label: 'Libellé',
+  city: 'Ville',
+  country: 'Pays',
+  number: 'Numéro',
+  system: 'Système',
+  send_invitation: 'Invitation envoyée',
+  conflicts_detected: 'Conflits détectés',
+  ads_flagged_for_review: 'AdS à revoir',
+  status_changed: 'Statut modifié',
+  invited_validators: 'Validateurs invités',
+}
+
+function humanizeFieldName(field: string): string {
+  return FIELD_NAME_LABELS_FR[field] ?? field
+}
+
 /** Format un champ value brut en chaine lisible (sans deep-link). */
-function formatPlainValue(v: unknown): string {
+function formatPlainValue(v: unknown, isFieldsList = false): string {
   if (v === null || v === undefined) return '∅'
   if (typeof v === 'boolean') return v ? '✓' : '✗'
   if (typeof v === 'number') return String(v)
@@ -56,8 +118,14 @@ function formatPlainValue(v: unknown): string {
     return v
   }
   if (Array.isArray(v)) {
-    // fields: ['title','status'] -> "title, status"
-    return v.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(', ')
+    // fields: ['title','status'] -> "Titre, Statut" si isFieldsList=true.
+    // Autres arrays (e.g. affected_task_ids) -> on garde la valeur brute.
+    return v
+      .map((x) => {
+        if (typeof x !== 'string') return JSON.stringify(x)
+        return isFieldsList ? humanizeFieldName(x) : x
+      })
+      .join(', ')
   }
   return JSON.stringify(v)
 }
@@ -133,13 +201,15 @@ export function AuditEventDetails({ details, maxFields = 4 }: AuditEventDetailsP
         // referencee dans LINKABLE_ID_KEYS. On affiche plain mais on
         // garde un onClick fallback pour les *_id evidents.
         const isKnownIdKey = k.endsWith('_id')
-        const formatted = formatPlainValue(v)
+        // Pour la cle 'fields' (utilisee dans update events pour
+        // lister les champs touches), on humanise via FIELD_NAME_LABELS_FR.
+        const formatted = formatPlainValue(v, k === 'fields')
         if (isKnownIdKey && typeof v === 'string' && isUuid(v)) {
           // Pas de CrossModuleLink (module inconnu) mais on rend l'UUID
           // tronque + title pour copy-paste de la version complete.
           return (
             <span key={k} className="mr-3">
-              <span className="font-medium text-foreground/70">{k}:</span>{' '}
+              <span className="font-medium text-foreground/70">{humanizeFieldName(k)}:</span>{' '}
               <button
                 type="button"
                 onClick={() => {
@@ -157,7 +227,7 @@ export function AuditEventDetails({ details, maxFields = 4 }: AuditEventDetailsP
 
         return (
           <span key={k} className="mr-3">
-            <span className="font-medium text-foreground/70">{k}:</span>{' '}
+            <span className="font-medium text-foreground/70">{humanizeFieldName(k)}:</span>{' '}
             <span className="font-mono">{formatted}</span>
           </span>
         )

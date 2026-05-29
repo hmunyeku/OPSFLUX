@@ -324,6 +324,28 @@ const TIER_FILTER_GROUPS: Record<TierFilterGroup, string[] | undefined> = {
   ],
 }
 
+// Periodes preset pour le filtre date — 5 boutons compacts.
+// 'all' = pas de filtre temporel (backend ignore les params absents).
+// Les autres = on calcule un ISO timestamp en js et on le passe en `since`.
+const TIER_PERIOD_PRESETS = ['1d', '7d', '30d', '90d', 'all'] as const
+type TierPeriodPreset = (typeof TIER_PERIOD_PRESETS)[number]
+
+const PERIOD_LABELS: Record<TierPeriodPreset, string> = {
+  '1d': '24h',
+  '7d': '7j',
+  '30d': '30j',
+  '90d': '90j',
+  all: 'Tout',
+}
+
+function periodToSince(period: TierPeriodPreset): string | undefined {
+  if (period === 'all') return undefined
+  const days = parseInt(period.replace('d', ''), 10)
+  if (!Number.isFinite(days)) return undefined
+  const d = new Date(Date.now() - days * 86400000)
+  return d.toISOString()
+}
+
 function TierAuditTimeline({ tierId }: { tierId: string }) {
   const { t, i18n } = useTranslation()
   // Progressive disclosure : on commence a 50 events (fast first paint),
@@ -332,10 +354,18 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
   // d'activite pour justifier de voir l'historique etendu.
   const [limit, setLimit] = useState(50)
   const [filterGroup, setFilterGroup] = useState<TierFilterGroup>('all')
+  const [period, setPeriod] = useState<TierPeriodPreset>('all')
   const actionsFilter = TIER_FILTER_GROUPS[filterGroup]
-  const { data: events = [], isLoading } = useTierAuditLog(
-    tierId, limit, actionsFilter ? { actions: actionsFilter } : {},
-  )
+  const sinceFilter = periodToSince(period)
+  // On combine les 2 dimensions de filtre dans un seul objet — le hook
+  // React Query gere l'isolation cache via le queryKey serialise.
+  const filtersToApply = useMemo(() => {
+    const f: { actions?: string[]; since?: string } = {}
+    if (actionsFilter) f.actions = actionsFilter
+    if (sinceFilter) f.since = sinceFilter
+    return f
+  }, [actionsFilter, sinceFilter])
+  const { data: events = [], isLoading } = useTierAuditLog(tierId, limit, filtersToApply)
   // Heuristic : si on a atteint le plafond demande ET qu'on n'est pas
   // deja au max backend, c'est probablement qu'il y en a plus.
   const hasMore = events.length === limit && limit < 200
@@ -352,22 +382,48 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
     { key: 'link', labelKey: 'tiers.history.filter.link', fallback: 'Statut & liens' },
   ]
   const filterBar = (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {FILTER_BUTTONS.map(({ key, labelKey, fallback }) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => setFilterGroup(key)}
-          className={cn(
-            'inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium transition-colors border',
-            filterGroup === key
-              ? 'border-primary bg-primary/10 text-primary'
-              : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
-          )}
-        >
-          {t(labelKey, fallback)}
-        </button>
-      ))}
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {FILTER_BUTTONS.map(({ key, labelKey, fallback }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilterGroup(key)}
+            className={cn(
+              'inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium transition-colors border',
+              filterGroup === key
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            {t(labelKey, fallback)}
+          </button>
+        ))}
+      </div>
+      {/* Ligne de filtres temporels : "periode" parle plus que since/until.
+          5 presets couvrent 95% des besoins. Pour un range arbitraire
+          on pourra brancher un DateRangePicker plus tard sans casser
+          ce composant. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">
+          {t('tiers.history.period', 'Période')}
+        </span>
+        {TIER_PERIOD_PRESETS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setPeriod(p)}
+            className={cn(
+              'inline-flex items-center h-5 px-1.5 rounded text-[10px] tabular-nums transition-colors border',
+              period === p
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-background text-muted-foreground hover:bg-muted',
+            )}
+          >
+            {t(`tiers.history.period_${p}`, PERIOD_LABELS[p])}
+          </button>
+        ))}
+      </div>
     </div>
   )
 

@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_module_enabled, require_permission
 from app.core.audit import record_audit
+from app.services.core.audit_service import add_event as add_audit_event
 from app.core.acting_context import get_effective_actor_user_id
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
@@ -923,6 +924,31 @@ async def create_activity(
             entity_id=entity_id,
         )
 
+    # Audit-log : event sur l'activite elle-meme (pour
+    # future PlannerActivityAuditTimeline) + cross-ref vers le projet
+    # quand activity.project_id present (la timeline du projet voit
+    # "Activite planner creee" sans aller chercher dans Planner).
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="create", resource_type="planner_activity", resource_id=activity.id,
+        details={
+            "title": activity.title,
+            "type": activity.type,
+            "status": activity.status,
+            "project_id": str(activity.project_id) if activity.project_id else None,
+        },
+    )
+    if activity.project_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="planner_activity_create", resource_type="project", resource_id=activity.project_id,
+            details={
+                "activity_id": str(activity.id),
+                "title": activity.title,
+                "type": activity.type,
+            },
+        )
+
     await db.commit()
     await db.refresh(activity)
     return await _enrich_activity(db, activity)
@@ -1090,6 +1116,27 @@ async def update_activity(
             )
             ads_updated_count = int(result.scalar() or 0)
 
+    # Audit-log : update sur activite + cross-ref vers le projet.
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="update", resource_type="planner_activity", resource_id=activity.id,
+        details={
+            "title": activity.title,
+            "fields": sorted(changes.keys()),
+            "ads_flagged_for_review": ads_updated_count,
+        },
+    )
+    if activity.project_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="planner_activity_update", resource_type="project", resource_id=activity.project_id,
+            details={
+                "activity_id": str(activity.id),
+                "title": activity.title,
+                "fields": sorted(changes.keys()),
+            },
+        )
+
     await db.commit()
     await db.refresh(activity)
 
@@ -1121,6 +1168,25 @@ async def delete_activity(
     db: AsyncSession = Depends(get_db),
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
+    # Snapshot avant delete_entity qui retire de la session.
+    a_title = activity.title
+    a_type = activity.type
+    a_project_id = activity.project_id
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="archive", resource_type="planner_activity", resource_id=activity.id,
+        details={"title": a_title, "type": a_type},
+    )
+    if a_project_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="planner_activity_delete", resource_type="project", resource_id=a_project_id,
+            details={
+                "activity_id": str(activity.id),
+                "title": a_title,
+                "type": a_type,
+            },
+        )
     await delete_entity(activity, db, "planner_activity", entity_id=activity.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Activity deleted"}
@@ -1255,6 +1321,23 @@ async def submit_activity(
     # Detect capacity conflicts
     conflicts = await _detect_and_create_conflicts(db, activity, entity_id)
 
+    # Audit-log : transition submitted (visible dans PlannerActivityHistory
+    # ET dans la timeline du Project quand activity.project_id present).
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="submit", resource_type="planner_activity", resource_id=activity.id,
+        details={"title": activity.title, "conflicts_detected": len(conflicts)},
+    )
+    if activity.project_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="planner_activity_submit", resource_type="project", resource_id=activity.project_id,
+            details={
+                "activity_id": str(activity.id),
+                "title": activity.title,
+            },
+        )
+
     await db.commit()
     await db.refresh(activity)
 
@@ -1347,6 +1430,22 @@ async def validate_activity(
     # submit already uses.
     await _detect_and_create_conflicts(db, activity, entity_id)
 
+    # Audit-log : transition validated + cross-ref Project.
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="validate", resource_type="planner_activity", resource_id=activity.id,
+        details={"title": activity.title},
+    )
+    if activity.project_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="planner_activity_validate", resource_type="project", resource_id=activity.project_id,
+            details={
+                "activity_id": str(activity.id),
+                "title": activity.title,
+            },
+        )
+
     await db.commit()
     await db.refresh(activity)
 
@@ -1417,6 +1516,24 @@ async def reject_activity(
     activity.rejected_by = current_user.id
     activity.rejected_at = datetime.now(timezone.utc)
     activity.rejection_reason = reason
+
+    # Audit-log : transition rejected + cross-ref Project.
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="reject", resource_type="planner_activity", resource_id=activity.id,
+        details={"title": activity.title, "rejection_reason": reason},
+    )
+    if activity.project_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="planner_activity_reject", resource_type="project", resource_id=activity.project_id,
+            details={
+                "activity_id": str(activity.id),
+                "title": activity.title,
+                "rejection_reason": reason,
+            },
+        )
+
     await db.commit()
     await db.refresh(activity)
 
@@ -1567,6 +1684,22 @@ async def cancel_activity(
             {"aid": str(activity_id), "eid": str(entity_id)},
         )
         ads_updated_count = int(result.scalar() or 0)
+
+    # Audit-log : transition cancelled + cross-ref Project.
+    add_audit_event(
+        db, user=current_user, entity_id=entity_id,
+        action="cancel", resource_type="planner_activity", resource_id=activity.id,
+        details={"title": activity.title, "ads_flagged_for_review": ads_updated_count},
+    )
+    if activity.project_id:
+        add_audit_event(
+            db, user=current_user, entity_id=entity_id,
+            action="planner_activity_cancel", resource_type="project", resource_id=activity.project_id,
+            details={
+                "activity_id": str(activity.id),
+                "title": activity.title,
+            },
+        )
 
     await db.commit()
     await db.refresh(activity)

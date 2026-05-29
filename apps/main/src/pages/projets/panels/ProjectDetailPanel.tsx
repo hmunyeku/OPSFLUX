@@ -3205,6 +3205,14 @@ const PROJECT_AUDIT_ACTION_LABELS: Record<string, string> = {
   // Task dependencies (lien entre 2 tâches)
   dependency_create: 'Dépendance créée',
   dependency_delete: 'Dépendance supprimée',
+  // Planner cross-refs (activity liée au projet)
+  planner_activity_create: 'Activité Planner créée',
+  planner_activity_update: 'Activité Planner modifiée',
+  planner_activity_delete: 'Activité Planner supprimée',
+  planner_activity_submit: 'Activité Planner soumise',
+  planner_activity_validate: 'Activité Planner validée',
+  planner_activity_reject: 'Activité Planner rejetée',
+  planner_activity_cancel: 'Activité Planner annulée',
 }
 
 const PROJECT_AUDIT_ACTION_CHIP: Record<string, string> = {
@@ -3232,6 +3240,14 @@ const PROJECT_AUDIT_ACTION_CHIP: Record<string, string> = {
   // Dependencies : info (lien structurel, pas une action sur du contenu).
   dependency_create: 'chip chip-info',
   dependency_delete: 'chip chip-warn',
+  // Planner cross-refs : meme pattern qu'audit_* (info/warn/success/danger).
+  planner_activity_create: 'chip chip-info',
+  planner_activity_update: 'chip',
+  planner_activity_delete: 'chip chip-danger',
+  planner_activity_submit: 'chip chip-warn',
+  planner_activity_validate: 'chip chip-success',
+  planner_activity_reject: 'chip chip-danger',
+  planner_activity_cancel: 'chip chip-warn',
 }
 
 // Groupes predefinis pour filtrer la timeline projet par INTENTION

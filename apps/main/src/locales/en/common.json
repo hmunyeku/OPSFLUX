@@ -2343,7 +2343,14 @@
       "deliverable_update": "Deliverable updated",
       "deliverable_delete": "Deliverable deleted",
       "dependency_create": "Dependency created",
-      "dependency_delete": "Dependency deleted"
+      "dependency_delete": "Dependency deleted",
+      "planner_activity_create": "Planner activity created",
+      "planner_activity_update": "Planner activity updated",
+      "planner_activity_delete": "Planner activity deleted",
+      "planner_activity_submit": "Planner activity submitted",
+      "planner_activity_validate": "Planner activity validated",
+      "planner_activity_reject": "Planner activity rejected",
+      "planner_activity_cancel": "Planner activity cancelled"
     },
     "search": {
       "visual_placeholder": "Free search: project, task, reference, status, priority, owner..."

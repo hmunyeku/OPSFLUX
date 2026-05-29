@@ -3886,6 +3886,13 @@
     "ads_detail": {
       "not_found_title": "AdS indisponible",
       "not_found_message": "Le détail de cette AdS n'a pas pu être chargé.",
+      "requester": "Demandeur",
+      "strip": {
+        "passengers": "Passagers",
+        "compliant": "Conformes",
+        "to_check": "À vérifier",
+        "blocked": "Bloqués"
+      },
       "actions": {
         "external_link": "Lien externe",
         "add_passenger": "Ajouter un passager",

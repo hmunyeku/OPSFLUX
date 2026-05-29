@@ -25,6 +25,7 @@ import { useRevisionDecisionRequests, useRespondRevisionDecisionRequest } from '
 import { useUsers } from '@/hooks/useUsers'
 import { useToast } from '@/components/ui/Toast'
 import { SkeletonDetailPanel, Skeleton } from '@/components/ui/Skeleton'
+import { AuditEventDetails } from '@/components/shared/AuditEventDetails'
 import { cn } from '@/lib/utils'
 import {
   DynamicPanelShell,
@@ -419,6 +420,7 @@ function TaskAuditTimeline({ projectId, taskId }: { projectId: string; taskId: s
                 <span className="text-[11px] text-muted-foreground">·</span>
                 <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
               </div>
+              <AuditEventDetails details={evt.details} />
             </li>
           )
         })}

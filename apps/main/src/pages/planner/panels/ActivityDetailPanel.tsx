@@ -80,6 +80,7 @@ import {
   extractApiError,
 } from '../shared'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { AuditEventDetails } from '@/components/shared/AuditEventDetails'
 
 // ── Inline-editable dependency row ─────────────────────────────────
 // Lag is stored as days in the backend; the UI lets the user pick a unit
@@ -554,6 +555,7 @@ function ActivityAuditTimeline({ activityId }: { activityId: string }) {
                 <span className="text-[11px] text-muted-foreground">·</span>
                 <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
               </div>
+              <AuditEventDetails details={evt.details} />
             </li>
           )
         })}

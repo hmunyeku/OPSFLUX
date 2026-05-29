@@ -67,6 +67,7 @@ import { SupplierAuditManager } from '@/components/shared/SupplierAuditManager'
 import { ComplianceAuditDetailPanel } from '@/components/shared/ComplianceAuditDetailPanel'
 import { BusinessAiPanel } from '@/components/shared/BusinessAiPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { AuditEventDetails } from '@/components/shared/AuditEventDetails'
 import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
 import { OpeningHoursManager } from '@/components/shared/OpeningHoursManager'
@@ -432,9 +433,6 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
           AUDIT_ACTION_LABELS[evt.action] ?? evt.action,
         )
         const chipClass = AUDIT_ACTION_CHIP[evt.action] ?? 'chip'
-        const detailFields = evt.details && typeof evt.details === 'object'
-          ? Object.entries(evt.details).filter(([k]) => k !== 'source').slice(0, 4)
-          : []
         return (
           <li key={evt.id} className="relative">
             <span className="absolute -left-[19px] top-1 inline-block h-2 w-2 rounded-full bg-primary" />
@@ -445,16 +443,7 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
               <span className="text-[11px] text-muted-foreground">·</span>
               <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
             </div>
-            {detailFields.length > 0 && (
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                {detailFields.map(([k, v]) => (
-                  <span key={k} className="mr-3">
-                    <span className="font-medium text-foreground/70">{k}:</span>{' '}
-                    <span className="font-mono">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
-                  </span>
-                ))}
-              </div>
-            )}
+            <AuditEventDetails details={evt.details} />
           </li>
         )
       })}

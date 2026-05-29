@@ -54,6 +54,7 @@ import { useToast } from '@/components/ui/Toast'
 import { SkeletonDetailPanel, Skeleton } from '@/components/ui/Skeleton'
 import { DataTableToolbar, type DataTableFilterDef } from '@/components/ui/DataTable'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { AuditEventDetails } from '@/components/shared/AuditEventDetails'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { PaxAvatar } from '@/components/shared/PaxAvatar'
@@ -3376,9 +3377,6 @@ function ProjectAuditTimeline({ projectId }: { projectId: string }) {
               PROJECT_AUDIT_ACTION_LABELS[evt.action] ?? evt.action,
             )
             const chipClass = PROJECT_AUDIT_ACTION_CHIP[evt.action] ?? 'chip'
-            const detailFields = evt.details && typeof evt.details === 'object'
-              ? Object.entries(evt.details).filter(([k]) => k !== 'source').slice(0, 4)
-              : []
             return (
               <li key={evt.id} className="relative">
                 <span className="absolute -left-[19px] top-1 inline-block h-2 w-2 rounded-full bg-primary" />
@@ -3389,16 +3387,7 @@ function ProjectAuditTimeline({ projectId }: { projectId: string }) {
                   <span className="text-[11px] text-muted-foreground">·</span>
                   <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
                 </div>
-                {detailFields.length > 0 && (
-                  <div className="mt-1 text-[11px] text-muted-foreground">
-                    {detailFields.map(([k, v]) => (
-                      <span key={k} className="mr-3">
-                        <span className="font-medium text-foreground/70">{k}:</span>{' '}
-                        <span className="font-mono">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                <AuditEventDetails details={evt.details} />
               </li>
             )
           })}

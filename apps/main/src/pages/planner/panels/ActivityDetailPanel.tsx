@@ -81,6 +81,12 @@ import {
 } from '../shared'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { AuditEventDetails } from '@/components/shared/AuditEventDetails'
+import {
+  HISTORY_PERIOD_PRESETS,
+  HISTORY_PERIOD_LABELS_FR,
+  periodToSince,
+  type HistoryPeriodPreset,
+} from '@/lib/auditHistory'
 
 // ── Inline-editable dependency row ─────────────────────────────────
 // Lag is stored as days in the backend; the UI lets the user pick a unit
@@ -468,31 +474,58 @@ function ActivityAuditTimeline({ activityId }: { activityId: string }) {
   const { t, i18n } = useTranslation()
   const [limit, setLimit] = useState(50)
   const [filterKey, setFilterKey] = useState<ActivityFilterKey>('all')
+  const [period, setPeriod] = useState<HistoryPeriodPreset>('all')
   const filterGroup = ACTIVITY_FILTER_GROUPS[filterKey]
-  const { data: events = [], isLoading } = useActivityAuditLog(
-    activityId, limit,
-    filterGroup.actions ? { actions: [...filterGroup.actions] } : {},
-  )
+  const sinceFilter = periodToSince(period)
+  const filtersToApply = useMemo(() => {
+    const f: { actions?: string[]; since?: string } = {}
+    if (filterGroup.actions) f.actions = [...filterGroup.actions]
+    if (sinceFilter) f.since = sinceFilter
+    return f
+  }, [filterGroup.actions, sinceFilter])
+  const { data: events = [], isLoading } = useActivityAuditLog(activityId, limit, filtersToApply)
   const hasMore = events.length === limit && limit < 200
-  const isFiltered = filterKey !== 'all'
+  const isFiltered = filterKey !== 'all' || period !== 'all'
 
   const filterBar = (
-    <div className="flex flex-wrap items-center gap-1 mb-2">
-      {(Object.entries(ACTIVITY_FILTER_GROUPS) as [ActivityFilterKey, typeof filterGroup][]).map(([key, group]) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => setFilterKey(key)}
-          className={cn(
-            'inline-flex h-6 items-center rounded-md border px-2 text-[11px] transition-colors',
-            filterKey === key
-              ? 'border-primary bg-primary/10 text-primary font-medium'
-              : 'border-border text-muted-foreground hover:bg-muted',
-          )}
-        >
-          {t(`planner.history.filter.activity_${key}`, group.label)}
-        </button>
-      ))}
+    <div className="space-y-1.5 mb-2">
+      <div className="flex flex-wrap items-center gap-1">
+        {(Object.entries(ACTIVITY_FILTER_GROUPS) as [ActivityFilterKey, typeof filterGroup][]).map(([key, group]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilterKey(key)}
+            className={cn(
+              'inline-flex h-6 items-center rounded-md border px-2 text-[11px] transition-colors',
+              filterKey === key
+                ? 'border-primary bg-primary/10 text-primary font-medium'
+                : 'border-border text-muted-foreground hover:bg-muted',
+            )}
+          >
+            {t(`planner.history.filter.activity_${key}`, group.label)}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">
+          {t('planner.history.period', 'Période')}
+        </span>
+        {HISTORY_PERIOD_PRESETS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setPeriod(p)}
+            className={cn(
+              'inline-flex items-center h-5 px-1.5 rounded text-[10px] tabular-nums transition-colors border',
+              period === p
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-muted-foreground hover:bg-muted',
+            )}
+          >
+            {t(`planner.history.period_${p}`, HISTORY_PERIOD_LABELS_FR[p])}
+          </button>
+        ))}
+      </div>
     </div>
   )
 

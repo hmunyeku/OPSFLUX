@@ -55,6 +55,12 @@ import { SkeletonDetailPanel, Skeleton } from '@/components/ui/Skeleton'
 import { DataTableToolbar, type DataTableFilterDef } from '@/components/ui/DataTable'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AuditEventDetails } from '@/components/shared/AuditEventDetails'
+import {
+  HISTORY_PERIOD_PRESETS,
+  HISTORY_PERIOD_LABELS_FR,
+  periodToSince,
+  type HistoryPeriodPreset,
+} from '@/lib/auditHistory'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { PaxAvatar } from '@/components/shared/PaxAvatar'
@@ -3280,10 +3286,16 @@ function ProjectAuditTimeline({ projectId }: { projectId: string }) {
   const { t, i18n } = useTranslation()
   const [limit, setLimit] = useState(50)
   const [filterGroup, setFilterGroup] = useState<ProjectFilterGroup>('all')
+  const [period, setPeriod] = useState<HistoryPeriodPreset>('all')
   const actionsFilter = PROJECT_FILTER_GROUPS[filterGroup]
-  const { data: events = [], isLoading } = useProjectAuditLog(
-    projectId, limit, actionsFilter ? { actions: actionsFilter } : {},
-  )
+  const sinceFilter = periodToSince(period)
+  const filtersToApply = useMemo(() => {
+    const f: { actions?: string[]; since?: string } = {}
+    if (actionsFilter) f.actions = [...actionsFilter]
+    if (sinceFilter) f.since = sinceFilter
+    return f
+  }, [actionsFilter, sinceFilter])
+  const { data: events = [], isLoading } = useProjectAuditLog(projectId, limit, filtersToApply)
   const hasMore = events.length === limit && limit < 200
 
   // Filter bar — declared early so it can be reused in loading/empty states
@@ -3296,22 +3308,44 @@ function ProjectAuditTimeline({ projectId }: { projectId: string }) {
     { key: 'team', labelKey: 'projets.history.filter.team', fallback: 'Équipe' },
   ]
   const filterBar = (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {FILTER_BUTTONS.map(({ key, labelKey, fallback }) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => setFilterGroup(key)}
-          className={cn(
-            'inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium transition-colors border',
-            filterGroup === key
-              ? 'border-primary bg-primary/10 text-primary'
-              : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
-          )}
-        >
-          {t(labelKey, fallback)}
-        </button>
-      ))}
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {FILTER_BUTTONS.map(({ key, labelKey, fallback }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilterGroup(key)}
+            className={cn(
+              'inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium transition-colors border',
+              filterGroup === key
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            {t(labelKey, fallback)}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">
+          {t('projets.history.period', 'Période')}
+        </span>
+        {HISTORY_PERIOD_PRESETS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setPeriod(p)}
+            className={cn(
+              'inline-flex items-center h-5 px-1.5 rounded text-[10px] tabular-nums transition-colors border',
+              period === p
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-background text-muted-foreground hover:bg-muted',
+            )}
+          >
+            {t(`projets.history.period_${p}`, HISTORY_PERIOD_LABELS_FR[p])}
+          </button>
+        ))}
+      </div>
     </div>
   )
 

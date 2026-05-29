@@ -68,6 +68,12 @@ import { ComplianceAuditDetailPanel } from '@/components/shared/ComplianceAuditD
 import { BusinessAiPanel } from '@/components/shared/BusinessAiPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AuditEventDetails } from '@/components/shared/AuditEventDetails'
+import {
+  HISTORY_PERIOD_PRESETS,
+  HISTORY_PERIOD_LABELS_FR,
+  periodToSince,
+  type HistoryPeriodPreset,
+} from '@/lib/auditHistory'
 import { JobPositionPicker } from '@/components/shared/JobPositionPicker'
 import { SocialNetworkManager } from '@/components/shared/SocialNetworkManager'
 import { OpeningHoursManager } from '@/components/shared/OpeningHoursManager'
@@ -324,28 +330,6 @@ const TIER_FILTER_GROUPS: Record<TierFilterGroup, string[] | undefined> = {
   ],
 }
 
-// Periodes preset pour le filtre date — 5 boutons compacts.
-// 'all' = pas de filtre temporel (backend ignore les params absents).
-// Les autres = on calcule un ISO timestamp en js et on le passe en `since`.
-const TIER_PERIOD_PRESETS = ['1d', '7d', '30d', '90d', 'all'] as const
-type TierPeriodPreset = (typeof TIER_PERIOD_PRESETS)[number]
-
-const PERIOD_LABELS: Record<TierPeriodPreset, string> = {
-  '1d': '24h',
-  '7d': '7j',
-  '30d': '30j',
-  '90d': '90j',
-  all: 'Tout',
-}
-
-function periodToSince(period: TierPeriodPreset): string | undefined {
-  if (period === 'all') return undefined
-  const days = parseInt(period.replace('d', ''), 10)
-  if (!Number.isFinite(days)) return undefined
-  const d = new Date(Date.now() - days * 86400000)
-  return d.toISOString()
-}
-
 function TierAuditTimeline({ tierId }: { tierId: string }) {
   const { t, i18n } = useTranslation()
   // Progressive disclosure : on commence a 50 events (fast first paint),
@@ -354,7 +338,7 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
   // d'activite pour justifier de voir l'historique etendu.
   const [limit, setLimit] = useState(50)
   const [filterGroup, setFilterGroup] = useState<TierFilterGroup>('all')
-  const [period, setPeriod] = useState<TierPeriodPreset>('all')
+  const [period, setPeriod] = useState<HistoryPeriodPreset>('all')
   const actionsFilter = TIER_FILTER_GROUPS[filterGroup]
   const sinceFilter = periodToSince(period)
   // On combine les 2 dimensions de filtre dans un seul objet — le hook
@@ -408,7 +392,7 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">
           {t('tiers.history.period', 'Période')}
         </span>
-        {TIER_PERIOD_PRESETS.map((p) => (
+        {HISTORY_PERIOD_PRESETS.map((p) => (
           <button
             key={p}
             type="button"
@@ -420,7 +404,7 @@ function TierAuditTimeline({ tierId }: { tierId: string }) {
                 : 'border-border bg-background text-muted-foreground hover:bg-muted',
             )}
           >
-            {t(`tiers.history.period_${p}`, PERIOD_LABELS[p])}
+            {t(`tiers.history.period_${p}`, HISTORY_PERIOD_LABELS_FR[p])}
           </button>
         ))}
       </div>

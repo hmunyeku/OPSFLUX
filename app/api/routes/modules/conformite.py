@@ -1267,7 +1267,7 @@ async def create_compliance_type(
     add_audit_event(
         db, user=current_user, entity_id=entity_id,
         action="create", resource_type="compliance_type", resource_id=ct.id,
-        details={"code": ct.code, "name": ct.name, "scope": ct.scope},
+        details={"code": ct.code, "name": ct.name, "category": ct.category},
     )
     await db.commit()
     return ct

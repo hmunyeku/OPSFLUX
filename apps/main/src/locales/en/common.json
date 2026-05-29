@@ -4389,6 +4389,21 @@
   "planner": {
     "title": "Planner",
     "subtitle": "Operational planning and capacity management",
+    "history": {
+      "empty": "No events recorded for this activity.",
+      "by": "by",
+      "system": "System",
+      "load_more": "View full history"
+    },
+    "audit_action": {
+      "create": "Created",
+      "update": "Updated",
+      "archive": "Deleted",
+      "submit": "Submitted",
+      "validate": "Validated",
+      "reject": "Rejected",
+      "cancel": "Cancelled"
+    },
     "tabs": {
       "timeline": "Timeline (Gantt)",
       "activities": "Activities",

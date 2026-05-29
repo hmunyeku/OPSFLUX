@@ -113,6 +113,21 @@ export function useActivity(id: string | undefined) {
   })
 }
 
+// ── Activity audit-log timeline ──
+// Mirror du useTierAuditLog / useProjectAuditLog : meme stale-while-revalidate,
+// meme cap 200 cote backend.
+export function useActivityAuditLog(
+  activityId: string | undefined,
+  limit = 50,
+  filters: { actions?: string[]; since?: string; until?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['planner', 'activity-audit-log', activityId, limit, filters],
+    queryFn: () => plannerService.listActivityAuditLog(activityId!, limit, filters),
+    enabled: !!activityId,
+  })
+}
+
 /**
  * Invalidate every Planner view that depends on activity data.
  *

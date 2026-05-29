@@ -2,6 +2,20 @@
  * Planner (activities, conflicts, capacity, gantt) API service.
  */
 import api from '@/lib/api'
+
+// Mirror du TierAuditEvent / ProjectAuditEvent — meme structure, on garde
+// une interface dediee pour eviter une dependance croisee entre services.
+export interface PlannerActivityAuditEvent {
+  id: string
+  action: string
+  resource_type: string
+  user_id: string | null
+  user_name: string | null
+  details: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+}
+
 import type {
   PlannerActivity, PlannerActivityCreate, PlannerActivityUpdate,
   PlannerConflict, PlannerConflictResolve,
@@ -144,6 +158,25 @@ export const plannerService = {
 
   getActivity: async (id: string): Promise<PlannerActivity> => {
     const { data } = await api.get(`${BASE}/activities/${id}`)
+    return data
+  },
+
+  // ── Audit-log timeline (Historique d'une activite) ──
+  // Meme contrat que listAuditLog cote Project/Tier : limit + filtres
+  // actions/since/until optionnels.
+  listActivityAuditLog: async (
+    activityId: string,
+    limit = 50,
+    filters: { actions?: string[]; since?: string; until?: string } = {},
+  ): Promise<PlannerActivityAuditEvent[]> => {
+    const params: Record<string, unknown> = { limit }
+    if (filters.actions?.length) params.actions = filters.actions
+    if (filters.since) params.since = filters.since
+    if (filters.until) params.until = filters.until
+    const { data } = await api.get<PlannerActivityAuditEvent[]>(
+      `${BASE}/activities/${activityId}/audit-log`,
+      { params },
+    )
     return data
   },
 

@@ -2439,7 +2439,14 @@
       "deliverable_update": "Livrable modifié",
       "deliverable_delete": "Livrable supprimé",
       "dependency_create": "Dépendance créée",
-      "dependency_delete": "Dépendance supprimée"
+      "dependency_delete": "Dépendance supprimée",
+      "planner_activity_create": "Activité Planner créée",
+      "planner_activity_update": "Activité Planner modifiée",
+      "planner_activity_delete": "Activité Planner supprimée",
+      "planner_activity_submit": "Activité Planner soumise",
+      "planner_activity_validate": "Activité Planner validée",
+      "planner_activity_reject": "Activité Planner rejetée",
+      "planner_activity_cancel": "Activité Planner annulée"
     },
     "search": {
       "visual_placeholder": "Recherche libre : projet, tâche, référence, statut, priorité, responsable..."
@@ -4478,6 +4485,21 @@
   "planner": {
     "title": "Planner",
     "subtitle": "Planification opérationnelle et gestion de capacité",
+    "history": {
+      "empty": "Aucun évènement enregistré sur cette activité.",
+      "by": "par",
+      "system": "Système",
+      "load_more": "Voir tout l'historique"
+    },
+    "audit_action": {
+      "create": "Création",
+      "update": "Modification",
+      "archive": "Suppression",
+      "submit": "Soumission",
+      "validate": "Validation",
+      "reject": "Rejet",
+      "cancel": "Annulation"
+    },
     "tabs": {
       "dashboard": "Tableau de bord",
       "timeline": "Plan",

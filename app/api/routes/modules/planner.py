@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, func as sqla_func, and_, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -964,6 +964,79 @@ async def get_activity(
 ):
     activity = await _get_activity_or_404(db, activity_id, entity_id)
     return await _enrich_activity(db, activity)
+
+
+# ── PlannerActivity audit-log timeline (Historique) ─────────────────────────
+
+
+class PlannerActivityAuditEventRead(BaseModel):
+    """Audit event exposé dans l'onglet Historique du panel Activity."""
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    action: str
+    resource_type: str
+    user_id: UUID | None
+    user_name: str | None
+    details: dict | None
+    ip_address: str | None
+    created_at: datetime
+
+
+@router.get("/activities/{activity_id}/audit-log", response_model=list[PlannerActivityAuditEventRead])
+async def list_activity_audit_log(
+    activity_id: UUID,
+    limit: int = 50,
+    actions: list[str] | None = Query(default=None),
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Récupère l'historique audit-log d'une activité Planner (max 200 events).
+
+    Mirror du pattern Project/Tier : filtre sur resource_type='planner_activity'
+    + resource_id=str(activity_id) + scope entity_id. LEFT JOIN User pour
+    afficher first_name/last_name. Garde-fou 404 silencieux si l'activité
+    n'est pas dans l'entity courante.
+
+    Filtres optionnels : actions multi-valeurs, since/until ISO datetimes.
+    """
+    activity = await _get_activity_or_404(db, activity_id, entity_id)
+    limit = max(1, min(limit, 200))
+    conds = [
+        AuditLog.entity_id == entity_id,
+        AuditLog.resource_type == "planner_activity",
+        AuditLog.resource_id == str(activity.id),
+    ]
+    if actions:
+        conds.append(AuditLog.action.in_(actions))
+    if since is not None:
+        conds.append(AuditLog.created_at >= since)
+    if until is not None:
+        conds.append(AuditLog.created_at <= until)
+    result = await db.execute(
+        select(AuditLog, User.first_name, User.last_name, User.email)
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .where(*conds)
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+    )
+    events: list[PlannerActivityAuditEventRead] = []
+    for evt, fn, ln, email in result.all():
+        full_name = " ".join(filter(None, [fn, ln])).strip()
+        events.append(PlannerActivityAuditEventRead(
+            id=evt.id,
+            action=evt.action,
+            resource_type=evt.resource_type,
+            user_id=evt.user_id,
+            user_name=full_name or email or None,
+            details=evt.details,
+            ip_address=evt.ip_address,
+            created_at=evt.created_at,
+        ))
+    return events
 
 
 @router.get("/activities/{activity_id}/ical", response_class=Response)

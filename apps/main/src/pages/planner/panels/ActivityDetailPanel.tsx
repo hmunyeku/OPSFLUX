@@ -44,6 +44,7 @@ import { plannerService } from '@/services/plannerService'
 import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
   useActivity,
+  useActivityAuditLog,
   useUpdateActivity,
   useDeleteActivity,
   useSubmitActivity,
@@ -78,6 +79,7 @@ import {
   formatVariablePaxTooltip,
   extractApiError,
 } from '../shared'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 // ── Inline-editable dependency row ─────────────────────────────────
 // Lag is stored as days in the backend; the UI lets the user pick a unit
@@ -413,6 +415,110 @@ function ActivityTeamsSection({ activityId }: { activityId: string }) {
               </button>
             </div>
           ))}
+        </div>
+      )}
+    </FormSection>
+  )
+}
+
+// ── Activity audit-log timeline (Historique) ──────────────────────
+// Mirror du TierAuditTimeline / ProjectAuditTimeline. Affiche les events
+// emis sur resource_type='planner_activity' (create/update/archive +
+// workflow submit/validate/reject/cancel).
+
+const PLANNER_ACTIVITY_AUDIT_LABELS: Record<string, string> = {
+  create: 'Création',
+  update: 'Modification',
+  archive: 'Suppression',
+  submit: 'Soumission',
+  validate: 'Validation',
+  reject: 'Rejet',
+  cancel: 'Annulation',
+}
+
+const PLANNER_ACTIVITY_AUDIT_CHIPS: Record<string, string> = {
+  create: 'chip chip-success',
+  update: 'chip',
+  archive: 'chip chip-danger',
+  submit: 'chip chip-warn',
+  validate: 'chip chip-success',
+  reject: 'chip chip-danger',
+  cancel: 'chip chip-warn',
+}
+
+function ActivityAuditTimeline({ activityId }: { activityId: string }) {
+  const { t, i18n } = useTranslation()
+  const [limit, setLimit] = useState(50)
+  const { data: events = [], isLoading } = useActivityAuditLog(activityId, limit)
+  const hasMore = events.length === limit && limit < 200
+
+  if (isLoading) {
+    return (
+      <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="activity-detail-audit-log">
+        <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-busy="true">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </FormSection>
+    )
+  }
+  if (events.length === 0) {
+    return (
+      <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="activity-detail-audit-log">
+        <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          {t('planner.history.empty', 'Aucun évènement enregistré sur cette activité.')}
+        </div>
+      </FormSection>
+    )
+  }
+  const fmt = (iso: string) => {
+    try {
+      return new Intl.DateTimeFormat(i18n.language, {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      }).format(new Date(iso))
+    } catch {
+      return iso.slice(0, 16).replace('T', ' ')
+    }
+  }
+  return (
+    <FormSection title={`Historique (${events.length})`} collapsible defaultExpanded={false} storageKey="activity-detail-audit-log">
+      <ol className="relative space-y-2 border-l border-border pl-4">
+        {events.map((evt) => {
+          const actionLabel = t(
+            `planner.audit_action.${evt.action}`,
+            PLANNER_ACTIVITY_AUDIT_LABELS[evt.action] ?? evt.action,
+          )
+          const chipClass = PLANNER_ACTIVITY_AUDIT_CHIPS[evt.action] ?? 'chip'
+          return (
+            <li key={evt.id} className="relative">
+              <span className="absolute -left-[19px] top-1 inline-block h-2 w-2 rounded-full bg-primary" />
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className={chipClass}>{actionLabel}</span>
+                <span className="text-xs text-muted-foreground">{t('planner.history.by', 'par')}</span>
+                <span className="text-xs font-semibold text-foreground">{evt.user_name ?? t('planner.history.system', 'Système')}</span>
+                <span className="text-[11px] text-muted-foreground">·</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+      {hasMore && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => setLimit(200)}
+            className="text-xs text-primary hover:underline focus:outline-none focus:underline"
+          >
+            {t('planner.history.load_more', 'Voir tout l\'historique')} →
+          </button>
         </div>
       )}
     </FormSection>
@@ -1572,6 +1678,7 @@ export function ActivityDetailPanel({ id }: { id: string }) {
             </>)}
 
             {detailTab === 'documents' && (
+            <>
             <FormSection title={t('common.tags_notes_files')} defaultExpanded>
               <div className="space-y-3">
                 <TagManager ownerType="planner_activity" ownerId={activity.id} compact />
@@ -1579,6 +1686,8 @@ export function ActivityDetailPanel({ id }: { id: string }) {
                 <NoteManager ownerType="planner_activity" ownerId={activity.id} compact />
               </div>
             </FormSection>
+            <ActivityAuditTimeline activityId={activity.id} />
+            </>
             )}
           </>
         )}

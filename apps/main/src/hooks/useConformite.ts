@@ -270,6 +270,19 @@ export function useComplianceAudits(params: { target_type?: string; target_id?: 
   })
 }
 
+// Audit-log timeline (Historique) — mirror du pattern Tier/Project.
+export function useComplianceAuditAuditLog(
+  auditId: string | undefined,
+  limit = 50,
+  filters: { actions?: string[]; since?: string; until?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['compliance-audit-audit-log', auditId, limit, filters],
+    queryFn: () => conformiteService.listAuditAuditLog(auditId!, limit, filters),
+    enabled: !!auditId,
+  })
+}
+
 export function useCreateComplianceAudit() {
   const qc = useQueryClient()
   return useMutation({

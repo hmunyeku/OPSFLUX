@@ -34,8 +34,16 @@ import {
   type ComplianceAuditAnswerDraft,
 } from '@/lib/complianceAudit'
 import { cn } from '@/lib/utils'
-import { useSubmitComplianceAudit, useUpdateComplianceAuditAnswers } from '@/hooks/useConformite'
+import { useSubmitComplianceAudit, useUpdateComplianceAuditAnswers, useComplianceAuditAuditLog } from '@/hooks/useConformite'
 import type { ComplianceAudit } from '@/types/api'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { AuditEventDetails } from '@/components/shared/AuditEventDetails'
+import {
+  HISTORY_PERIOD_PRESETS,
+  HISTORY_PERIOD_LABELS_FR,
+  periodToSince,
+  type HistoryPeriodPreset,
+} from '@/lib/auditHistory'
 
 interface ComplianceAuditDetailPanelProps {
   audit: ComplianceAudit
@@ -398,7 +406,154 @@ export function ComplianceAuditDetailPanel({
           </div>
         </FormSection>
       )}
+
+      {/* Audit-log timeline — events emis par toutes les actions sur cet
+          audit (create / update / update_answers / submit / validated /
+          rejected via moc_service). Collapsible et collapsed par defaut
+          pour ne pas pousser les sections principales vers le bas. */}
+      <ComplianceAuditTimeline auditId={audit.id} />
     </DynamicPanelShell>
+  )
+}
+
+// ── ComplianceAuditTimeline — mirror des autres timelines ─────────────
+
+const COMPLIANCE_AUDIT_ACTION_LABELS: Record<string, string> = {
+  create: 'Création',
+  update: 'Modification',
+  update_answers: 'Mise à jour des réponses',
+  submit: 'Soumission pour validation',
+  validate: 'Validation',
+  validated: 'Validé',
+  reject: 'Rejet',
+  rejected: 'Rejeté',
+  archive: 'Archivage',
+  mark_validated: 'Validation manuelle',
+}
+
+const COMPLIANCE_AUDIT_ACTION_CHIPS: Record<string, string> = {
+  create: 'chip chip-success',
+  update: 'chip',
+  update_answers: 'chip',
+  submit: 'chip chip-warn',
+  validate: 'chip chip-success',
+  validated: 'chip chip-success',
+  reject: 'chip chip-danger',
+  rejected: 'chip chip-danger',
+  archive: 'chip chip-danger',
+  mark_validated: 'chip chip-highlight',
+}
+
+function ComplianceAuditTimeline({ auditId }: { auditId: string }) {
+  const { t, i18n } = useTranslation()
+  const [limit, setLimit] = useState(50)
+  const [period, setPeriod] = useState<HistoryPeriodPreset>('all')
+  const sinceFilter = periodToSince(period)
+  const filtersToApply = useMemo(() => {
+    const f: { since?: string } = {}
+    if (sinceFilter) f.since = sinceFilter
+    return f
+  }, [sinceFilter])
+  const { data: events = [], isLoading } = useComplianceAuditAuditLog(auditId, limit, filtersToApply)
+  const hasMore = events.length === limit && limit < 200
+
+  const periodBar = (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">
+        {t('conformite.history.period', 'Période')}
+      </span>
+      {HISTORY_PERIOD_PRESETS.map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => setPeriod(p)}
+          className={cn(
+            'inline-flex items-center h-5 px-1.5 rounded text-[10px] tabular-nums transition-colors border',
+            period === p
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-border bg-background text-muted-foreground hover:bg-muted',
+          )}
+        >
+          {t(`conformite.history.period_${p}`, HISTORY_PERIOD_LABELS_FR[p])}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (isLoading) {
+    return (
+      <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="compliance-audit-history">
+        {periodBar}
+        <div className="mt-2 space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-busy="true">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <Skeleton className="mt-0.5 h-5 w-16 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </FormSection>
+    )
+  }
+  if (events.length === 0) {
+    return (
+      <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="compliance-audit-history">
+        {periodBar}
+        <div className="mt-2 rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          {t('conformite.history.empty', 'Aucun évènement enregistré sur cet audit.')}
+        </div>
+      </FormSection>
+    )
+  }
+  const fmt = (iso: string) => {
+    try {
+      return new Intl.DateTimeFormat(i18n.language, {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      }).format(new Date(iso))
+    } catch {
+      return iso.slice(0, 16).replace('T', ' ')
+    }
+  }
+  return (
+    <FormSection title={`Historique (${events.length})`} collapsible defaultExpanded={false} storageKey="compliance-audit-history">
+      {periodBar}
+      <ol className="mt-2 relative space-y-2 border-l border-border pl-4">
+        {events.map((evt) => {
+          const actionLabel = t(
+            `conformite.audit_action.${evt.action}`,
+            COMPLIANCE_AUDIT_ACTION_LABELS[evt.action] ?? evt.action,
+          )
+          const chipClass = COMPLIANCE_AUDIT_ACTION_CHIPS[evt.action] ?? 'chip'
+          return (
+            <li key={evt.id} className="relative">
+              <span className="absolute -left-[19px] top-1 inline-block h-2 w-2 rounded-full bg-primary" />
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className={chipClass}>{actionLabel}</span>
+                <span className="text-xs text-muted-foreground">{t('conformite.history.by', 'par')}</span>
+                <span className="text-xs font-semibold text-foreground">{evt.user_name ?? t('conformite.history.system', 'Système')}</span>
+                <span className="text-[11px] text-muted-foreground">·</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">{fmt(evt.created_at)}</span>
+              </div>
+              <AuditEventDetails details={evt.details} />
+            </li>
+          )
+        })}
+      </ol>
+      {hasMore && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => setLimit(200)}
+            className="text-xs text-primary hover:underline focus:outline-none focus:underline"
+          >
+            {t('conformite.history.load_more', 'Voir tout l\'historique')} →
+          </button>
+        </div>
+      )}
+    </FormSection>
   )
 }
 

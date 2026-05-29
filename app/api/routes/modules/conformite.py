@@ -5,7 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
@@ -37,6 +37,7 @@ from app.models.common import (
     ComplianceAudit, ComplianceAuditAnswer, ComplianceAuditQuestion, ComplianceAuditTemplate, ComplianceAuditTheme,
     Entity, JobPosition, TierContactTransfer, TierContact, Tier, Attachment, ContactEmail,
     User, UserEmail, Phone, Setting, UserGroup, UserGroupMember,
+    AuditLog,
 )
 from app.models.moc import MOCValidation
 from app.schemas.common import (
@@ -3044,6 +3045,89 @@ async def list_compliance_audits(
         await _enrich_audit_target(db, audit)
     await _enrich_audit_answer_attachment_counts(db, audits)
     return audits
+
+
+# ── ComplianceAudit audit-log timeline (Historique) ─────────────────────
+
+
+class ComplianceAuditAuditEventRead(BaseModel):
+    """Audit event exposé dans l'onglet Historique du panel Audit."""
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    action: str
+    resource_type: str
+    user_id: UUID | None
+    user_name: str | None
+    details: dict | None
+    ip_address: str | None
+    created_at: datetime
+
+
+@router.get("/audits/{audit_id}/audit-log", response_model=list[ComplianceAuditAuditEventRead])
+async def list_compliance_audit_audit_log(
+    audit_id: UUID,
+    limit: int = 50,
+    actions: list[str] | None = Query(default=None),
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("conformite.audit.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Récupère l'historique audit-log d'un ComplianceAudit (max 200 events).
+
+    Mirror du pattern Tier / Project / Planner :
+    - resource_type='compliance_audit' AND resource_id=str(audit_id)
+    - LEFT JOIN User pour exposer first_name/last_name
+    - Scope entity_id strict
+    - Filtres optionnels : actions multi-valeurs, since/until ISO datetimes
+
+    Garde-fou : 404 silencieux si l'audit n'existe pas dans cette entity.
+    """
+    # Garde-fou existence + scope.
+    audit = (await db.execute(
+        select(ComplianceAudit).where(
+            ComplianceAudit.id == audit_id,
+            ComplianceAudit.entity_id == entity_id,
+        )
+    )).scalar_one_or_none()
+    if audit is None:
+        raise HTTPException(status_code=404, detail="Audit not found")
+
+    limit = max(1, min(limit, 200))
+    conds = [
+        AuditLog.entity_id == entity_id,
+        AuditLog.resource_type == "compliance_audit",
+        AuditLog.resource_id == str(audit.id),
+    ]
+    if actions:
+        conds.append(AuditLog.action.in_(actions))
+    if since is not None:
+        conds.append(AuditLog.created_at >= since)
+    if until is not None:
+        conds.append(AuditLog.created_at <= until)
+    result = await db.execute(
+        select(AuditLog, User.first_name, User.last_name, User.email)
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .where(*conds)
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+    )
+    events: list[ComplianceAuditAuditEventRead] = []
+    for evt, fn, ln, email in result.all():
+        full_name = " ".join(filter(None, [fn, ln])).strip()
+        events.append(ComplianceAuditAuditEventRead(
+            id=evt.id,
+            action=evt.action,
+            resource_type=evt.resource_type,
+            user_id=evt.user_id,
+            user_name=full_name or email or None,
+            details=evt.details,
+            ip_address=evt.ip_address,
+            created_at=evt.created_at,
+        ))
+    return events
 
 
 @router.post("/audits", response_model=ComplianceAuditRead, status_code=201)

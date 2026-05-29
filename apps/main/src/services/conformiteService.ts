@@ -2,6 +2,20 @@
  * Conformite (compliance) API service.
  */
 import api from '@/lib/api'
+
+// Mirror du TierAuditEvent / ProjectAuditEvent — meme structure,
+// interface dediee pour eviter une dep croisee entre services.
+export interface ComplianceAuditAuditEvent {
+  id: string
+  action: string
+  resource_type: string
+  user_id: string | null
+  user_name: string | null
+  details: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+}
+
 import type {
   ComplianceType, ComplianceTypeCreate, ComplianceTypeUpdate,
   ComplianceAuthorizedCenter, ComplianceAuthorizedCenterCreate, ComplianceAuthorizedCenterUpdate,
@@ -145,6 +159,25 @@ export const conformiteService = {
 
   listAudits: async (params: { target_type?: string; target_id?: string } = {}): Promise<ComplianceAudit[]> => {
     const { data } = await api.get('/api/v1/conformite/audits', { params })
+    return data
+  },
+
+  // ── Compliance Audit audit-log timeline (Historique) ──
+  // Mirror du pattern Tier/Project/Activity. Meme structure
+  // d'event, meme contrat de filtres.
+  listAuditAuditLog: async (
+    auditId: string,
+    limit = 50,
+    filters: { actions?: string[]; since?: string; until?: string } = {},
+  ): Promise<ComplianceAuditAuditEvent[]> => {
+    const params: Record<string, unknown> = { limit }
+    if (filters.actions?.length) params.actions = filters.actions
+    if (filters.since) params.since = filters.since
+    if (filters.until) params.until = filters.until
+    const { data } = await api.get<ComplianceAuditAuditEvent[]>(
+      `/api/v1/conformite/audits/${auditId}/audit-log`,
+      { params },
+    )
     return data
   },
 

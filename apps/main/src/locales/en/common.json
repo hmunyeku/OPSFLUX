@@ -2322,7 +2322,11 @@
         "update": "Updated",
         "delete": "Deleted",
         "tasks": "Tasks & milestones",
-        "team": "Team"
+        "team": "Team",
+        "task_all": "All",
+        "task_task": "Task",
+        "task_deliverable": "Deliverables",
+        "task_dependency": "Dependencies"
       }
     },
     "audit_action": {
@@ -4391,9 +4395,15 @@
     "subtitle": "Operational planning and capacity management",
     "history": {
       "empty": "No events recorded for this activity.",
+      "empty_filtered": "No events match this filter.",
       "by": "by",
       "system": "System",
-      "load_more": "View full history"
+      "load_more": "View full history",
+      "filter": {
+        "activity_all": "All",
+        "activity_lifecycle": "Lifecycle",
+        "activity_workflow": "Workflow"
+      }
     },
     "audit_action": {
       "create": "Created",

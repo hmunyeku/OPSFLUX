@@ -446,15 +446,59 @@ const PLANNER_ACTIVITY_AUDIT_CHIPS: Record<string, string> = {
   cancel: 'chip chip-warn',
 }
 
+// Groupes de filtre Activity — 3 dimensions parlantes pour l'utilisateur :
+//  - Tous
+//  - Cycle de vie     : create/update/archive
+//  - Workflow         : submit/validate/reject/cancel
+const ACTIVITY_FILTER_GROUPS = {
+  all: { label: 'Tous', actions: undefined as string[] | undefined },
+  lifecycle: {
+    label: 'Cycle de vie',
+    actions: ['create', 'update', 'archive'],
+  },
+  workflow: {
+    label: 'Workflow',
+    actions: ['submit', 'validate', 'reject', 'cancel'],
+  },
+} as const
+type ActivityFilterKey = keyof typeof ACTIVITY_FILTER_GROUPS
+
 function ActivityAuditTimeline({ activityId }: { activityId: string }) {
   const { t, i18n } = useTranslation()
   const [limit, setLimit] = useState(50)
-  const { data: events = [], isLoading } = useActivityAuditLog(activityId, limit)
+  const [filterKey, setFilterKey] = useState<ActivityFilterKey>('all')
+  const filterGroup = ACTIVITY_FILTER_GROUPS[filterKey]
+  const { data: events = [], isLoading } = useActivityAuditLog(
+    activityId, limit,
+    filterGroup.actions ? { actions: [...filterGroup.actions] } : {},
+  )
   const hasMore = events.length === limit && limit < 200
+  const isFiltered = filterKey !== 'all'
+
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-1 mb-2">
+      {(Object.entries(ACTIVITY_FILTER_GROUPS) as [ActivityFilterKey, typeof filterGroup][]).map(([key, group]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => setFilterKey(key)}
+          className={cn(
+            'inline-flex h-6 items-center rounded-md border px-2 text-[11px] transition-colors',
+            filterKey === key
+              ? 'border-primary bg-primary/10 text-primary font-medium'
+              : 'border-border text-muted-foreground hover:bg-muted',
+          )}
+        >
+          {t(`planner.history.filter.activity_${key}`, group.label)}
+        </button>
+      ))}
+    </div>
+  )
 
   if (isLoading) {
     return (
       <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="activity-detail-audit-log">
+        {filterBar}
         <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-busy="true">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="flex items-start gap-2">
@@ -472,8 +516,11 @@ function ActivityAuditTimeline({ activityId }: { activityId: string }) {
   if (events.length === 0) {
     return (
       <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="activity-detail-audit-log">
+        {filterBar}
         <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-          {t('planner.history.empty', 'Aucun évènement enregistré sur cette activité.')}
+          {isFiltered
+            ? t('planner.history.empty_filtered', 'Aucun évènement pour ce filtre.')
+            : t('planner.history.empty', 'Aucun évènement enregistré sur cette activité.')}
         </div>
       </FormSection>
     )
@@ -489,6 +536,7 @@ function ActivityAuditTimeline({ activityId }: { activityId: string }) {
   }
   return (
     <FormSection title={`Historique (${events.length})`} collapsible defaultExpanded={false} storageKey="activity-detail-audit-log">
+      {filterBar}
       <ol className="relative space-y-2 border-l border-border pl-4">
         {events.map((evt) => {
           const actionLabel = t(

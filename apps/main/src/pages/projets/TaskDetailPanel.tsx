@@ -308,15 +308,62 @@ const TASK_AUDIT_ACTION_CHIP: Record<string, string> = {
   dependency_delete: 'chip chip-warn',
 }
 
+// Groupes de filtre Task — chaque entree map vers un set d'actions
+// que le backend recevra dans le query param `actions=[...]`.
+// Pattern : 4 groupes (Tous / Tâche / Livrables / Dépendances).
+const TASK_FILTER_GROUPS = {
+  all: { label: 'Tous', actions: undefined as string[] | undefined },
+  task: {
+    label: 'Tâche',
+    actions: ['task_create', 'task_update', 'task_delete', 'task_status_change'],
+  },
+  deliverable: {
+    label: 'Livrables',
+    actions: ['deliverable_create', 'deliverable_update', 'deliverable_delete'],
+  },
+  dependency: {
+    label: 'Dépendances',
+    actions: ['dependency_create', 'dependency_delete'],
+  },
+} as const
+type TaskFilterKey = keyof typeof TASK_FILTER_GROUPS
+
 function TaskAuditTimeline({ projectId, taskId }: { projectId: string; taskId: string }) {
   const { t, i18n } = useTranslation()
   const [limit, setLimit] = useState(50)
-  const { data: events = [], isLoading } = useTaskAuditLog(projectId, taskId, limit)
+  const [filterKey, setFilterKey] = useState<TaskFilterKey>('all')
+  const filterGroup = TASK_FILTER_GROUPS[filterKey]
+  const { data: events = [], isLoading } = useTaskAuditLog(
+    projectId, taskId, limit,
+    filterGroup.actions ? { actions: [...filterGroup.actions] } : {},
+  )
   const hasMore = events.length === limit && limit < 200
+  const isFiltered = filterKey !== 'all'
+
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-1 mb-2">
+      {(Object.entries(TASK_FILTER_GROUPS) as [TaskFilterKey, typeof filterGroup][]).map(([key, group]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => setFilterKey(key)}
+          className={cn(
+            'inline-flex h-6 items-center rounded-md border px-2 text-[11px] transition-colors',
+            filterKey === key
+              ? 'border-primary bg-primary/10 text-primary font-medium'
+              : 'border-border text-muted-foreground hover:bg-muted',
+          )}
+        >
+          {t(`projets.history.filter.task_${key}`, group.label)}
+        </button>
+      ))}
+    </div>
+  )
 
   if (isLoading) {
     return (
       <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="task-detail-audit-log">
+        {filterBar}
         <div className="space-y-2 rounded-md border border-dashed border-border p-3" role="status" aria-busy="true">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="flex items-start gap-2">
@@ -334,8 +381,11 @@ function TaskAuditTimeline({ projectId, taskId }: { projectId: string; taskId: s
   if (events.length === 0) {
     return (
       <FormSection title="Historique" collapsible defaultExpanded={false} storageKey="task-detail-audit-log">
+        {filterBar}
         <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-          {t('projets.history.empty_task', 'Aucun évènement enregistré sur cette tâche.')}
+          {isFiltered
+            ? t('projets.history.empty_filtered', 'Aucun évènement pour ce filtre.')
+            : t('projets.history.empty_task', 'Aucun évènement enregistré sur cette tâche.')}
         </div>
       </FormSection>
     )
@@ -351,6 +401,7 @@ function TaskAuditTimeline({ projectId, taskId }: { projectId: string; taskId: s
   }
   return (
     <FormSection title={`Historique (${events.length})`} collapsible defaultExpanded={false} storageKey="task-detail-audit-log">
+      {filterBar}
       <ol className="relative space-y-2 border-l border-border pl-4">
         {events.map((evt) => {
           const actionLabel = t(

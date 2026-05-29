@@ -2418,7 +2418,11 @@
         "update": "Modifs",
         "delete": "Suppressions",
         "tasks": "Tâches & jalons",
-        "team": "Équipe"
+        "team": "Équipe",
+        "task_all": "Tous",
+        "task_task": "Tâche",
+        "task_deliverable": "Livrables",
+        "task_dependency": "Dépendances"
       }
     },
     "audit_action": {
@@ -4487,9 +4491,15 @@
     "subtitle": "Planification opérationnelle et gestion de capacité",
     "history": {
       "empty": "Aucun évènement enregistré sur cette activité.",
+      "empty_filtered": "Aucun évènement pour ce filtre.",
       "by": "par",
       "system": "Système",
-      "load_more": "Voir tout l'historique"
+      "load_more": "Voir tout l'historique",
+      "filter": {
+        "activity_all": "Tous",
+        "activity_lifecycle": "Cycle de vie",
+        "activity_workflow": "Workflow"
+      }
     },
     "audit_action": {
       "create": "Création",

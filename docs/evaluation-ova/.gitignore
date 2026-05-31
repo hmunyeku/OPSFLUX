@@ -1,0 +1,3 @@
+# Fichiers temporaires Excel et backups de script
+*.bak
+~$*

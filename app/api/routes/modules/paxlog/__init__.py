@@ -3635,6 +3635,21 @@ async def create_ads(
             message="Demandeur invalide pour cette entité.",
         )
 
+    # Validate asset FKs up front. site_entry_asset_id is a NOT NULL FK to
+    # ar_installations, and the optional departure bases are FKs there too.
+    # Without this, a non-installation id (e.g. an OilSite id from ar_sites,
+    # an asset from another tenant, or an archived one) only fails at flush()
+    # with an opaque IntegrityError surfaced to the client as HTTP 500.
+    await _resolve_site_entry_installation(
+        db, entity_id=entity_id, asset_id=body.site_entry_asset_id
+    )
+    await _resolve_external_departure_base(
+        db, entity_id=entity_id, base_id=body.outbound_departure_base_id
+    )
+    await _resolve_external_departure_base(
+        db, entity_id=entity_id, base_id=body.return_departure_base_id
+    )
+
     ads = Ads(
         entity_id=entity_id,
         reference=reference,
@@ -7639,6 +7654,40 @@ async def _resolve_external_departure_base(
             400,
             code="LE_POINT_DE_D_PART_S",
             message="Le point de départ sélectionné n'est pas valide pour cette entité",
+        )
+    return installation
+
+
+async def _resolve_site_entry_installation(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    asset_id: UUID,
+) -> Installation:
+    """Validate the mandatory ADS site of entry is a real installation.
+
+    ``Ads.site_entry_asset_id`` is a NOT NULL FK to ``ar_installations``. If the
+    client sends an id that is not an installation of this entity — an OilSite
+    id (table ``ar_sites``), an installation from another tenant, or an archived
+    one — the row only fails at ``flush()`` with an opaque ``IntegrityError``
+    surfaced as HTTP 500. Resolving it here turns that into an explicit 400 the
+    frontend can localize. Shared by PaxLog endpoints accepting a site of entry.
+    """
+    installation = (
+        await db.execute(
+            select(Installation).where(
+                Installation.id == asset_id,
+                Installation.entity_id == entity_id,
+                Installation.archived == False,  # noqa: E712
+            )
+        )
+    ).scalar_one_or_none()
+    if not installation:
+        raise StructuredHTTPException(
+            400,
+            code="SITE_ENTREE_INVALIDE",
+            message="Le site d'entrée sélectionné n'est pas une installation valide de cette entité.",
+            params={"site_entry_asset_id": str(asset_id)},
         )
     return installation
 

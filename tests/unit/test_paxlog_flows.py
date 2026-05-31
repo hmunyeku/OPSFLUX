@@ -646,7 +646,10 @@ async def test_create_then_submit_ads_starts_workflow_with_initiator_review(monk
     creator_id = uuid4()
     requester_id = uuid4()
     site_asset_id = uuid4()
-    create_db = FakeDBWithGet([], get_map={(paxlog.User, requester_id): SimpleNamespace(id=requester_id, active=True)})
+    create_db = FakeDBWithGet(
+        [FakeResult(scalar_one_or_none=SimpleNamespace(id=site_asset_id))],
+        get_map={(paxlog.User, requester_id): SimpleNamespace(id=requester_id, active=True)},
+    )
     transition_calls = []
     emitted_events = []
     created_ads_ref = {}
@@ -733,6 +736,120 @@ async def test_create_then_submit_ads_starts_workflow_with_initiator_review(monk
     assert submit_response.status == "pending_initiator_review"
     assert transition_calls and transition_calls[0]["to_state"] == "pending_initiator_review"
     assert emitted_events and emitted_events[0]["to_state"] == "pending_initiator_review"
+
+
+@pytest.mark.asyncio
+async def test_create_ads_rejects_site_entry_that_is_not_an_installation(monkeypatch):
+    """Regression: a site_entry_asset_id that is not an installation must yield
+    an explicit 400, never a 500.
+
+    site_entry_asset_id is a NOT NULL FK to ar_installations. An OilSite id
+    (table ar_sites) — or any id absent from ar_installations for this entity
+    — used to reach flush() and blow up with an IntegrityError surfaced as an
+    opaque HTTP 500. The fix validates the asset up front. Here the installation
+    lookup returns None, exactly what Postgres returns for an OilSite id.
+    """
+    entity_id = uuid4()
+    creator_id = uuid4()
+    requester_id = uuid4()
+    oil_site_id = uuid4()  # lives in ar_sites, not ar_installations
+    db = FakeDBWithGet(
+        [FakeResult(scalar_one_or_none=None)],  # installation lookup misses
+        get_map={(paxlog.User, requester_id): SimpleNamespace(id=requester_id, active=True)},
+    )
+
+    async def fake_generate_reference(*_args, **_kwargs):
+        return "ADS-NEW-002"
+
+    monkeypatch.setattr(paxlog, "generate_reference", fake_generate_reference)
+
+    body = paxlog.AdsCreate(
+        type="individual",
+        requester_id=requester_id,
+        site_entry_asset_id=oil_site_id,
+        visit_purpose="Inspection",
+        visit_category="visit",
+        start_date=date(2026, 4, 10),
+        end_date=date(2026, 4, 12),
+        pax_entries=[],
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await paxlog.create_ads(
+            body,
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=creator_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["code"] == "SITE_ENTREE_INVALIDE"
+    # The old crash happened at flush(); with the fix we never add/commit.
+    assert db.added == []
+    assert db.commits == 0
+
+
+@pytest.mark.asyncio
+async def test_create_ads_accepts_valid_installation_site_entry(monkeypatch):
+    """A valid installation id of the entity creates the draft ADS (201 path)."""
+    entity_id = uuid4()
+    creator_id = uuid4()
+    requester_id = uuid4()
+    installation_id = uuid4()
+    created_ads_ref = {}
+    db = FakeDBWithGet(
+        [FakeResult(scalar_one_or_none=SimpleNamespace(id=installation_id))],
+        get_map={(paxlog.User, requester_id): SimpleNamespace(id=requester_id, active=True)},
+    )
+
+    async def fake_generate_reference(*_args, **_kwargs):
+        return "ADS-NEW-003"
+
+    async def fake_replace_allowed_companies(*_args, **_kwargs):
+        return ([], [])
+
+    async def fake_ensure_default_imputation(*_args, **_kwargs):
+        return None
+
+    async def fake_record_audit(*_args, **_kwargs):
+        return None
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        ads.rejection_reason = getattr(ads, "rejection_reason", None)
+        ads.created_at = getattr(ads, "created_at", None) or datetime.now(timezone.utc)
+        ads.updated_at = getattr(ads, "updated_at", None) or datetime.now(timezone.utc)
+        created_ads_ref["ads"] = ads
+        return _ads_read_payload(ads, entity_id)
+
+    monkeypatch.setattr(paxlog, "generate_reference", fake_generate_reference)
+    monkeypatch.setattr(paxlog, "_replace_ads_allowed_companies", fake_replace_allowed_companies)
+    monkeypatch.setattr(paxlog, "_ensure_ads_default_imputation", fake_ensure_default_imputation)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+
+    body = paxlog.AdsCreate(
+        type="individual",
+        requester_id=requester_id,
+        site_entry_asset_id=installation_id,
+        visit_purpose="Inspection",
+        visit_category="visit",
+        start_date=date(2026, 4, 10),
+        end_date=date(2026, 4, 12),
+        pax_entries=[],
+    )
+
+    response = await paxlog.create_ads(
+        body,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=creator_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "draft"
+    assert created_ads_ref["ads"].site_entry_asset_id == installation_id
+    assert db.commits >= 1
 
 
 @pytest.mark.asyncio

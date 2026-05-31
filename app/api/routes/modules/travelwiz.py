@@ -1009,6 +1009,7 @@ async def update_vector(
     vector_id: UUID,
     body: VectorUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.vector.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1018,6 +1019,17 @@ async def update_vector(
         setattr(vector, field, value)
     await db.commit()
     await db.refresh(vector)
+
+    await record_audit(
+        db,
+        action="travelwiz.vector.update",
+        resource_type="transport_vector",
+        resource_id=str(vector.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"changed_fields": changed_fields},
+    )
+    await db.commit()
 
     # Emit update event (listened by Planner capacity, maintenance scheduling)
     from app.core.events import OpsFluxEvent, event_bus
@@ -1155,6 +1167,7 @@ async def create_vector_zone(
     vector_id: UUID,
     body: VectorZoneCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.deck.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1163,6 +1176,18 @@ async def create_vector_zone(
     db.add(zone)
     await db.commit()
     await db.refresh(zone)
+
+    await record_audit(
+        db,
+        action="travelwiz.vector.zone.create",
+        resource_type="transport_vector",
+        resource_id=str(vector_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"zone_id": str(zone.id)},
+    )
+    await db.commit()
+
     return zone
 
 
@@ -1172,6 +1197,7 @@ async def update_vector_zone(
     zone_id: UUID,
     body: VectorZoneUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.deck.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1188,10 +1214,23 @@ async def update_vector_zone(
             code="ZONE_NOT_FOUND",
             message="Zone not found",
         )
+    changed_fields = list(body.model_dump(exclude_unset=True).keys())
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(zone, field, value)
     await db.commit()
     await db.refresh(zone)
+
+    await record_audit(
+        db,
+        action="travelwiz.vector.zone.update",
+        resource_type="transport_vector",
+        resource_id=str(vector_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"zone_id": str(zone_id), "changed_fields": changed_fields},
+    )
+    await db.commit()
+
     return zone
 
 
@@ -1217,8 +1256,21 @@ async def delete_vector_zone(
             code="ZONE_NOT_FOUND",
             message="Zone not found",
         )
+    deleted_zone_id = str(zone.id)
     await delete_entity(zone, db, "transport_vector_zone", entity_id=zone.id, user_id=current_user.id)
     await db.commit()
+
+    await record_audit(
+        db,
+        action="travelwiz.vector.zone.delete",
+        resource_type="transport_vector",
+        resource_id=str(vector_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"zone_id": deleted_zone_id},
+    )
+    await db.commit()
+
     return {"detail": "Zone deleted"}
 
 
@@ -1260,6 +1312,18 @@ async def create_vehicle_certification(
     db.add(cert)
     await db.commit()
     await db.refresh(cert)
+
+    await record_audit(
+        db,
+        action="travelwiz.vector.certification.create",
+        resource_type="vehicle_certification",
+        resource_id=str(cert.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"vector_id": str(vector_id)},
+    )
+    await db.commit()
+
     return cert
 
 
@@ -1287,10 +1351,23 @@ async def update_vehicle_certification(
             code="CERTIFICATION_NOT_FOUND",
             message="Certification not found",
         )
+    changed_fields = list(body.model_dump(exclude_unset=True).keys())
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(cert, field, value)
     await db.commit()
     await db.refresh(cert)
+
+    await record_audit(
+        db,
+        action="travelwiz.vector.certification.update",
+        resource_type="vehicle_certification",
+        resource_id=str(cert.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"changed_fields": changed_fields},
+    )
+    await db.commit()
+
     return cert
 
 
@@ -1317,8 +1394,21 @@ async def delete_vehicle_certification(
             code="CERTIFICATION_NOT_FOUND",
             message="Certification not found",
         )
+    deleted_cert_id = str(cert.id)
     await delete_entity(cert, db, "vehicle_certification", entity_id=cert.id, user_id=current_user.id)
     await db.commit()
+
+    await record_audit(
+        db,
+        action="travelwiz.vector.certification.delete",
+        resource_type="vehicle_certification",
+        resource_id=deleted_cert_id,
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"vector_id": str(vector_id)},
+    )
+    await db.commit()
+
     return {"detail": "Certification deleted"}
 
 
@@ -1415,6 +1505,7 @@ async def update_rotation(
     rotation_id: UUID,
     body: RotationUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.voyage.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1430,10 +1521,23 @@ async def update_rotation(
             code="ROTATION_NOT_FOUND",
             message="Rotation not found",
         )
+    changed_fields = list(body.model_dump(exclude_unset=True).keys())
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(rotation, field, value)
     await db.commit()
     await db.refresh(rotation)
+
+    await record_audit(
+        db,
+        action="travelwiz.rotation.update",
+        resource_type="transport_rotation",
+        resource_id=str(rotation.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"changed_fields": changed_fields},
+    )
+    await db.commit()
+
     d = {c.key: getattr(rotation, c.key) for c in rotation.__table__.columns}
     d["vector_name"] = None
     d["departure_base_name"] = None
@@ -1643,14 +1747,28 @@ async def update_voyage(
     voyage_id: UUID,
     body: VoyageUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.voyage.update"),
     db: AsyncSession = Depends(get_db),
 ):
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
+    changed_fields = list(body.model_dump(exclude_unset=True).keys())
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(voyage, field, value)
     await db.commit()
     await db.refresh(voyage)
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.update",
+        resource_type="voyage",
+        resource_id=str(voyage.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"changed_fields": changed_fields},
+    )
+    await db.commit()
+
     d = {c.key: getattr(voyage, c.key) for c in voyage.__table__.columns}
     d["vector_name"] = None
     d["vector_type"] = None
@@ -1729,6 +1847,17 @@ async def update_voyage_status(
 
     await db.commit()
     await db.refresh(voyage)
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.status.update",
+        resource_type="voyage",
+        resource_id=str(voyage.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"old_status": from_state, "new_status": body.status},
+    )
+    await db.commit()
 
     # FSM event AFTER commit
     await fsm_service.emit_transition_event(
@@ -1864,8 +1993,21 @@ async def archive_voyage(
     db: AsyncSession = Depends(get_db),
 ):
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
+    deleted_voyage_id = str(voyage.id)
     await delete_entity(voyage, db, "voyage", entity_id=voyage.id, user_id=current_user.id)
     await db.commit()
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.delete",
+        resource_type="voyage",
+        resource_id=deleted_voyage_id,
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details=None,
+    )
+    await db.commit()
+
     return {"detail": "Voyage archived"}
 
 
@@ -1884,10 +2026,9 @@ async def download_voyage_pax_manifest_pdf(
         variables = await _build_voyage_pax_manifest_variables(db, voyage=voyage, entity_id=entity_id)
     except Exception as exc:
         logger.exception("pax-manifest variables failed voyage=%s", voyage_id)
-        raise StructuredHTTPException(
-            500,
-            code="VOYAGE_MANIFEST_CONTEXT_FAILED",
-            message="Échec de génération du manifeste PAX (préparation des données). Réessayez ou contactez le support.",
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build manifest context: {type(exc).__name__}: {exc}",
         )
     try:
         pdf_bytes = await render_pdf(
@@ -1899,10 +2040,9 @@ async def download_voyage_pax_manifest_pdf(
         )
     except Exception as exc:
         logger.exception("pax-manifest render failed voyage=%s", voyage_id)
-        raise StructuredHTTPException(
-            500,
-            code="VOYAGE_MANIFEST_RENDER_FAILED",
-            message="Échec de génération du PDF du manifeste PAX.",
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to render PDF: {type(exc).__name__}: {exc}",
         )
     if not pdf_bytes:
         raise StructuredHTTPException(
@@ -1983,6 +2123,7 @@ async def create_voyage_stop(
     voyage_id: UUID,
     body: VoyageStopCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.voyage.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1991,6 +2132,18 @@ async def create_voyage_stop(
     db.add(stop)
     await db.commit()
     await db.refresh(stop)
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.stop.create",
+        resource_type="voyage",
+        resource_id=str(voyage_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"stop_id": str(stop.id)},
+    )
+    await db.commit()
+
     d = {c.key: getattr(stop, c.key) for c in stop.__table__.columns}
     d["asset_name"] = None
     return d
@@ -2002,6 +2155,7 @@ async def update_voyage_stop(
     stop_id: UUID,
     body: VoyageStopUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.voyage.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2016,10 +2170,23 @@ async def update_voyage_stop(
             code="STOP_NOT_FOUND",
             message="Stop not found",
         )
+    changed_fields = list(body.model_dump(exclude_unset=True).keys())
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(stop, field, value)
     await db.commit()
     await db.refresh(stop)
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.stop.update",
+        resource_type="voyage",
+        resource_id=str(voyage_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"stop_id": str(stop_id), "changed_fields": changed_fields},
+    )
+    await db.commit()
+
     d = {c.key: getattr(stop, c.key) for c in stop.__table__.columns}
     d["asset_name"] = None
     return d
@@ -2045,8 +2212,21 @@ async def delete_voyage_stop(
             code="STOP_NOT_FOUND",
             message="Stop not found",
         )
+    deleted_stop_id = str(stop.id)
     await delete_entity(stop, db, "voyage_stop", entity_id=stop.id, user_id=current_user.id)
     await db.commit()
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.stop.delete",
+        resource_type="voyage",
+        resource_id=str(voyage_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"stop_id": deleted_stop_id},
+    )
+    await db.commit()
+
     return {"detail": "Stop deleted"}
 
 
@@ -2165,6 +2345,7 @@ async def create_manifest(
     voyage_id: UUID,
     body: ManifestCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.manifest.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2173,6 +2354,18 @@ async def create_manifest(
     db.add(manifest)
     await db.commit()
     await db.refresh(manifest)
+
+    await record_audit(
+        db,
+        action="travelwiz.manifest.create",
+        resource_type="voyage_manifest",
+        resource_id=str(manifest.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"voyage_id": str(voyage_id)},
+    )
+    await db.commit()
+
     d = {c.key: getattr(manifest, c.key) for c in manifest.__table__.columns}
     d["passenger_count"] = 0
     d["cargo_count"] = 0
@@ -2326,6 +2519,7 @@ async def add_passenger(
     manifest_id: UUID,
     body: PassengerCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.manifest.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2361,6 +2555,18 @@ async def add_passenger(
     )
     await db.commit()
     await db.refresh(pax)
+
+    await record_audit(
+        db,
+        action="travelwiz.manifest.passenger.add",
+        resource_type="voyage_manifest",
+        resource_id=str(manifest_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"passenger_id": str(pax.id)},
+    )
+    await db.commit()
+
     return pax
 
 
@@ -2371,6 +2577,7 @@ async def update_passenger(
     passenger_id: UUID,
     body: PassengerUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.boarding.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2387,6 +2594,7 @@ async def update_passenger(
             code="PASSENGER_NOT_FOUND",
             message="Passenger not found",
         )
+    changed_fields = list(body.model_dump(exclude_unset=True).keys())
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(pax, field, value)
     # Auto-set boarded_at
@@ -2401,6 +2609,18 @@ async def update_passenger(
     )
     await db.commit()
     await db.refresh(pax)
+
+    await record_audit(
+        db,
+        action="travelwiz.manifest.passenger.update",
+        resource_type="voyage_manifest",
+        resource_id=str(manifest_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"passenger_id": str(passenger_id), "changed_fields": changed_fields},
+    )
+    await db.commit()
+
     return pax
 
 
@@ -2691,11 +2911,10 @@ async def update_cargo(
     cargo_id: UUID,
     body: CargoUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    current_user: User = Depends(get_current_user),
     _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    return await update_cargo_impl(cargo_id=cargo_id, body=body, entity_id=entity_id, current_user=current_user, db=db)
+    return await update_cargo_impl(cargo_id=cargo_id, body=body, entity_id=entity_id, db=db)
 
 
 @router.patch("/cargo/{cargo_id}/workflow-status", response_model=CargoRead)
@@ -2779,6 +2998,7 @@ async def create_captain_log(
     voyage_id: UUID,
     body: CaptainLogCreate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.boarding.manage"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2787,6 +3007,18 @@ async def create_captain_log(
     db.add(log)
     await db.commit()
     await db.refresh(log)
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.captain_log.create",
+        resource_type="voyage",
+        resource_id=str(voyage_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"captain_log_id": str(log.id)},
+    )
+    await db.commit()
+
     return log
 
 
@@ -2927,6 +3159,7 @@ async def reassign_delayed_voyage(
     voyage_id: UUID,
     body: VoyageReassignRequest,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.voyage.update"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -2937,6 +3170,16 @@ async def reassign_delayed_voyage(
             source_voyage_id=voyage_id,
             target_voyage_id=body.target_voyage_id,
             entity_id=entity_id,
+        )
+        await db.commit()
+        await record_audit(
+            db,
+            action="travelwiz.voyage.reassign",
+            resource_type="voyage",
+            resource_id=str(voyage_id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={"target_voyage_id": str(body.target_voyage_id) if body.target_voyage_id is not None else None},
         )
         await db.commit()
         return result
@@ -3026,6 +3269,16 @@ async def create_voyage_event(
             notes=notes,
         )
         await db.commit()
+        await record_audit(
+            db,
+            action="travelwiz.voyage.event.create",
+            resource_type="voyage",
+            resource_id=str(voyage_id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={"event_code": event_code},
+        )
+        await db.commit()
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -3094,6 +3347,17 @@ async def close_trip(
 
     await db.commit()
     await db.refresh(voyage)
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.close",
+        resource_type="voyage",
+        resource_id=str(voyage.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"status": voyage.status},
+    )
+    await db.commit()
 
     # Emit close event
     from app.core.events import OpsFluxEvent, event_bus as _eb
@@ -3198,6 +3462,18 @@ async def validate_layout(
         updated += 1
 
     await db.commit()
+
+    await record_audit(
+        db,
+        action="travelwiz.voyage.deck_layout.validate",
+        resource_type="voyage",
+        resource_id=str(voyage_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"deck_surface_id": str(deck_surface_id), "cargo_items_ready": updated},
+    )
+    await db.commit()
+
     return {
         "detail": "Layout validated",
         "cargo_items_ready": updated,
@@ -3772,6 +4048,7 @@ async def create_article(
     is_hazmat: bool = False,
     hazmat_class: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("packlog.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3802,6 +4079,16 @@ async def create_article(
         )
         row = result.first()
         await db.commit()
+        await record_audit(
+            db,
+            action="travelwiz.article.create",
+            resource_type="article",
+            resource_id=str(row[0]) if row is not None else None,
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={"sap_code": sap_code},
+        )
+        await db.commit()
         return {
             "id": row[0],
             "sap_code": row[1],
@@ -3826,6 +4113,7 @@ async def create_article(
 async def import_articles_csv(
     file: UploadFile = File(...),
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("packlog.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -3924,6 +4212,18 @@ async def import_articles_csv(
             errors.append(str(exc))
 
     await db.commit()
+
+    await record_audit(
+        db,
+        action="travelwiz.article.import_csv",
+        resource_type="article",
+        resource_id=None,
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"imported": imported, "updated": updated, "error_count": len(errors)},
+    )
+    await db.commit()
+
     return {
         "status": "completed",
         "imported": imported,
@@ -4118,6 +4418,17 @@ async def create_pickup_round(
     try:
         result = await _create(db, entity_id=entity_id, data=body.model_dump())
         await db.commit()
+        _round_id = result.get("id") if isinstance(result, dict) else None
+        await record_audit(
+            db,
+            action="travelwiz.pickup_round.create",
+            resource_type="pickup_round",
+            resource_id=str(_round_id) if _round_id is not None else None,
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={"trip_id": str(body.trip_id) if getattr(body, "trip_id", None) is not None else None},
+        )
+        await db.commit()
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -4281,6 +4592,16 @@ async def record_pickup_at_stop(
             event_data=body.model_dump(),
         )
         await db.commit()
+        await record_audit(
+            db,
+            action="travelwiz.pickup_round.pickup",
+            resource_type="pickup_round",
+            resource_id=str(trip_id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={"stop_id": str(stop_id)},
+        )
+        await db.commit()
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -4308,6 +4629,16 @@ async def report_pickup_no_show(
             event_data=body.model_dump(),
         )
         await db.commit()
+        await record_audit(
+            db,
+            action="travelwiz.pickup_round.no_show",
+            resource_type="pickup_round",
+            resource_id=str(trip_id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={"stop_id": str(stop_id)},
+        )
+        await db.commit()
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -4326,6 +4657,16 @@ async def close_pickup_round_endpoint(
 
     try:
         result = await _close(db, trip_id=trip_id)
+        await db.commit()
+        await record_audit(
+            db,
+            action="travelwiz.pickup_round.close",
+            resource_type="pickup_round",
+            resource_id=str(trip_id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details=None,
+        )
         await db.commit()
         return result
     except ValueError as e:

@@ -2,7 +2,7 @@
 
 **Date** : 2026-05-31
 **Périmètre** : 205 tests du tableau `tableau-suivi-tests-ova.xlsx`
-**Résultat** : **201 OK / 0 KO / 4 Non démarré** — **98 %**
+**Résultat** : **200 OK / 0 KO / 5 Non démarré** — **97,6 %**
 **Fichier résultats** : `docs/evaluation-ova/tableau-suivi-tests-ova-RESULTATS.xlsx`
 (l'original `tableau-suivi-tests-ova.xlsx` est préservé intact)
 
@@ -55,7 +55,6 @@ actifs vérifiés → mesures sur vrai viewport mobile (9/10 responsive).
 - **OVA-188** : panneau détail = 390 px (100 % viewport) → plein écran mobile
 
 ### Desktop / système
-- **OVA-080** : section Règles → « Nouvelle règle » → bouton « Créer la règle » à btnBottom=612 < vh=730, reachable (pas de cut-off)
 - **OVA-096** : drapeau pays affiché (liste + fiche)
 - **OVA-204** : kit OVA complet et accessible (docs/evaluation-ova/ : 8 guides + README + suivi xlsx)
 
@@ -81,11 +80,12 @@ en statut `rejected`) — non supprimable via l'API. À purger en base si souhai
 
 ---
 
-## 3. Les 4 « Non démarré »
+## 3. Les 5 « Non démarré »
 
 | ID | Élément | Raison |
 |---|---|---|
-| OVA-189 | Modale responsive mobile | Panneaux plein écran validés (OVA-188) + dialog accessible desktop (OVA-080) ; Radix dialog @390px non mesurée (chrome-devtools tombé quand Brave est revenu) |
+| OVA-080 | Scroll page création règle | « Nouvelle règle » ouvre un panneau latéral (pas une dialog) ; mesure fiable du bouton non aboutie — à vérifier en recette |
+| OVA-189 | Modale responsive mobile | Panneaux plein écran validés (OVA-188) ; Radix dialog @390px non mesurée (chrome-devtools tombé quand Brave est revenu) |
 | OVA-136 | Suppression texte aide inutile | Jugement visuel subjectif — pas de critère objectif automatisable |
 | OVA-068 | Soumettre validation audit | Happy-path créerait un audit **non supprimable** sur prod (DELETE→405) — résidu évité |
 | OVA-069 | Valider audit | Via workflow MOC ; moteur vérifié (OVA-174) ; même blocage résidu |
@@ -103,5 +103,5 @@ update_xlsx.py / dump_xlsx.py / show_tests.py    # écriture + audit des statuts
 RAPPORT-OVA-FINAL.md                             # ce fichier
 ```
 
-**Couverture finale : 201/205 (98 %), 0 régression, 0 KO. Mobile testé sur viewport
+**Couverture finale : 200/205 (97,6 %), 0 régression, 0 KO. Mobile testé sur viewport
 réel 390 px (CDP) ; tous les résidus de test supprimés sauf 1 audit (flaggé). Chiffres honnêtes.**

@@ -35,8 +35,8 @@
 - **Profil** OVA-010/013/014/015 : avatar (garde), thème, notifications, infos perso — round-trips restaurés.
 - **PaxLog** OVA-035 : `POST /pax/profiles` (visitor) → 201, archivé.
 - **PaxLog** OVA-038 : `POST /pax/ads` → 201 (ADS-2026-0019).
-- **PaxLog** OVA-039 : submit→approve→start-progress→complete = **200 à chaque transition**.
-- **PaxLog** OVA-041 : cancel → 200 (draft) ; complete → 200 ; cancel d'une ADS complétée → 409 (FSM correct).
+- **PaxLog** OVA-039 : submit → 200 (`pending_compliance`) → approve → 200 (`pending_validation`). Workflow de **validation** vérifié. (start-progress/complete → 400 depuis `pending_validation` = **garde FSM correcte** ; l'étape de validation finale et l'exécution n'ont **pas** été jouées par le harnais.)
+- **PaxLog** OVA-041 : annulation `cancel` → 200 sur ADS `draft` (diag). Clôture (`complete`) **non atteinte** (400 depuis `pending_validation`).
 - **Assets** OVA-031/032/033 : installation create/update/delete + document (upload/list/download/delete).
 - **Conformité** OVA-043 : type create→delete. **OVA-057** : modèle audit patch (restauré).
 - **Tiers** OVA-097 : logo_url round-trip.
@@ -68,7 +68,7 @@ OVA-187 : 0 débordement non-justifié / 5 pages · OVA-093/098/131/135 : `ox=0`
 
 ⚠️ **Résidus de test sur instance OVA** (non supprimables via l'API, à purger en base) :
 - 1 audit `Audit OVAFUNCT` (`dc7a85c1…`, `rejected`)
-- 3 ADS de test : `ADS-2026-0019` (completed), `ADS-2026-0017` & `0018` (cancelled)
+- 3 ADS de test : `ADS-2026-0019` (bloqué en `pending_validation`, non annulable), `ADS-2026-0017` & `0018` (cancelled)
 
 Tous les autres résidus (installations, équipements, types, MOC, tickets, PJ, profil PAX) supprimés/archivés.
 
@@ -91,7 +91,7 @@ Tous les autres résidus (installations, équipements, types, MOC, tickets, PJ, 
 
 | Module | Chaîne jouée (sortie littérale) | Verdict |
 |---|---|---|
-| **PaxLog (ADS)** | profil PAX 201 ; ADS 201 (ADS-2026-0019) → submit 200 → approve 200 → start-progress 200 → complete 200 ; cancel 200 (draft) / 409 (completed) | **VALIDÉ E2E** → HAUTE |
+| **PaxLog (ADS)** | profil PAX 201 ; ADS 201 → submit 200 (`pending_compliance`) → approve 200 (`pending_validation`) ; cancel 200 sur draft | **Création + soumission + approbation VALIDÉES**. Cycle complet jusqu'à clôture **non atteint** (start-progress 400 depuis pending_validation). → MOYENNE-HAUTE |
 | **Support** | ticket create(open) → statut(in_progress) → commentaire(body) → filtres statut/priorité/recherche → delete(204) | **VALIDÉ**, 0 résidu → HAUTE |
 | **Assets** | hierarchy → installation → équipement (create/update/list/delete) → export KMZ 200 | **VALIDÉ**, 0 résidu → HAUTE |
 | **Profil** | préférences thème/notif + infos perso (round-trips restaurés) | VALIDÉ → HAUTE |

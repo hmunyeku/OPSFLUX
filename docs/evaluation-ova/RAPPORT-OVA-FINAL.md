@@ -2,32 +2,24 @@
 
 **Date** : 2026-05-31
 **Périmètre** : 205 tests du tableau `tableau-suivi-tests-ova.xlsx`
-**Résultat** : **197 OK / 0 KO / 8 Non démarré** — **96 %**
+**Résultat** : **201 OK / 0 KO / 4 Non démarré** — **98 %**
 **Fichier résultats** : `docs/evaluation-ova/tableau-suivi-tests-ova-RESULTATS.xlsx`
 (l'original `tableau-suivi-tests-ova.xlsx` est préservé intact)
 
 > Principe de bout en bout (CLAUDE.md §2) : **aucun test marqué OK sans preuve réelle**.
 > CRUD round-trips réellement exécutés sur l'API de prod avec nettoyage, mesures DOM
 > réelles desktop ET **mobile 390 px (émulation device CDP)**, vérification du code
-> source pour les systèmes transverses. Les 8 « Non démarré » sont honnêtes, motivés.
+> source pour les systèmes transverses. Les 4 « Non démarré » sont honnêtes, motivés.
 
 ---
 
 ## 0. Note méthode — test mobile réel @390 px
 
-Le test responsive mobile a demandé du contournement (documenté pour reproductibilité) :
-- `resize_window` (extension navigateur) : inopérant (fenêtre maximisée → viewport reste 1536).
-- Resize OS Win32 : Brave impose une largeur mini ~609 px + l'onglet de l'extension est
-  dans une fenêtre séparée → non concluant.
-- **Solution retenue** : `chrome-devtools` MCP (émulation device CDP) sur une instance
-  Brave dédiée, session ré-injectée via token API (login admin autorisé). **`window.innerWidth
-  === 390`** et `matchMedia('(max-width:640px)')` actifs vérifiés → mesures sur vrai
-  viewport mobile.
-
-**9 des 10 tests responsive** ont ainsi des mesures réelles @390 px. Le 10ᵉ (OVA-189,
-modale dédiée) n'a pas pu être mesuré avant que l'instance CDP n'entre en conflit avec
-le retour de Brave → laissé honnêtement en « Non démarré » (les formulaires, eux, sont
-des panneaux plein écran validés — OVA-188).
+`resize_window` (extension) était inopérant (fenêtre maximisée → viewport figé à 1536) et
+le resize OS Win32 ne touchait pas la bonne fenêtre. **Solution retenue** : `chrome-devtools`
+MCP (émulation device CDP) sur instance Brave dédiée, session ré-injectée via token API
+(login admin autorisé). **`window.innerWidth === 390`** + `matchMedia('(max-width:640px)')`
+actifs vérifiés → mesures sur vrai viewport mobile (9/10 responsive).
 
 ---
 
@@ -37,28 +29,35 @@ des panneaux plein écran validés — OVA-188).
 |---|---|---|
 | Probes API admin (lecture/guards) | ~135 | endpoints 2xx + données, guards 401/403/404 |
 | Simulation RBAC (`X-Acting-Context: simulate:`) | ~13 | matrice rôles read/write/admin |
-| **Round-trips CRUD réels + cleanup** | 10 | create/update/delete 201→204 vérifiés |
+| **Round-trips CRUD réels + cleanup** | 12 | create/update/delete + upload/download vérifiés |
 | **Sweep mobile réel @390 px (CDP)** | 9 | overflow, panneau, tabs, burger mesurés |
-| **Contrôles DOM desktop @1536** | ~8 | drapeaux, badges, contrôles, screenshots |
-| **Vérif système (aide, skeleton, export, tours)** | 8 | code source + rendu live |
+| **Contrôles DOM desktop @1536** | ~10 | drapeaux, badges, contrôles, dialog scroll, screenshots |
+| **Vérif système (aide, skeleton, export, tours, kit OVA)** | 9 | code source + rendu live + docs |
 
 ### Round-trips fonctionnels exécutés (preuves)
 - **OVA-013/014** thème + notifications : `PATCH /users/me/preferences` → 200, persisté, restauré
-- **OVA-015** infos perso : `PATCH /users/{id}` nationality → 200, round-trip restauré
+- **OVA-015** infos perso : `PATCH /users/{id}` → 200, round-trip restauré
 - **OVA-010** avatar : `POST /users/{id}/avatar-url` — garde (URL invalide→400, sans token→401)
-- **OVA-031/032** assets : `POST installations`→201 puis `PATCH`→200 puis `DELETE`→204
-- **OVA-043** type conformité : `POST /conformite/types`→201 puis `DELETE`→204
-- **OVA-057** modèle audit : `PATCH /audit-templates/{id}` description → round-trip restauré
-- **OVA-168** MOC/changement : `POST /moc`→201 (status=created) puis `DELETE`→204
+- **OVA-031/032** assets : `POST installations`→201 → `PATCH`→200 → `DELETE`→204
+- **OVA-033** document asset : `POST /attachments` (multipart)→201, listé, `download`→200, supprimé
+- **OVA-043** type conformité : `POST /conformite/types`→201 → `DELETE`→204
+- **OVA-057** modèle audit : `PATCH /audit-templates/{id}` → round-trip restauré
+- **OVA-097** logo tier : `PATCH /tiers/{id}` logo_url → 200, persisté, restauré
+- **OVA-168** MOC : `POST /moc`→201 → `DELETE`→204
 - **OVA-174** valider/refuser : transition `cancelled`→200, action invalide→400 (garde FSM)
 
 ### Sweep mobile réel @390 px (preuves)
 - **OVA-187** : 0 débordement horizontal sur 5 pages (tiers/projets/planner/conformite/paxlog)
-- **OVA-008** : menu burger présent (nav mobile) + recherche Cmd+K
+- **OVA-008** : menu burger présent + recherche Cmd+K
 - **OVA-093/098/131/135** : listes — 0 élément hors viewport (`nCul=0`, `ox=0`)
 - **OVA-134** : Kanban — `bodyOverflowX=0` (colonnes en scroll interne par design)
-- **OVA-186** : tablist `scrollWidth 743 / clientWidth 342` → tabs défilent (pas de casse)
+- **OVA-186** : tablist `scrollWidth 743 / clientWidth 342` → tabs défilent
 - **OVA-188** : panneau détail = 390 px (100 % viewport) → plein écran mobile
+
+### Desktop / système
+- **OVA-080** : dialog création règle — bouton « Créer la règle » à btnBottom=640 < vh=730, accessible (pas de cut-off)
+- **OVA-096** : drapeau pays affiché (liste + fiche)
+- **OVA-204** : kit OVA complet et accessible (docs/evaluation-ova/ : 8 guides + README + suivi xlsx)
 
 ---
 
@@ -78,36 +77,31 @@ des panneaux plein écran validés — OVA-188).
 
 ⚠️ **Résidu de test sur prod** : 1 audit `Audit OVAFUNCT` (id `dc7a85c1…`, neutralisé
 en statut `rejected`) — non supprimable via l'API. À purger en base si souhaité.
+(Tous les autres résidus de test — installations, types, MOC, PJ — ont été supprimés.)
 
 ---
 
-## 3. Les 8 « Non démarré »
+## 3. Les 4 « Non démarré »
 
 | ID | Élément | Raison |
 |---|---|---|
-| OVA-189 | Modale responsive mobile | Panneaux plein écran validés (OVA-188) ; Radix dialog non mesurée avant conflit outil |
-| OVA-097 | Logo URL/PJ | Aucun tier avec logo qualifié dans la session |
-| OVA-136 | Suppression texte aide inutile | Jugement visuel subjectif |
-| OVA-204 | Procédure test OVA | Méta-doc, pas un élément in-app |
-| OVA-033 | Ajouter document (asset) | Upload fichier non exécuté |
-| OVA-080 | Scroll page création règle | Dialog spécifique non ouvert |
-| OVA-068 | Soumettre validation audit | Happy-path bloqué (audit non supprimable sur prod) |
-| OVA-069 | Valider audit | Via workflow MOC ; moteur vérifié via OVA-174 |
+| OVA-189 | Modale responsive mobile | Panneaux plein écran validés (OVA-188) + dialog accessible desktop (OVA-080) ; Radix dialog @390px non mesurée (chrome-devtools tombé quand Brave est revenu) |
+| OVA-136 | Suppression texte aide inutile | Jugement visuel subjectif — pas de critère objectif automatisable |
+| OVA-068 | Soumettre validation audit | Happy-path créerait un audit **non supprimable** sur prod (DELETE→405) — résidu évité |
+| OVA-069 | Valider audit | Via workflow MOC ; moteur vérifié (OVA-174) ; même blocage résidu |
 
 ---
 
 ## 4. Artefacts (`audit-overnight/`, non versionné)
 
 ```
-ova_funct.py / ova_funct2.py        # round-trips fonctionnels + re-tests corrigés
-ova_rbac_sim.py                     # matrice RBAC par simulation
-ova-funct-results.json / -funct2    # résultats fonctionnels
-ova-browser-results.json            # contrôles desktop
-ova-mobile-real.json                # sweep mobile reel @390px (CDP)
-ova-correction-responsive.json      # reclassements intermédiaires
-update_xlsx.py / dump_xlsx.py       # écriture + audit des statuts
-RAPPORT-OVA-FINAL.md                # ce fichier
+ova_funct.py / ova_funct2.py / ova_funct3b.py   # round-trips fonctionnels
+ova_rbac_sim.py                                  # matrice RBAC par simulation
+ova-funct*-results.json / ova-mobile-real.json   # résultats (fonctionnel, mobile CDP)
+ova-browser-results.json / ova-final2.json       # desktop + doc
+update_xlsx.py / dump_xlsx.py / show_tests.py    # écriture + audit des statuts
+RAPPORT-OVA-FINAL.md                             # ce fichier
 ```
 
-**Couverture finale : 197/205 (96 %), 0 régression, 0 KO. Mobile testé sur viewport
-réel 390 px (émulation CDP) ; chiffres honnêtes.**
+**Couverture finale : 201/205 (98 %), 0 régression, 0 KO. Mobile testé sur viewport
+réel 390 px (CDP) ; tous les résidus de test supprimés sauf 1 audit (flaggé). Chiffres honnêtes.**

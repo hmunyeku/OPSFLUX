@@ -2691,10 +2691,11 @@ async def update_cargo(
     cargo_id: UUID,
     body: CargoUpdate,
     entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    return await update_cargo_impl(cargo_id=cargo_id, body=body, entity_id=entity_id, db=db)
+    return await update_cargo_impl(cargo_id=cargo_id, body=body, entity_id=entity_id, current_user=current_user, db=db)
 
 
 @router.patch("/cargo/{cargo_id}/workflow-status", response_model=CargoRead)

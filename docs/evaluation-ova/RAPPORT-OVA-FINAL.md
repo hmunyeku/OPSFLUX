@@ -55,7 +55,7 @@ actifs vérifiés → mesures sur vrai viewport mobile (9/10 responsive).
 - **OVA-188** : panneau détail = 390 px (100 % viewport) → plein écran mobile
 
 ### Desktop / système
-- **OVA-080** : dialog création règle — bouton « Créer la règle » à btnBottom=640 < vh=730, accessible (pas de cut-off)
+- **OVA-080** : section Règles → « Nouvelle règle » → bouton « Créer la règle » à btnBottom=612 < vh=730, reachable (pas de cut-off)
 - **OVA-096** : drapeau pays affiché (liste + fiche)
 - **OVA-204** : kit OVA complet et accessible (docs/evaluation-ova/ : 8 guides + README + suivi xlsx)
 

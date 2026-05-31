@@ -911,7 +911,7 @@ async def get_cargo_history_impl(*, cargo_id: UUID, entity_id: UUID, db: AsyncSe
     ]
 
 
-async def update_cargo_impl(*, cargo_id: UUID, body: CargoUpdate, entity_id: UUID, db: AsyncSession):
+async def update_cargo_impl(*, cargo_id: UUID, body: CargoUpdate, entity_id: UUID, current_user: User, db: AsyncSession):
     cargo = await get_packlog_cargo_or_404(db, cargo_id, entity_id)
     await _validate_cargo_dossier_refs(db, entity_id=entity_id, payload=body)
     changes = body.model_dump(exclude_unset=True)
@@ -937,7 +937,7 @@ async def update_cargo_impl(*, cargo_id: UUID, body: CargoUpdate, entity_id: UUI
             action="packlog.cargo.update",
             resource_type="cargo_item",
             resource_id=str(cargo.id),
-            user_id=None,
+            user_id=current_user.id,
             entity_id=entity_id,
             details={"changes": changes},
         )

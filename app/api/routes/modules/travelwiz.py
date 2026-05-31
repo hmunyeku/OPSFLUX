@@ -1884,9 +1884,10 @@ async def download_voyage_pax_manifest_pdf(
         variables = await _build_voyage_pax_manifest_variables(db, voyage=voyage, entity_id=entity_id)
     except Exception as exc:
         logger.exception("pax-manifest variables failed voyage=%s", voyage_id)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to build manifest context: {type(exc).__name__}: {exc}",
+        raise StructuredHTTPException(
+            500,
+            code="VOYAGE_MANIFEST_CONTEXT_FAILED",
+            message="Échec de génération du manifeste PAX (préparation des données). Réessayez ou contactez le support.",
         )
     try:
         pdf_bytes = await render_pdf(
@@ -1898,9 +1899,10 @@ async def download_voyage_pax_manifest_pdf(
         )
     except Exception as exc:
         logger.exception("pax-manifest render failed voyage=%s", voyage_id)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to render PDF: {type(exc).__name__}: {exc}",
+        raise StructuredHTTPException(
+            500,
+            code="VOYAGE_MANIFEST_RENDER_FAILED",
+            message="Échec de génération du PDF du manifeste PAX.",
         )
     if not pdf_bytes:
         raise StructuredHTTPException(

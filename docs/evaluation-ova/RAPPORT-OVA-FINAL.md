@@ -69,6 +69,7 @@ OVA-187 : 0 débordement non-justifié / 5 pages · OVA-093/098/131/135 : `ox=0`
 ⚠️ **Résidus de test sur instance OVA** (non supprimables via l'API, à purger en base) :
 - 1 audit `Audit OVAFUNCT` (`dc7a85c1…`, `rejected`)
 - 3 ADS de test : `ADS-2026-0019` (bloqué en `pending_validation`, non annulable), `ADS-2026-0017` & `0018` (cancelled)
+- 2 contacts PAX de test (`TEST-OVA Profil` / `ProfilPax`) — `POST /pax/profiles` n'a ni archive (404) ni delete (405) → à supprimer via les contacts du tiers ou en base
 
 Tous les autres résidus (installations, équipements, types, MOC, tickets, PJ, profil PAX) supprimés/archivés.
 

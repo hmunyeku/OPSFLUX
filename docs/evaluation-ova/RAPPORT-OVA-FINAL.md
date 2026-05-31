@@ -2,36 +2,32 @@
 
 **Date** : 2026-05-31
 **Périmètre** : 205 tests du tableau `tableau-suivi-tests-ova.xlsx`
-**Résultat** : **188 OK / 0 KO / 17 Non démarré** — **92 %**
+**Résultat** : **197 OK / 0 KO / 8 Non démarré** — **96 %**
 **Fichier résultats** : `docs/evaluation-ova/tableau-suivi-tests-ova-RESULTATS.xlsx`
 (l'original `tableau-suivi-tests-ova.xlsx` est préservé intact)
 
 > Principe de bout en bout (CLAUDE.md §2) : **aucun test marqué OK sans preuve réelle**.
 > CRUD round-trips réellement exécutés sur l'API de prod avec nettoyage, mesures DOM
-> réelles en desktop, vérification du code source pour les systèmes transverses. Les
-> 17 « Non démarré » sont honnêtes, chacun motivé. (Deux marquages « responsive mobile »
-> ont été retirés après constat qu'ils n'étaient pas réellement mesurés — voir §0.)
+> réelles desktop ET **mobile 390 px (émulation device CDP)**, vérification du code
+> source pour les systèmes transverses. Les 8 « Non démarré » sont honnêtes, motivés.
 
 ---
 
-## 0. ⚠️ Limite d'outillage — responsive mobile NON testé
+## 0. Note méthode — test mobile réel @390 px
 
-Le test sur viewport mobile réel n'a **pas pu être réalisé** sur ce poste, malgré
-plusieurs approches :
-- `resize_window` (extension navigateur) : répond « OK » mais le viewport reste **1536 px**.
-- `chrome-devtools` MCP (émulation device CDP) : **ne peut pas s'attacher** (« browser
-  already running » — Brave déjà lancé sur le profil).
-- Redimensionnement OS via Win32 (`MoveWindow`/`EnumWindows`) : Brave impose une largeur
-  mini ~609 px **et** l'onglet piloté par l'extension vit dans une fenêtre séparée
-  maximisée non atteignable → `innerWidth` est resté **1536 px** y compris sur onglet neuf.
+Le test responsive mobile a demandé du contournement (documenté pour reproductibilité) :
+- `resize_window` (extension navigateur) : inopérant (fenêtre maximisée → viewport reste 1536).
+- Resize OS Win32 : Brave impose une largeur mini ~609 px + l'onglet de l'extension est
+  dans une fenêtre séparée → non concluant.
+- **Solution retenue** : `chrome-devtools` MCP (émulation device CDP) sur une instance
+  Brave dédiée, session ré-injectée via token API (login admin autorisé). **`window.innerWidth
+  === 390`** et `matchMedia('(max-width:640px)')` actifs vérifiés → mesures sur vrai
+  viewport mobile.
 
-**Conséquence assumée (anti-slop)** : tout contrôle « responsive » a été fait en **desktop
-1536 px**. Les 10 tests dont le critère est *spécifiquement* le rendu mobile restent en
-**« Non démarré »**, avec note explicite — il aurait été malhonnête de les marquer « OK ».
-
-**Pour les finir** : soit fermer Brave puis relancer `chrome-devtools` en instance isolée
-(émulation 390 px fiable), soit une recette sur device réel. Ce qui est validé en desktop
-l'est réellement (0 débordement horizontal mesuré sur 8 pages, drapeaux, badges, contrôles).
+**9 des 10 tests responsive** ont ainsi des mesures réelles @390 px. Le 10ᵉ (OVA-189,
+modale dédiée) n'a pas pu être mesuré avant que l'instance CDP n'entre en conflit avec
+le retour de Brave → laissé honnêtement en « Non démarré » (les formulaires, eux, sont
+des panneaux plein écran validés — OVA-188).
 
 ---
 
@@ -42,7 +38,8 @@ l'est réellement (0 débordement horizontal mesuré sur 8 pages, drapeaux, badg
 | Probes API admin (lecture/guards) | ~135 | endpoints 2xx + données, guards 401/403/404 |
 | Simulation RBAC (`X-Acting-Context: simulate:`) | ~13 | matrice rôles read/write/admin |
 | **Round-trips CRUD réels + cleanup** | 10 | create/update/delete 201→204 vérifiés |
-| **Contrôles DOM desktop @1536 (navigateur)** | ~18 | overflow mesuré, contrôles, drapeaux, screenshots |
+| **Sweep mobile réel @390 px (CDP)** | 9 | overflow, panneau, tabs, burger mesurés |
+| **Contrôles DOM desktop @1536** | ~8 | drapeaux, badges, contrôles, screenshots |
 | **Vérif système (aide, skeleton, export, tours)** | 8 | code source + rendu live |
 
 ### Round-trips fonctionnels exécutés (preuves)
@@ -55,11 +52,13 @@ l'est réellement (0 débordement horizontal mesuré sur 8 pages, drapeaux, badg
 - **OVA-168** MOC/changement : `POST /moc`→201 (status=created) puis `DELETE`→204
 - **OVA-174** valider/refuser : transition `cancelled`→200, action invalide→400 (garde FSM)
 
-### Contrôles desktop validés (réels @1536)
-- 8 pages (`/tiers /projets /conformite /planner /paxlog /packlog /travelwiz /support`) : **overflowX = 0**
-- Drapeau pays affiché liste + fiche (OVA-096) ; badges lisibles (OVA-185)
-- Présence contrôles : recherche, recherche visuelle, sélection multiple, actions, import (OVA-094/095/099/100/132/133/137)
-- i18n sans clé brute (OVA-182), pas de texte debug (OVA-183), skeleton (OVA-184)
+### Sweep mobile réel @390 px (preuves)
+- **OVA-187** : 0 débordement horizontal sur 5 pages (tiers/projets/planner/conformite/paxlog)
+- **OVA-008** : menu burger présent (nav mobile) + recherche Cmd+K
+- **OVA-093/098/131/135** : listes — 0 élément hors viewport (`nCul=0`, `ox=0`)
+- **OVA-134** : Kanban — `bodyOverflowX=0` (colonnes en scroll interne par design)
+- **OVA-186** : tablist `scrollWidth 743 / clientWidth 342` → tabs défilent (pas de casse)
+- **OVA-188** : panneau détail = 390 px (100 % viewport) → plein écran mobile
 
 ---
 
@@ -73,24 +72,20 @@ l'est réellement (0 débordement horizontal mesuré sur 8 pages, drapeaux, badg
 3. **Audits non supprimables par API** (`DELETE /conformite/audits/{id}` → 405) —
    probablement voulu (traçabilité). Empêche le happy-path sans résidu → OVA-068/069 ND.
 4. **packlog / travelwiz — FAUX positif levé** : en navigation propre les deux modules
-   chargent correctement (h1 « PackLog » / « TravelWiz »). La redirection `/home`
-   observée venait d'un sweep trop rapide (garde async `RequireModuleEnabled` +
-   lazy-chunk non résolus). **Pas un bug.**
+   chargent (h1 « PackLog » / « TravelWiz »). Le `/home` venait d'un sweep trop rapide.
+5. **Forms = panneaux, pas modales** (`uiStore.ts` : « forms never use modals ») — la
+   création passe par un panneau latéral plein écran sur mobile, pas une Radix dialog.
 
 ⚠️ **Résidu de test sur prod** : 1 audit `Audit OVAFUNCT` (id `dc7a85c1…`, neutralisé
 en statut `rejected`) — non supprimable via l'API. À purger en base si souhaité.
 
 ---
 
-## 3. Les 17 « Non démarré »
+## 3. Les 8 « Non démarré »
 
-**Responsive mobile (10) — bloqués par l'outillage (voir §0)** : OVA-008, 093, 098,
-131, 134, 135, 186, 187, 188, 189. Layout desktop sain, rendu mobile à valider device réel
-ou via chrome-devtools (Brave fermé).
-
-**Fonctionnel / recette humaine (7)** :
 | ID | Élément | Raison |
 |---|---|---|
+| OVA-189 | Modale responsive mobile | Panneaux plein écran validés (OVA-188) ; Radix dialog non mesurée avant conflit outil |
 | OVA-097 | Logo URL/PJ | Aucun tier avec logo qualifié dans la session |
 | OVA-136 | Suppression texte aide inutile | Jugement visuel subjectif |
 | OVA-204 | Procédure test OVA | Méta-doc, pas un élément in-app |
@@ -108,10 +103,11 @@ ova_funct.py / ova_funct2.py        # round-trips fonctionnels + re-tests corrig
 ova_rbac_sim.py                     # matrice RBAC par simulation
 ova-funct-results.json / -funct2    # résultats fonctionnels
 ova-browser-results.json            # contrôles desktop
-ova-correction-responsive.json      # reclassement honnête responsive
+ova-mobile-real.json                # sweep mobile reel @390px (CDP)
+ova-correction-responsive.json      # reclassements intermédiaires
 update_xlsx.py / dump_xlsx.py       # écriture + audit des statuts
 RAPPORT-OVA-FINAL.md                # ce fichier
 ```
 
-**Couverture finale : 188/205 (92 %), 0 régression, 0 KO. Chiffres honnêtes ;
-responsive mobile explicitement non testé faute d'outillage viable sur ce poste.**
+**Couverture finale : 197/205 (96 %), 0 régression, 0 KO. Mobile testé sur viewport
+réel 390 px (émulation CDP) ; chiffres honnêtes.**

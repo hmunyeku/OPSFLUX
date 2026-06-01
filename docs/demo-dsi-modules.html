@@ -1,0 +1,144 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#f4f5f7; }
+.slide { width:1280px; height:720px; background:#fff; margin:0 auto 24px;
+  padding:64px 72px 56px; font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  color:#1a1d23; display:flex; flex-direction:column; }
+.kicker { font-size:13px; letter-spacing:2.5px; text-transform:uppercase; color:#0a5c9c; font-weight:600; margin-bottom:10px; }
+h1 { font-size:34px; font-weight:700; letter-spacing:-0.5px; }
+.sub { font-size:16px; color:#5c636e; margin-top:8px; line-height:1.35; max-width:1050px; }
+.rule { height:3px; width:56px; background:#0a5c9c; margin:20px 0 26px; }
+ul { list-style:none; }
+li { font-size:16px; line-height:1.32; margin-bottom:13px; padding-left:26px; position:relative; }
+li:before { content:"\25AA"; color:#0a5c9c; position:absolute; left:0; font-size:14px; top:2px; }
+.foot { margin-top:auto; padding-top:20px; border-top:2px solid #1a1d23; display:flex; justify-content:space-between; align-items:flex-end; }
+.obj { font-size:14px; color:#5c636e; } .obj b { color:#1a1d23; }
+.brand { font-size:14px; color:#8a909a; font-weight:600; }
+</style></head><body>
+<div class="slide">
+  <div class="kicker">PLATEFORME · ARCHITECTURE GÉNÉRALE</div>
+  <h1>OpsFlux — l&#x27;application</h1>
+  <div class="sub">SPA React / API FastAPI, modulaire et multi-filiale, avec un cadre de navigation unifié pour 15+ modules métier.</div>
+  <div class="rule"></div>
+  <ul><li>Architecture modulaire : chaque métier est un module activable / désactivable par filiale</li>
+<li>Contrôle d&#x27;accès fin (RBAC) : permissions par module, garde sur chaque écran</li>
+<li>Multi-tenant : cloisonnement des données par entité / filiale</li>
+<li>Authentification : login, MFA, vérification e-mail, SSO / Active Directory</li>
+<li>Interface unifiée : barre latérale, panneau de détail, recherche, notifications temps réel (WebSocket)</li>
+<li>Aide intégrée + assistant avec capture de tickets</li></ul>
+  <div class="foot">
+    <div class="obj"><b>Objets gérés :</b> Utilisateurs · Entités · Modules · Rôles · Permissions · Paramètres</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+<div class="slide">
+  <div class="kicker">MODULE · TABLEAU DE BORD</div>
+  <h1>Tableau de bord</h1>
+  <div class="sub">Tableaux de bord personnalisables à base de widgets, avec mode TV et requêtes analytiques.</div>
+  <div class="rule"></div>
+  <ul><li>Widgets configurables : ajout, retrait et réorganisation par utilisateur</li>
+<li>Éditeur et moteur de requêtes SQL (onglets, résultats, export)</li>
+<li>Mode TV : affichage plein écran via lien public sécurisé par token</li>
+<li>Mises à jour temps réel (SSE)</li>
+<li>Niveaux de droits : consultation / personnalisation / administration</li></ul>
+  <div class="foot">
+    <div class="obj"><b>Objets gérés :</b> Tableaux de bord · Widgets · Requêtes · Liens TV</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+<div class="slide">
+  <div class="kicker">MODULE · GESTION DE PROJET</div>
+  <h1>Projets</h1>
+  <div class="sub">Cycle de vie projet complet : tâches, jalons, livrables, révisions de planning et Gantt avec chemin critique.</div>
+  <div class="rule"></div>
+  <ul><li>Hiérarchie de tâches (WBS) avec dépendances prédécesseur / successeur</li>
+<li>Gantt avec calcul du chemin critique (CPM) et marges</li>
+<li>Révisions de planning : snapshot, comparaison, application</li>
+<li>Jalons avec consolidation de statut</li>
+<li>Livrables avec circuit d&#x27;acceptation / rejet</li>
+<li>Intégration Planner : bascule des tâches vers l&#x27;ordonnanceur</li></ul>
+  <div class="foot">
+    <div class="obj"><b>Objets gérés :</b> Projet · Tâche · Jalon · Livrable · Révision de planning</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+<div class="slide">
+  <div class="kicker">MODULE · ORDONNANCEMENT</div>
+  <h1>Planner</h1>
+  <div class="sub">Ordonnanceur multi-sites des activités, avec détection de conflits et visualisation de la capacité.</div>
+  <div class="rule"></div>
+  <ul><li>Types d&#x27;activités : projet, workover, forage, maintenance, inspection, opérations permanentes</li>
+<li>Détection de conflits : chevauchements sur un même actif / puits, arbitrage par priorité</li>
+<li>Heatmap de capacité : seuils faible / moyen / élevé / critique configurables</li>
+<li>Workflow de validation : brouillon → soumis → validé → en cours → terminé</li>
+<li>Dépendances et contraintes d&#x27;ordonnancement</li>
+<li>Procédure d&#x27;urgence (override maintenance)</li></ul>
+  <div class="foot">
+    <div class="obj"><b>Objets gérés :</b> Activité · Conflit · Scénario · Dépendance</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+<div class="slide">
+  <div class="kicker">MODULE · LOGISTIQUE FRET</div>
+  <h1>Packlog</h1>
+  <div class="sub">Gestion du colisage, du suivi et de la réception des frets pour le transport.</div>
+  <div class="rule"></div>
+  <ul><li>Gestion des frets : création, suivi, réception / émargement</li>
+<li>Détail par colis : poids, volume, classification matières dangereuses</li>
+<li>Circuit de réception horodaté avec traçabilité</li>
+<li>Rapport d&#x27;avarie pour le suivi des incidents</li>
+<li>Intégration aux manifestes TravelWiz</li></ul>
+  <div class="foot">
+    <div class="obj"><b>Objets gérés :</b> Fret · Réception · Rapport d&#x27;avarie</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+<div class="slide">
+  <div class="kicker">MODULE · MANAGEMENT OF CHANGE</div>
+  <h1>MOCTrack</h1>
+  <div class="sub">Digitalisation de la gestion du changement : workflow à 11 statuts, matrice de validation multi-rôles et signatures.</div>
+  <div class="rule"></div>
+  <ul><li>Workflow à 11 statuts, de la création à la clôture documentaire</li>
+<li>Matrice de validation parallèle (HSE, Maintenance, Process, Production, Métier) avec visas signés</li>
+<li>Type (permanent / temporaire), nature (optimisation / sécurité), priorité et imputation des coûts</li>
+<li>Clôture documentaire PID / ESD distincte de l&#x27;exécution (visa chef de site)</li>
+<li>Promotion d&#x27;un MOC en Projet</li>
+<li>Notifications temps réel à chaque transition d&#x27;état</li></ul>
+  <div class="foot">
+    <div class="obj"><b>Objets gérés :</b> MOC · Matrice de validation · Étude · Exécution · Signature</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+<div class="slide">
+  <div class="kicker">MODULE · TRANSPORT &amp; LOGISTIQUE PASSAGERS</div>
+  <h1>TravelWiz</h1>
+  <div class="sub">Coordination de bout en bout du transport : vecteurs, voyages, manifestes passagers, plans de pont et portail capitaine.</div>
+  <div class="rule"></div>
+  <ul><li>Vecteurs de transport (hélicoptère, navire, bus, barge, vol commercial, véhicule) avec capacités</li>
+<li>Planification des voyages : départ / arrivée, équipage, manifeste passagers</li>
+<li>Plan de pont : éditeur Draw.io avec export SVG</li>
+<li>Embarquement / check-in : manifeste, procédures d&#x27;urgence</li>
+<li>Portail capitaine : statut voyage, journal d&#x27;embarquement, alertes météo</li>
+<li>Navettes / pickup : pré-positionnement, alertes SMS, confirmation géolocalisée</li></ul>
+  <div class="foot">
+    <div class="obj"><b>Objets gérés :</b> Vecteur · Voyage · Manifeste · Plan de pont · Embarquement</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+<div class="slide">
+  <div class="kicker">MODULE · CONFIGURATION</div>
+  <h1>Configuration</h1>
+  <div class="sub">Moteur de paramétrage hiérarchique (groupe / filiale / utilisateur) avec droits fins et masquage des valeurs sensibles.</div>
+  <div class="rule"></div>
+  <ul><li>Trois niveaux de portée : groupe (global), filiale (entité), utilisateur (self-service)</li>
+<li>Paramètres réservés aux administrateurs : intégrations, IA, connecteurs, sécurité</li>
+<li>Masquage automatique des valeurs sensibles (tokens, secrets, mots de passe)</li>
+<li>Validateurs par module : seuils, couleurs, séquences de conformité</li>
+<li>Traçabilité des modifications administrateur (audit)</li>
+<li>Accès protégé par permission dédiée</li></ul>
+  <div class="foot">
+    <div class="obj"><b>Objets gérés :</b> Paramètre · Portée · Règles de validation</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+</body></html>

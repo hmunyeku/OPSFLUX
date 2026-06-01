@@ -4,9 +4,43 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.common import OpsFluxSchema
+
+# Mapping cohérent type de vecteur -> mode de transport (audit TravelWiz P2).
+# Empêche les combinaisons absurdes (ex: ship+air) à l'écriture.
+VECTOR_TYPE_MODE = {
+    "helicopter": "air",
+    "commercial_flight": "air",
+    "ship": "sea",
+    "surfer": "sea",
+    "barge": "sea",
+    "bus": "road",
+    "vehicle": "road",
+}
+
+
+def _validate_cron_expression(value: str | None) -> str | None:
+    """Valide une expression cron (5 champs) via APScheduler. Lève ValueError sinon.
+
+    Rejette les crons malformés à l'écriture (422) plutôt qu'au runtime du job.
+    """
+    if value is None:
+        return value
+    v = value.strip()
+    if not v:
+        return None
+    try:
+        from apscheduler.triggers.cron import CronTrigger
+
+        CronTrigger.from_crontab(v)
+    except Exception as exc:  # noqa: BLE001 — on retransforme en erreur de validation
+        raise ValueError(
+            f"Expression cron invalide : {v!r}. Format attendu : 5 champs "
+            f"'minute heure jour mois jour_semaine' (ex: '0 6 * * 1')."
+        ) from exc
+    return v
 
 # Cargo schemas (CargoCreate, CargoRequestRead, CargoTrackingRead, etc.)
 # live in app/schemas/packlog.py — TravelWiz no longer re-exports them.
@@ -29,6 +63,16 @@ class VectorCreate(BaseModel):
     mmsi_number: str | None = Field(None, max_length=20)
     staging_ref: UUID | None = None
 
+    @model_validator(mode="after")
+    def _check_type_mode(self) -> "VectorCreate":
+        expected = VECTOR_TYPE_MODE.get(self.type)
+        if expected and self.mode != expected:
+            raise ValueError(
+                f"Le mode '{self.mode}' est incohérent avec le type '{self.type}' "
+                f"(mode attendu : '{expected}')."
+            )
+        return self
+
 
 class VectorUpdate(BaseModel):
     """Bug #137 (QA v3 round 12) : extra=forbid pour fail-fast sur typos."""
@@ -45,6 +89,18 @@ class VectorUpdate(BaseModel):
     requires_weighing: bool | None = None
     mmsi_number: str | None = None
     active: bool | None = None
+
+    @model_validator(mode="after")
+    def _check_type_mode(self) -> "VectorUpdate":
+        # Ne valide que si les deux champs sont fournis ensemble dans le PATCH.
+        if self.type is not None and self.mode is not None:
+            expected = VECTOR_TYPE_MODE.get(self.type)
+            if expected and self.mode != expected:
+                raise ValueError(
+                    f"Le mode '{self.mode}' est incohérent avec le type '{self.type}' "
+                    f"(mode attendu : '{expected}')."
+                )
+        return self
 
 
 class VectorRead(OpsFluxSchema):
@@ -133,6 +189,11 @@ class RotationCreate(BaseModel):
     # notes, …) staged during the Create panel.
     staging_ref: UUID | None = None
 
+    @field_validator("schedule_cron")
+    @classmethod
+    def _check_cron(cls, v: str | None) -> str | None:
+        return _validate_cron_expression(v)
+
 
 class RotationUpdate(BaseModel):
     vector_id: UUID | None = None
@@ -141,6 +202,11 @@ class RotationUpdate(BaseModel):
     schedule_cron: str | None = None
     schedule_description: str | None = None
     active: bool | None = None
+
+    @field_validator("schedule_cron")
+    @classmethod
+    def _check_cron(cls, v: str | None) -> str | None:
+        return _validate_cron_expression(v)
 
 
 class RotationRead(OpsFluxSchema):
@@ -417,6 +483,14 @@ class VehicleCertificationCreate(BaseModel):
     proof_url: str | None = None
     notes: str | None = None
     alert_days_before: int = Field(30, ge=0, le=365)
+
+    @model_validator(mode="after")
+    def _check_dates(self) -> "VehicleCertificationCreate":
+        if self.expiry_date is not None and self.expiry_date < self.issued_date:
+            raise ValueError(
+                "La date d'expiration doit être postérieure ou égale à la date d'émission."
+            )
+        return self
 
 
 class VehicleCertificationUpdate(BaseModel):

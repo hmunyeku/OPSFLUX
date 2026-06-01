@@ -11,7 +11,7 @@ import io
 import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile
@@ -1544,6 +1544,82 @@ async def update_rotation(
     return d
 
 
+@router.get("/rotations/{rotation_id}", response_model=RotationRead)
+async def get_rotation(
+    rotation_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single rotation by id (enriched like the list view)."""
+    result = await db.execute(
+        select(
+            TransportRotation,
+            TransportVector.name.label("vector_name"),
+            Installation.name.label("departure_base_name"),
+        )
+        .outerjoin(TransportVector, TransportRotation.vector_id == TransportVector.id)
+        .outerjoin(Installation, TransportRotation.departure_base_id == Installation.id)
+        .where(
+            TransportRotation.id == rotation_id,
+            TransportRotation.entity_id == entity_id,
+        )
+    )
+    row = result.first()
+    if not row:
+        raise StructuredHTTPException(
+            404,
+            code="ROTATION_NOT_FOUND",
+            message="Rotation not found",
+        )
+    rot = row[0]
+    d = {c.key: getattr(rot, c.key) for c in rot.__table__.columns}
+    d["vector_name"] = row[1]
+    d["departure_base_name"] = row[2]
+    return d
+
+
+@router.delete("/rotations/{rotation_id}", status_code=204)
+async def delete_rotation(
+    rotation_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.delete"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a rotation (active=False) — parity with vectors/voyages."""
+    result = await db.execute(
+        select(TransportRotation).where(
+            TransportRotation.id == rotation_id,
+            TransportRotation.entity_id == entity_id,
+        )
+    )
+    rotation = result.scalars().first()
+    if not rotation:
+        raise StructuredHTTPException(
+            404,
+            code="ROTATION_NOT_FOUND",
+            message="Rotation not found",
+        )
+    deleted_id = str(rotation.id)
+    deleted_name = rotation.name
+    rotation.active = False
+    await db.commit()
+
+    await record_audit(
+        db,
+        action="travelwiz.rotation.delete",
+        resource_type="transport_rotation",
+        resource_id=deleted_id,
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={"name": deleted_name},
+    )
+    await db.commit()
+    return None
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # VOYAGES CRUD
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1555,7 +1631,11 @@ async def list_voyages(
     status: str | None = None,
     departure_base_id: UUID | None = None,
     search: str | None = None,
-    scope: str | None = None,
+    scope: Literal["my", "all"] | None = Query(
+        default=None,
+        description="'my' = mes voyages, 'all' = tous (selon droits). "
+        "Omis = auto-détection selon la permission read_all.",
+    ),
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("travelwiz.voyage.read"),

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>OpsFlux — Slide 2 DSI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #f4f5f7; }
+  .slide {
+    width: 1280px; height: 720px; background: #fff; margin: 0 auto;
+    padding: 64px 72px 56px;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #1a1d23; display: flex; flex-direction: column;
+  }
+  .kicker { font-size: 13px; letter-spacing: 2.5px; text-transform: uppercase;
+    color: #0a5c9c; font-weight: 600; margin-bottom: 10px; }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; }
+  .sub { font-size: 16px; color: #5c636e; margin-top: 8px; }
+  .rule { height: 3px; width: 56px; background: #0a5c9c; margin: 22px 0 30px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .card { background: #edf3f9; border-left: 4px solid #0a5c9c; padding: 22px 26px; }
+  .card h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+  .card p { font-size: 14px; color: #5c636e; line-height: 1.45; }
+  .foot { margin-top: auto; padding-top: 22px; border-top: 2px solid #1a1d23;
+    display: flex; justify-content: space-between; align-items: flex-end; }
+  .claim { font-size: 17px; font-weight: 600; }
+  .claim span { color: #0a5c9c; }
+  .brand { font-size: 14px; color: #8a909a; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="kicker">Architecture · Technologies standard du marché</div>
+  <h1>Un socle ouvert, déplaçable et maintenable</h1>
+  <div class="sub">Aucune technologie propriétaire — aucun verrou éditeur</div>
+  <div class="rule"></div>
+  <div class="grid">
+    <div class="card"><h2>API ouverte</h2><p>REST documentée (OpenAPI / Swagger). Tout ce que fait l'interface est disponible en API — intégrable aux outils du Groupe.</p></div>
+    <div class="card"><h2>Docker</h2><p>Conteneurisé : déployable sur votre infrastructure, votre cloud souverain ou on-premise. On l'installe où vous voulez.</p></div>
+    <div class="card"><h2>Python + PostgreSQL</h2><p>FastAPI (Python) et PostgreSQL 16 : technologies parmi les plus répandues — compétences disponibles partout.</p></div>
+    <div class="card"><h2>GitHub</h2><p>Code versionné, documenté, historisé. Repris par tout prestataire ou équipe interne, sans le développeur d'origine.</p></div>
+  </div>
+  <div class="foot">
+    <div class="claim">Technos standards → <span>déplaçable, maintenable et repris par n'importe quelle équipe.</span></div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+</body>
+</html>

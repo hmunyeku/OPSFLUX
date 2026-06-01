@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>OpsFlux — Slide DSI</title>
+<style>
+  @page { size: 1280px 720px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #f4f5f7; }
+  .slide {
+    width: 1280px; height: 720px;
+    background: #ffffff;
+    margin: 0 auto;
+    padding: 64px 72px 56px;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #1a1d23;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .kicker {
+    font-size: 13px; letter-spacing: 2.5px; text-transform: uppercase;
+    color: #0a5c9c; font-weight: 600; margin-bottom: 10px;
+  }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.15; }
+  .sub { font-size: 16px; color: #5c636e; margin-top: 8px; font-weight: 400; }
+  .rule { height: 3px; width: 56px; background: #0a5c9c; margin: 22px 0 26px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+       color: #8a909a; font-weight: 600; padding: 0 0 12px; }
+  td { font-size: 15px; padding: 13px 0; vertical-align: top; border-top: 1px solid #e7e9ec; }
+  .col1 { width: 38%; padding-right: 28px; color: #5c636e; }
+  .col2 { width: 62%; color: #1a1d23; }
+  .col2 strong { font-weight: 600; }
+  tr:first-child td { border-top: none; }
+
+  .foot {
+    margin-top: auto; padding-top: 22px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 2px solid #1a1d23;
+  }
+  .claim { font-size: 17px; font-weight: 600; max-width: 760px; line-height: 1.4; }
+  .claim span { color: #0a5c9c; }
+  .brand { font-size: 14px; color: #8a909a; font-weight: 600; letter-spacing: 0.5px; text-align: right; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="kicker">Plateforme métier · Conformité au cadre SI Groupe</div>
+  <h1>OpsFlux répond aux exigences de la DSI</h1>
+  <div class="sub">Modulaire · API-first · multi-filiale · RGPD · aligné ISO 27001</div>
+  <div class="rule"></div>
+
+  <table>
+    <thead>
+      <tr><th class="col1">Exigence</th><th class="col2">Réponse OpsFlux</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col1">Fiabilité</td>
+        <td class="col2">Stack standard (FastAPI, PostgreSQL 16, React) — <strong>tests, lint et typage statique automatisés</strong>, build Docker bloquant</td>
+      </tr>
+      <tr>
+        <td class="col1">Pérennité / non-dépendance</td>
+        <td class="col2">Architecture <strong>modulaire</strong> (18 modules), code <strong>sur GitHub</strong>, documenté, API auto-documentée — reprise possible par tout intervenant</td>
+      </tr>
+      <tr>
+        <td class="col1">Multi-filiale</td>
+        <td class="col2"><strong>Multi-tenant natif</strong> : cloisonnement des données par filiale au niveau infrastructure (schémas dédiés)</td>
+      </tr>
+      <tr>
+        <td class="col1">Intégration au SI Groupe</td>
+        <td class="col2"><strong>API REST documentée</strong> (OpenAPI) · <strong>SSO Active Directory</strong> / OAuth2 · bus d'événements</td>
+      </tr>
+      <tr>
+        <td class="col1">RGPD</td>
+        <td class="col2">Droits des personnes <strong>implémentés</strong> : accès, effacement, portabilité, consentement, notification de violation</td>
+      </tr>
+      <tr>
+        <td class="col1">Sécurité (ISO 27001)</td>
+        <td class="col2">MFA · RBAC · <strong>chiffrement AES-256</strong> · journal d'audit immuable · durcissement HTTP</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="foot">
+    <div class="claim">Conçu pour <span>entrer dans votre cadre</span>, pas pour le contourner.</div>
+    <div class="brand">OpsFlux</div>
+  </div>
+</div>
+</body>
+</html>

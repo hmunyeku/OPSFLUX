@@ -45,6 +45,202 @@ router = APIRouter(prefix="/api/v1/messaging", tags=["messaging"])
 
 
 # ═══════════════════════════════════════════════════════════════════
+# ANNOUNCEMENTS — Helper functions
+# ═══════════════════════════════════════════════════════════════════
+
+async def _resolve_announcement_target_users(
+    db: AsyncSession,
+    announcement: Announcement,
+    entity_id: UUID,
+) -> list[UUID]:
+    """Résout la liste des user_ids ciblés par une annonce selon target_type."""
+    target_type = announcement.target_type
+    target_value = announcement.target_value
+
+    # Cas 1: "all" → tous les users actifs de l'entité (ou toutes les entités si global)
+    if target_type == "all":
+        if announcement.entity_id is None:
+            # Annonce globale : tous les users actifs de toutes les entités
+            stmt = select(User.id).where(User.active == True)
+        else:
+            # Annonce entity-scoped : tous les users actifs de cette entité
+            stmt = select(User.id).where(
+                User.entity_id == entity_id,
+                User.active == True,
+            )
+        result = await db.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    # Cas 2: "entity" → tous les users d'une entité spécifique
+    if target_type == "entity" and target_value:
+        stmt = select(User.id).where(
+            User.entity_id == UUID(target_value),
+            User.active == True,
+        )
+        result = await db.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    # Cas 3: "user" → un seul user spécifique
+    if target_type == "user" and target_value:
+        try:
+            return [UUID(target_value)]
+        except (ValueError, TypeError):
+            return []
+
+    # Cas 4: "role" → tous les users ayant ce role via leurs groupes
+    if target_type == "role" and target_value:
+        stmt = (
+            select(User.id)
+            .join(UserGroupMember, UserGroupMember.user_id == User.id)
+            .join(UserGroupRole, UserGroupRole.group_id == UserGroupMember.group_id)
+            .where(
+                UserGroupRole.role_code == target_value,
+                User.entity_id == entity_id,
+                User.active == True,
+            )
+            .distinct()
+        )
+        result = await db.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    # Cas 5: "group" → tous les users membres de ce groupe
+    if target_type == "group" and target_value:
+        try:
+            group_uuid = UUID(target_value)
+            stmt = (
+                select(User.id)
+                .join(UserGroupMember, UserGroupMember.user_id == User.id)
+                .where(
+                    UserGroupMember.group_id == group_uuid,
+                    User.entity_id == entity_id,
+                    User.active == True,
+                )
+                .distinct()
+            )
+            result = await db.execute(stmt)
+            return [row[0] for row in result.all()]
+        except (ValueError, TypeError):
+            return []
+
+    # Cas 6: "module" → tous les users ayant au moins une permission sur ce module
+    if target_type == "module" and target_value:
+        stmt = (
+            select(User.id)
+            .join(UserGroupMember, UserGroupMember.user_id == User.id)
+            .join(UserGroupRole, UserGroupRole.group_id == UserGroupMember.group_id)
+            .join(RolePermission, RolePermission.role_code == UserGroupRole.role_code)
+            .join(Permission, Permission.code == RolePermission.permission_code)
+            .where(
+                Permission.module == target_value,
+                User.entity_id == entity_id,
+                User.active == True,
+            )
+            .distinct()
+        )
+        result = await db.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    # Cas 7: "page" → pas de filtrage serveur, le filtrage se fait côté client
+    # On cible tous les users de l'entité
+    if target_type == "page":
+        stmt = select(User.id).where(
+            User.entity_id == entity_id,
+            User.active == True,
+        )
+        result = await db.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    # Fallback : aucun user
+    return []
+
+
+async def _broadcast_announcement(
+    db: AsyncSession,
+    announcement: Announcement,
+    entity_id: UUID,
+) -> None:
+    """Diffuse une annonce en temps réel via notifications in-app."""
+    from app.core.notifications import send_in_app_bulk
+
+    # Résoudre les users ciblés
+    user_ids = await _resolve_announcement_target_users(db, announcement, entity_id)
+    if not user_ids:
+        return
+
+    # Construire le lien vers l'annonce
+    link = f"/support?announcement={announcement.id}"
+
+    # Choisir l'icône selon la priorité
+    priority_emoji = {
+        "info": "ℹ️",
+        "warning": "⚠️",
+        "critical": "🚨",
+        "maintenance": "🔧",
+    }
+    emoji = priority_emoji.get(announcement.priority, "📢")
+
+    # Envoyer notification in-app à tous les users ciblés
+    await send_in_app_bulk(
+        db,
+        user_ids=user_ids,
+        entity_id=announcement.entity_id or entity_id,
+        title=f"{emoji} {announcement.title}",
+        body=announcement.body[:200],  # Truncate pour notification
+        category="messaging",
+        link=link,
+        event_type="announcement_published",
+    )
+
+
+async def _send_announcement_emails(
+    db: AsyncSession,
+    announcement: Announcement,
+    entity_id: UUID,
+) -> None:
+    """Envoie des emails pour une annonce si send_email=True."""
+    from app.core.email_templates import render_and_send_email
+
+    # Résoudre les users ciblés
+    user_ids = await _resolve_announcement_target_users(db, announcement, entity_id)
+    if not user_ids:
+        return
+
+    # Charger les users avec leurs emails
+    stmt = select(User).where(User.id.in_(user_ids))
+    result = await db.execute(stmt)
+    users = result.scalars().all()
+
+    # Envoyer un email à chaque user
+    for user in users:
+        if not user.email:
+            continue
+
+        try:
+            await render_and_send_email(
+                db=db,
+                template_name="announcement_published",
+                to_email=user.email,
+                to_name=user.full_name,
+                subject=f"[OpsFlux] {announcement.title}",
+                context={
+                    "user": user,
+                    "announcement": announcement,
+                    "priority": announcement.priority,
+                    "body": announcement.body,
+                    "link": f"https://app.opsflux.io/support?announcement={announcement.id}",
+                },
+            )
+        except Exception as e:
+            # Log mais ne fait pas échouer la création d'annonce
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Failed to send announcement email to {user.email}: {e}",
+                exc_info=True,
+            )
+
+
+# ═══════════════════════════════════════════════════════════════════
 # ANNOUNCEMENTS
 # ═══════════════════════════════════════════════════════════════════
 
@@ -290,6 +486,16 @@ async def create_announcement(
     await db.flush()
     await db.commit()
     await db.refresh(announcement)
+
+    # SUP-0043 FIX: Diffuser l'annonce en temps réel
+    # Envoyer des notifications in-app à tous les utilisateurs ciblés
+    await _broadcast_announcement(db, announcement, entity_id)
+
+    # Si send_email=True, envoyer des emails aux utilisateurs ciblés
+    if announcement.send_email:
+        await _send_announcement_emails(db, announcement, entity_id)
+        announcement.email_sent_at = datetime.now(UTC)
+        await db.commit()
 
     data = AnnouncementRead.model_validate(announcement)
     data.sender_name = current_user.full_name

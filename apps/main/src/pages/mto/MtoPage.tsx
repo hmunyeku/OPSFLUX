@@ -26,7 +26,11 @@ import { useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Boxes,
+  CheckCircle2,
   ChevronLeft,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  ExternalLink,
   FileUp,
   Layers,
   Package,
@@ -46,6 +50,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { CoverageBar, type CoverageCounts } from '@/components/mto/CoverageBar'
 import { MtoStatStrip } from '@/components/mto/MtoKpis'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
@@ -59,6 +64,7 @@ import {
   useImportStock,
   useMtoBatchStats,
   useMtoGroups,
+  useValidateGroup,
   type MtoBatchStats,
   type MtoChild,
   type MtoGroup,
@@ -397,15 +403,38 @@ function MatchingView({
   onBack: () => void
 }) {
   const { toast } = useToast()
+  const confirm = useConfirm()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { hasPermission } = usePermission()
   const [search, setSearch] = useState('')
   const [statut, setStatut] = useState('')
+  // Signaux Déplier/Replier tout (compteurs incrémentés au clic).
+  const [expandSignal, setExpandSignal] = useState(0)
+  const [collapseSignal, setCollapseSignal] = useState(0)
 
   // On charge TOUS les groupes (pas de filtre serveur) pour garder des
   // compteurs de statut stables sur le segmented control et les KPI, puis on
   // filtre côté client → bascule de filtre instantanée, KPI cohérents.
   const { data: groups, isLoading } = useMtoGroups(batchId, null)
   const consolidate = useConsolidate()
+  const validate = useValidateGroup(batchId)
+  const canValidate = hasPermission('mto.matching.validate') || hasPermission('mto.admin')
+
+  // Validation rapide depuis la table (confirm + toast), sans ouvrir le détail.
+  const quickValidate = async (group: MtoRow) => {
+    const ok = await confirm({
+      title: 'Valider le rapprochement ?',
+      message: `Confirmer le rapprochement de « ${group.designation_sap || group.mto_key || group.article_code || 'ce groupe'} » avec l'article SAP ${group.article_code ?? '—'}.`,
+      confirmLabel: 'Valider',
+    })
+    if (!ok) return
+    try {
+      await validate.mutateAsync(group.id)
+      toast({ title: 'Rapprochement validé', variant: 'success' })
+    } catch {
+      toast({ title: 'Validation impossible', variant: 'error' })
+    }
+  }
 
   // Compteurs par statut (sur l'ensemble, indépendants du filtre actif).
   const counts = useMemo<CoverageCounts>(() => {
@@ -518,16 +547,70 @@ function MatchingView({
         id: 'confiance',
         header: 'Confiance',
         size: 130,
+        cell: ({ row }) =>
+          row.original._child ? null : (
+            <ConfidenceBadge confidence={row.original.confidence} />
+          ),
+      },
+      {
+        id: 'verif',
+        header: 'Vérif',
+        size: 110,
+        cell: ({ row }) =>
+          row.original._child ? null : (
+            <VerificationBadge status={row.original.verification_status} />
+          ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        size: 80,
         cell: ({ row }) => {
           if (row.original._child) return null
-          if (row.original.verification_status === 'verified') {
-            return <BadgeCell value="Validé" variant="success" />
-          }
-          return <ConfidenceBadge confidence={row.original.confidence} />
+          const g = row.original
+          const showValidate =
+            canValidate && g.found && g.verification_status !== 'verified'
+          return (
+            <div className="flex items-center justify-end gap-0.5">
+              {showValidate && (
+                <button
+                  type="button"
+                  title="Valider le rapprochement"
+                  aria-label="Valider le rapprochement"
+                  disabled={validate.isPending}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void quickValidate(g)
+                  }}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-success/10 hover:text-success disabled:opacity-40"
+                >
+                  <CheckCircle2 size={14} />
+                </button>
+              )}
+              <button
+                type="button"
+                title="Ouvrir le détail"
+                aria-label="Ouvrir le détail"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openDynamicPanel({
+                    type: 'detail',
+                    module: 'mto',
+                    id: g.id,
+                    meta: { batchId },
+                  })
+                }}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <ExternalLink size={14} />
+              </button>
+            </div>
+          )
         },
       },
     ],
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canValidate, validate.isPending, batchId],
   )
 
   return (
@@ -576,38 +659,66 @@ function MatchingView({
         <CoverageBar counts={counts} size="sm" />
       </div>
 
-      {isLoading ? (
-        <MtoTableSkeleton />
-      ) : (
-        <GroupedDataTable<MtoRow>
-          data={rows}
-          columns={columns}
-          getSubRows={(row) => row.children}
-          isLoading={false}
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Rechercher article, désignation, Ø…"
-          emptyIcon={Package}
-          emptyTitle="Aucun rapprochement — consolidez ce MTO"
-          toolbarRight={
-            <StatusSegmented
-              value={statut}
-              onChange={setStatut}
-              counts={counts}
-              total={total}
-            />
-          }
-          onRowClick={(row) => {
-            if (row._child) return
-            openDynamicPanel({
-              type: 'detail',
-              module: 'mto',
-              id: row.id,
-              meta: { batchId },
-            })
-          }}
-        />
-      )}
+      {/* Conteneur borné (min-h-0 + flex-1) : la table interne de
+          GroupedDataTable peut alors activer son propre scroll vertical
+          (en-tête sticky) + horizontal, plutôt que d'étirer toute la page. */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {isLoading ? (
+          <MtoTableSkeleton />
+        ) : (
+          <GroupedDataTable<MtoRow>
+            data={rows}
+            columns={columns}
+            getSubRows={(row) => row.children}
+            isLoading={false}
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Rechercher article, désignation, Ø…"
+            emptyIcon={Package}
+            emptyTitle="Aucun rapprochement — consolidez ce MTO"
+            pageSize={50}
+            expandAllSignal={expandSignal}
+            collapseAllSignal={collapseSignal}
+            toolbarRight={
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setExpandSignal((n) => n + 1)}
+                  title="Déplier tout"
+                  className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ChevronsUpDown size={14} />
+                  <span className="hidden lg:inline">Déplier tout</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCollapseSignal((n) => n + 1)}
+                  title="Replier tout"
+                  className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ChevronsDownUp size={14} />
+                  <span className="hidden lg:inline">Replier tout</span>
+                </button>
+                <StatusSegmented
+                  value={statut}
+                  onChange={setStatut}
+                  counts={counts}
+                  total={total}
+                />
+              </div>
+            }
+            onRowClick={(row) => {
+              if (row._child) return
+              openDynamicPanel({
+                type: 'detail',
+                module: 'mto',
+                id: row.id,
+                meta: { batchId },
+              })
+            }}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -683,6 +794,17 @@ function ConfidenceBadge({ confidence }: { confidence?: string | null }) {
           ? 'danger'
           : 'neutral'
   return <BadgeCell value={confidence} variant={variant} />
+}
+
+/**
+ * Badge de statut de vérification humaine d'un rapprochement.
+ *   verified → success « Validé » · rejected → danger « Rejeté »
+ *   pending / autre → neutral « En attente ».
+ */
+function VerificationBadge({ status }: { status?: string | null }) {
+  if (status === 'verified') return <BadgeCell value="Validé" variant="success" />
+  if (status === 'rejected') return <BadgeCell value="Rejeté" variant="danger" />
+  return <BadgeCell value="En attente" variant="neutral" />
 }
 
 /**

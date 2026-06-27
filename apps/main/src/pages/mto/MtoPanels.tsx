@@ -44,7 +44,9 @@ import { SkeletonDetailPanel } from '@/components/ui/Skeleton'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { TagManager } from '@/components/shared/TagManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { CoverageBar } from '@/components/mto/CoverageBar'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { usePermission } from '@/hooks/usePermission'
 import {
   useCatalogSearch,
@@ -69,6 +71,7 @@ type DetailTab = 'fiche' | 'comments' | 'tags' | 'documents'
 /** Détail d'un groupe MTO consolidé. */
 export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelProps) {
   const { toast } = useToast()
+  const confirm = useConfirm()
   const { hasPermission } = usePermission()
   const [activeTab, setActiveTab] = useState<DetailTab>('fiche')
   const [correctOpen, setCorrectOpen] = useState(false)
@@ -98,6 +101,12 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
   const children = group.children ?? []
 
   const doValidate = async () => {
+    const ok = await confirm({
+      title: 'Valider le rapprochement ?',
+      message: `Confirmer le rapprochement de « ${group.designation_sap || group.mto_key || 'ce groupe'} » avec l'article SAP ${group.article_code ?? '—'}.`,
+      confirmLabel: 'Valider',
+    })
+    if (!ok) return
     try {
       await validate.mutateAsync(group.id)
       toast({ title: 'Rapprochement validé', variant: 'success' })
@@ -157,7 +166,7 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
           : []),
       ]}
     >
-      {/* Bandeau statut — toujours visible au-dessus des onglets. */}
+      {/* Bandeau statut + vérification — toujours visible au-dessus des onglets. */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/20 px-4 py-2">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Statut
@@ -167,11 +176,10 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )}
-        {isVerified && (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-            <CheckCircle2 size={12} /> Validé
-          </span>
-        )}
+        <span className="ml-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Vérif
+        </span>
+        <VerificationBadge status={group.verification_status} />
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
           {group.nb_lignes} ligne{group.nb_lignes !== 1 ? 's' : ''}
         </span>
@@ -225,11 +233,20 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
               </FormSection>
             )}
 
-            {/* Besoin / dispo / statut. */}
-            <FormSection title="Rapprochement" defaultExpanded>
+            {/* Entête article SAP rapproché. */}
+            <FormSection title="Article SAP rapproché" defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Clé MTO" value={group.mto_key} />
-                <ReadOnlyRow label="Article SAP" value={group.article_code ?? '—'} />
+                <ReadOnlyRow
+                  label="Code article"
+                  value={
+                    group.article_code ? (
+                      <span className="font-mono text-primary">{group.article_code}</span>
+                    ) : (
+                      '—'
+                    )
+                  }
+                />
                 <ReadOnlyRow
                   label="Désignation"
                   value={
@@ -242,6 +259,12 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
                 />
                 <ReadOnlyRow label="Famille" value={group.famille || '—'} />
                 <ReadOnlyRow label="Ø Diamètre" value={group.diameter || '—'} />
+              </DetailFieldGrid>
+            </FormSection>
+
+            {/* Besoin / dispo / couverture / emplacements / statut + score. */}
+            <FormSection title="Rapprochement" defaultExpanded>
+              <DetailFieldGrid>
                 <ReadOnlyRow
                   label="Besoin"
                   value={
@@ -269,8 +292,31 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
                   }
                 />
                 <ReadOnlyRow label="Emplacements" value={group.emplacements || '—'} />
-                <ReadOnlyRow label="Confiance" value={group.confidence || '—'} />
+                <ReadOnlyRow
+                  label="Statut"
+                  value={
+                    group.statut ? (
+                      <BadgeCell
+                        value={mtoStatusLabel(group.statut)}
+                        variant={mtoStatusVariant(group.statut)}
+                      />
+                    ) : (
+                      '—'
+                    )
+                  }
+                />
+                <ReadOnlyRow
+                  label="Score / confiance"
+                  value={group.confidence || '—'}
+                />
               </DetailFieldGrid>
+
+              {/* Barre de couverture du groupe (segment selon son statut). */}
+              {group.statut && (
+                <div className="mt-3">
+                  <CoverageBar counts={{ [group.statut]: 1 }} size="md" />
+                </div>
+              )}
             </FormSection>
 
             {/* Table des lignes MTO d'origine (children). */}
@@ -337,6 +383,17 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
       </PanelContentLayout>
     </DynamicPanelShell>
   )
+}
+
+/**
+ * Badge de statut de vérification humaine d'un rapprochement.
+ *   verified → success « Validé » · rejected → danger « Rejeté »
+ *   pending / autre → neutral « En attente ».
+ */
+function VerificationBadge({ status }: { status?: string | null }) {
+  if (status === 'verified') return <BadgeCell value="Validé" variant="success" />
+  if (status === 'rejected') return <BadgeCell value="Rejeté" variant="danger" />
+  return <BadgeCell value="En attente" variant="neutral" />
 }
 
 // ── Enregistrement dans le registry des panneaux ──────────────────────────

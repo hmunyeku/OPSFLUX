@@ -14,22 +14,25 @@
  *     onSearchChange={setSearch}
  *   />
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
   getExpandedRowModel,
+  getPaginationRowModel,
   flexRender,
   type SortingState,
   type ExpandedState,
+  type PaginationState,
   type ColumnDef,
   type Row,
 } from '@tanstack/react-table'
 import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Loader2, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { DataTablePaginationBar } from '@/components/ui/DataTable/Pagination'
 import type { LucideIcon } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -60,6 +63,25 @@ export interface GroupedDataTableProps<TData> {
   className?: string
   /** Extra toolbar content (right side) */
   toolbarRight?: React.ReactNode
+  /**
+   * Optional CLIENT-side pagination on the parent (group) rows.
+   * When omitted → no pagination (current behavior, all rows rendered).
+   * When provided → paginate parent rows; child/sub-rows stay attached to
+   * their parent. A compact footer (DataTablePaginationBar) is rendered.
+   */
+  pageSize?: number
+  /** Page-size options for the pagination footer selector. */
+  pageSizeOptions?: number[]
+  /**
+   * Bump this number to expand ALL rows. Each change of value triggers a
+   * full expand (table.toggleAllRowsExpanded(true)). Omitted → no effect.
+   */
+  expandAllSignal?: number
+  /**
+   * Bump this number to collapse ALL rows. Each change of value triggers a
+   * full collapse (table.toggleAllRowsExpanded(false)). Omitted → no effect.
+   */
+  collapseAllSignal?: number
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -78,24 +100,70 @@ export function GroupedDataTable<TData>({
   globalFilterFn,
   className,
   toolbarRight,
+  pageSize,
+  pageSizeOptions = [25, 50, 100],
+  expandAllSignal,
+  collapseAllSignal,
 }: GroupedDataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<ExpandedState>(true) // all expanded by default
 
+  // Client pagination is opt-in: only wired when `pageSize` is provided so
+  // the default (no pagination) behavior stays byte-for-byte unchanged.
+  const paginationEnabled = typeof pageSize === 'number' && pageSize > 0
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: pageSize ?? 50,
+  })
+
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, expanded, globalFilter: searchValue },
+    state: {
+      sorting,
+      expanded,
+      globalFilter: searchValue,
+      ...(paginationEnabled ? { pagination } : {}),
+    },
     onSortingChange: setSorting,
     onExpandedChange: setExpanded,
+    onPaginationChange: paginationEnabled ? setPagination : undefined,
     getSubRows,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
+    // Only attach the pagination row model when paginating — without it the
+    // table renders every row (unchanged default).
+    getPaginationRowModel: paginationEnabled ? getPaginationRowModel() : undefined,
+    // Paginate on the parent (group) rows, not the flattened children.
+    paginateExpandedRows: false,
+    autoResetPageIndex: false,
     globalFilterFn: globalFilterFn ?? 'includesString',
     onGlobalFilterChange: onSearchChange,
   })
+
+  // Déplier / replier tout — déclenché par un changement de signal (compteur).
+  // Sans la prop → aucun effet (children dépliés par défaut comme avant).
+  useEffect(() => {
+    if (expandAllSignal === undefined) return
+    table.toggleAllRowsExpanded(true)
+  }, [expandAllSignal, table])
+
+  useEffect(() => {
+    if (collapseAllSignal === undefined) return
+    table.toggleAllRowsExpanded(false)
+  }, [collapseAllSignal, table])
+
+  // Reset to first page when the active filter shrinks the dataset below the
+  // current page (avoids landing on an empty page after a status filter).
+  useEffect(() => {
+    if (!paginationEnabled) return
+    const pageCount = table.getPageCount()
+    if (pageCount > 0 && pagination.pageIndex > pageCount - 1) {
+      setPagination((p) => ({ ...p, pageIndex: 0 }))
+    }
+  }, [paginationEnabled, pagination.pageIndex, table, data])
 
   const rows = table.getRowModel().rows
 
@@ -230,6 +298,28 @@ export function GroupedDataTable<TData>({
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* ── Pagination (opt-in via `pageSize`) ── */}
+      {paginationEnabled && !isLoading && rows.length > 0 && (
+        <DataTablePaginationBar
+          pagination={{
+            page: table.getState().pagination.pageIndex + 1,
+            pageSize: table.getState().pagination.pageSize,
+            // Total = nombre de lignes-groupes parentes (depth 0) avant
+            // pagination — pas les sous-lignes : la pagination porte sur les
+            // parents. `paginateExpandedRows: false` garde les enfants
+            // rattachés à leur parent sur la page courante.
+            total: table.getPrePaginationRowModel().rows.filter((r) => r.depth === 0).length,
+            pages: table.getPageCount(),
+          }}
+          onPageChange={(p) => table.setPageIndex(p - 1)}
+          onPageSizeChange={(size) => {
+            table.setPageSize(size)
+            table.setPageIndex(0)
+          }}
+          pageSizeOptions={pageSizeOptions}
+        />
       )}
     </div>
   )

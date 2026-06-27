@@ -1,32 +1,36 @@
 /**
- * MtoKpis — bandeau de cartes KPI pour le module MTO (DS OpsFlux).
+ * MtoStatStrip — bande de stats COMPACTE (une seule ligne) pour le module MTO.
  *
- * Réutilise les tuiles KPI canoniques du design system (classes `kpi-pp`
- * de styles/cards-pp.css, déjà employées par le module Tiers) + la
- * CoverageBar segmentée. Aucune couleur hex : tokens uniquement.
+ * Remplace les grosses tuiles `kpi-pp` (≈130px de haut, beaucoup de vide) par
+ * une bande horizontale dense (~36px) : pastille tokenisée + valeur
+ * (font-semibold) + libellé court (text-xs muted), segments séparés par des
+ * traits verticaux fins. C'est un OUTIL DENSE de rapprochement : la densité
+ * prime sur la décoration.
  *
- * Deux usages :
- *   - <MtoCoverageKpis> : total groupes / en stock / partiel / à commander
- *     + barre de couverture. En tête de la vue rapprochement ET de la liste
- *     des MTO du projet (couverture agrégée).
+ * Aucune couleur hex : tokens sémantiques uniquement
+ * (`bg-success` / `bg-warning` / `bg-destructive`).
  *
- * Les compteurs sont fournis par l'appelant (déjà calculés depuis les
- * groupes ou agrégés depuis les stats batch).
+ * Usage : en tête de la vue rapprochement ET de la liste des MTO du projet
+ * (couverture agrégée). Les compteurs sont fournis par l'appelant.
+ *
+ * `MtoCoverageKpis` est conservé comme alias rétro-compatible.
  */
-import { CoverageBar, type CoverageCounts } from './CoverageBar'
+import { cn } from '@/lib/utils'
+import type { CoverageCounts } from './CoverageBar'
 
-export interface MtoCoverageKpisProps {
+export interface MtoStatStripProps {
   /** Nombre total de groupes consolidés. */
   total: number
   /** Comptes par statut métier (en stock / partiel / à commander). */
   counts: CoverageCounts
   /**
-   * Libellé de la 1ʳᵉ tuile (« Groupes » en vue rapprochement, « Items »
-   * ou « MTO » côté liste selon le contexte d'agrégation).
+   * Libellé du 1ᵉʳ segment (« groupes » en vue rapprochement, « items » /
+   * « groupes (tous MTO) » côté liste selon le contexte d'agrégation).
    */
   totalLabel?: string
-  /** État chargement : rend des tuiles en skeleton (data-state=loading). */
+  /** État chargement : rend une bande en skeleton. */
   isLoading?: boolean
+  className?: string
 }
 
 /** Pourcentage compact « N% » d'une part sur un total (— si total nul). */
@@ -35,28 +39,49 @@ function pctOf(part: number, total: number): string {
   return `${Math.round((part / total) * 100)}%`
 }
 
-/** Skeleton d'une tuile KPI — réutilise l'état `data-state="loading"` du DS. */
-function KpiSkeletonTile() {
+/** Séparateur vertical fin entre deux segments de stat. */
+function Sep() {
+  return <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+}
+
+/**
+ * Un segment de stat : [pastille] valeur libellé (pct).
+ * La pastille est omise pour le segment « total » (dot = null).
+ */
+function Stat({
+  dot,
+  value,
+  label,
+  pct,
+}: {
+  dot: string | null
+  value: number
+  label: string
+  pct?: string
+}) {
   return (
-    <div className="kpi-pp" data-state="loading" aria-hidden>
-      <div className="kpi-pp__label">—</div>
-      <div className="kpi-pp__value-row">
-        <span className="kpi-pp__value">00</span>
-      </div>
-    </div>
+    <span className="inline-flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+      {dot && (
+        <span className={cn('mb-0.5 h-2 w-2 shrink-0 self-center rounded-full', dot)} />
+      )}
+      <span className="text-sm font-semibold tabular-nums text-foreground">{value}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      {pct && <span className="text-xs tabular-nums text-muted-foreground/70">{pct}</span>}
+    </span>
   )
 }
 
 /**
- * Strip de 4 KPI + barre de couverture. La barre occupe la pleine largeur
- * sous la grille de tuiles, alignée sur le gabarit `kpi-pp-grid`.
+ * Bande de stats compacte (une ligne) : total + 3 statuts métier.
+ * Hauteur cible ~28-36px (sans border/bg-card/padding épais).
  */
-export function MtoCoverageKpis({
+export function MtoStatStrip({
   total,
   counts,
-  totalLabel = 'Groupes',
+  totalLabel = 'groupes',
   isLoading = false,
-}: MtoCoverageKpisProps) {
+  className,
+}: MtoStatStripProps) {
   const inStock = counts['en stock'] ?? 0
   const partiel = counts['partiel'] ?? 0
   const aCommander = counts['à commander'] ?? 0
@@ -64,62 +89,48 @@ export function MtoCoverageKpis({
 
   if (isLoading) {
     return (
-      <div className="kpi-pp-grid" data-cols="4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <KpiSkeletonTile key={i} />
-        ))}
+      <div
+        className={cn('flex h-6 items-center gap-3', className)}
+        aria-hidden
+      >
+        <span className="h-3.5 w-28 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-20 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
-      <div className="kpi-pp-grid" data-cols="4">
-        <div className="kpi-pp">
-          <div className="kpi-pp__label">{totalLabel}</div>
-          <div className="kpi-pp__value-row">
-            <span className="kpi-pp__value">{total}</span>
-          </div>
-          <div className="kpi-pp__caption">{foundPct}% trouvés</div>
-        </div>
-
-        <div className="kpi-pp">
-          <div className="kpi-pp__label">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-success" />
-            En stock
-          </div>
-          <div className="kpi-pp__value-row">
-            <span className="kpi-pp__value">{inStock}</span>
-            <span className="kpi-pp__unit">{pctOf(inStock, total)}</span>
-          </div>
-        </div>
-
-        <div className="kpi-pp">
-          <div className="kpi-pp__label">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-warning" />
-            Partiel
-          </div>
-          <div className="kpi-pp__value-row">
-            <span className="kpi-pp__value">{partiel}</span>
-            <span className="kpi-pp__unit">{pctOf(partiel, total)}</span>
-          </div>
-        </div>
-
-        <div className="kpi-pp">
-          <div className="kpi-pp__label">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" />
-            À commander
-          </div>
-          <div className="kpi-pp__value-row">
-            <span className="kpi-pp__value">{aCommander}</span>
-            <span className="kpi-pp__unit">{pctOf(aCommander, total)}</span>
-          </div>
-        </div>
-      </div>
-
-      <CoverageBar counts={counts} size="md" />
+    <div
+      className={cn(
+        'flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1',
+        className,
+      )}
+    >
+      <Stat
+        dot={null}
+        value={total}
+        label={totalLabel}
+        pct={`(${foundPct}% trouvés)`}
+      />
+      <Sep />
+      <Stat dot="bg-success" value={inStock} label="en stock" pct={pctOf(inStock, total)} />
+      <Sep />
+      <Stat dot="bg-warning" value={partiel} label="partiel" pct={pctOf(partiel, total)} />
+      <Sep />
+      <Stat
+        dot="bg-destructive"
+        value={aCommander}
+        label="à commander"
+        pct={pctOf(aCommander, total)}
+      />
     </div>
   )
 }
 
-export default MtoCoverageKpis
+/** Alias rétro-compatible (ancien nom). */
+export const MtoCoverageKpis = MtoStatStrip
+export type MtoCoverageKpisProps = MtoStatStripProps
+
+export default MtoStatStrip

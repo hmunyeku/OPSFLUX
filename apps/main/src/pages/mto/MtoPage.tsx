@@ -44,7 +44,7 @@ import { BadgeCell } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { CoverageBar, type CoverageCounts } from '@/components/mto/CoverageBar'
-import { MtoCoverageKpis } from '@/components/mto/MtoKpis'
+import { MtoStatStrip } from '@/components/mto/MtoKpis'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -177,12 +177,12 @@ function MtoProjectTab() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* ProjectPicker proéminent en tête de l'onglet. */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {/* ProjectPicker en tête de l'onglet — bande compacte, label inline. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Projet
         </span>
-        <div className="min-w-[260px] max-w-[420px] flex-1">
+        <div className="min-w-[240px] max-w-[420px] flex-1">
           <ProjectPicker
             value={projectId}
             onChange={(pid) => {
@@ -291,14 +291,16 @@ function MtoListView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* KPI agrégés du projet (couverture cumulée des MTO). */}
-      <div className="border-b border-border px-4 py-3">
-        <MtoCoverageKpis
+      {/* Stats agrégées du projet (couverture cumulée des MTO) — bande
+          compacte + barre de couverture fine. */}
+      <div className="space-y-1.5 border-b border-border px-4 py-2">
+        <MtoStatStrip
           total={aggregate.total}
           counts={aggregate.counts}
-          totalLabel="Groupes (tous MTO)"
+          totalLabel="groupes (tous MTO)"
           isLoading={isLoading}
         />
+        <CoverageBar counts={aggregate.counts} size="sm" />
       </div>
 
       <PanelContent scroll={false}>
@@ -530,49 +532,48 @@ function MatchingView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Fil d'Ariane + re-consolider. */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="btn-sm btn-secondary"
-          title="Retour aux MTO du projet"
-        >
-          <ChevronLeft size={14} />
-          <span className="hidden sm:inline">Retour aux MTO du projet</span>
-        </button>
+      {/* Ligne unique : Retour (gauche) · stats compactes · Re-consolider
+          (droite), + barre de couverture fine collée dessous. */}
+      <div className="space-y-1.5 border-b border-border px-4 py-2">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-sm btn-secondary shrink-0"
+            title="Retour aux MTO du projet"
+          >
+            <ChevronLeft size={14} />
+            <span className="hidden md:inline">Retour aux MTO</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={async () => {
-            try {
-              await consolidate.mutateAsync(batchId)
-              toast({ title: 'Consolidation relancée', variant: 'success' })
-            } catch {
-              toast({ title: 'Consolidation impossible', variant: 'error' })
-            }
-          }}
-          disabled={consolidate.isPending}
-          className="btn-sm btn-secondary ml-auto"
-        >
-          <RefreshCw size={13} className={consolidate.isPending ? 'animate-spin' : undefined} />
-          <span className="hidden sm:inline">Re-consolider</span>
-        </button>
-      </div>
+          <div className="min-w-0 flex-1">
+            <MtoStatStrip
+              total={total}
+              counts={counts}
+              totalLabel="groupes"
+              isLoading={isLoading}
+            />
+          </div>
 
-      {/* Cartes KPI + barre de couverture du MTO. */}
-      <div className="border-b border-border px-4 py-3">
-        <MtoCoverageKpis total={total} counts={counts} totalLabel="Groupes" isLoading={isLoading} />
-      </div>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await consolidate.mutateAsync(batchId)
+                toast({ title: 'Consolidation relancée', variant: 'success' })
+              } catch {
+                toast({ title: 'Consolidation impossible', variant: 'error' })
+              }
+            }}
+            disabled={consolidate.isPending}
+            className="btn-sm btn-secondary shrink-0"
+          >
+            <RefreshCw size={13} className={consolidate.isPending ? 'animate-spin' : undefined} />
+            <span className="hidden md:inline">Re-consolider</span>
+          </button>
+        </div>
 
-      {/* Toolbar de filtre : segmented control statut (avec compteurs). */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-        <StatusSegmented
-          value={statut}
-          onChange={setStatut}
-          counts={counts}
-          total={total}
-        />
+        <CoverageBar counts={counts} size="sm" />
       </div>
 
       {isLoading ? (
@@ -588,6 +589,14 @@ function MatchingView({
           searchPlaceholder="Rechercher article, désignation, Ø…"
           emptyIcon={Package}
           emptyTitle="Aucun rapprochement — consolidez ce MTO"
+          toolbarRight={
+            <StatusSegmented
+              value={statut}
+              onChange={setStatut}
+              counts={counts}
+              total={total}
+            />
+          }
           onRowClick={(row) => {
             if (row._child) return
             openDynamicPanel({
@@ -623,7 +632,7 @@ function StatusSegmented({
 
   return (
     <div
-      className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
       role="tablist"
       aria-label="Filtrer par statut"
     >
@@ -637,14 +646,15 @@ function StatusSegmented({
             aria-selected={active}
             onClick={() => onChange(seg.value)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+              'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium transition-colors',
               active
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {seg.dot && <span className={cn('h-2 w-2 shrink-0 rounded-full', seg.dot)} />}
-            <span>{seg.label}</span>
+            {seg.dot && <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', seg.dot)} />}
+            <span className="hidden sm:inline">{seg.label}</span>
+            <span className="sm:hidden">{seg.dot ? '' : 'Tous'}</span>
             <span
               className={cn(
                 'tabular-nums',

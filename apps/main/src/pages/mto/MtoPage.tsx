@@ -1,27 +1,62 @@
 /**
- * MTOGuru — page de rapprochement MTO <-> stock/catalogue SAP.
+ * MTOGuru — page de rapprochement MTO ↔ stock/catalogue SAP.
  *
- * Affiche les groupes consolides (besoin somme par unite, rapproche d'un article
- * SAP) avec leurs lignes MTO d'origine depliables, et permet de valider/corriger
- * chaque rapprochement (apprentissage cote backend).
+ * Réécrite sur le design system OpsFlux (gabarit PackLog / MOC) :
+ *   - PanelHeader + ToolbarButton "Importer" (perm mto.requirement.import)
+ *   - PageNavBar : onglets Rapprochement / Catalogue
+ *   - Toolbar : recherche + filtre statut + sélecteur de batch + ProjectPicker
+ *   - GroupedDataTable : colonnes en tokens Tailwind, badges de statut
+ *     (BadgeCell), lignes d'origine dépliables (children), clic => DynamicPanel
+ *   - DynamicPanel de détail via le registry (cf. MtoPanels.tsx)
+ *   - useFilterPersistence pour mémoriser batch / statut / projet
+ *
+ * Aucune couleur hex en dur, aucun style inline décoratif, aucun dialog
+ * custom : tout passe par les composants OpsFlux et les classes de tokens.
  */
-import { useMemo, useState } from 'react'
-
+import { useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { CheckCircle2, Package, Pencil, RefreshCw, Search } from 'lucide-react'
+import {
+  Boxes,
+  CheckCircle2,
+  FileUp,
+  Layers,
+  Package,
+  RefreshCw,
+  Search,
+} from 'lucide-react'
 
+import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
+import { renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { GroupedDataTable } from '@/components/ui/GroupedDataTable'
+import { BadgeCell } from '@/components/ui/DataTable'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { useToast } from '@/components/ui/Toast'
+import { useUIStore } from '@/stores/uiStore'
+import { usePermission } from '@/hooks/usePermission'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
+import { useDebounce } from '@/hooks/useDebounce'
+import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import {
   useCatalogSearch,
   useConsolidate,
-  useCorrectGroup,
+  useImportMto,
   useMtoBatches,
   useMtoGroups,
-  useValidateGroup,
   type MtoChild,
   type MtoGroup,
 } from '@/hooks/useMto'
+import { mtoBatchLabel, mtoStatusLabel, mtoStatusTextClass, mtoStatusVariant } from '@/services/mtoService'
+// Effet de bord : enregistre le renderer du panneau MTO dans le registry.
+import './MtoPanels'
 
+type MtoTab = 'matching' | 'catalogue'
+
+/**
+ * Ligne de table : un groupe (parent) OU une ligne d'origine (child).
+ * Omit sur `diameter`/`children` pour réconcilier `string | null` (groupe)
+ * et `string | undefined` (child) sans conflit de types.
+ */
 type MtoRow = Omit<Partial<MtoGroup>, 'diameter' | 'children'> &
   Omit<Partial<MtoChild>, 'diameter'> & {
     id: string
@@ -30,168 +65,331 @@ type MtoRow = Omit<Partial<MtoGroup>, 'diameter' | 'children'> &
     children?: MtoRow[]
   }
 
-const STATUT_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
-  'en stock': { bg: '#e6f4ea', fg: '#107c10', label: 'En stock' },
-  partiel: { bg: '#fdf3e7', fg: '#bc6c00', label: 'Partiel' },
-  'à commander': { bg: '#fdecea', fg: '#a01010', label: 'À commander' },
+/** État de filtre persisté (localStorage + DB) sous la clé mto.list.view. */
+interface MtoListView {
+  batchId: string | null
+  statut: string
+  projectId: string | null
 }
 
-function StatutChip({ statut }: { statut: string }) {
-  const s = STATUT_STYLE[statut] ?? { bg: '#eef2f6', fg: '#37475a', label: statut }
-  return (
-    <span style={{ background: s.bg, color: s.fg, padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600 }}>
-      {s.label}
-    </span>
+const DEFAULT_VIEW: MtoListView = { batchId: null, statut: '', projectId: null }
+
+const STATUS_FILTER_OPTIONS = [
+  { value: '', label: 'Tous les statuts' },
+  { value: 'en stock', label: 'En stock' },
+  { value: 'partiel', label: 'Partiel' },
+  { value: 'à commander', label: 'À commander' },
+]
+
+export function MtoPage() {
+  const { hasPermission } = usePermission()
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const panelMode = useUIStore((s) => s.dynamicPanelMode)
+
+  const [activeTab, setActiveTab] = useState<MtoTab>('matching')
+  const [view, setView] = useFilterPersistence<MtoListView>('mto.list.view', DEFAULT_VIEW)
+
+  const canImport = hasPermission('mto.requirement.import') || hasPermission('mto.admin')
+
+  // Le panneau plein-écran prend toute la zone : on cache la liste à côté.
+  const isFullPanel =
+    panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'mto'
+
+  const tabItems = useMemo(
+    () => [
+      { id: 'matching' as const, label: 'Rapprochement', icon: Layers },
+      { id: 'catalogue' as const, label: 'Catalogue', icon: Boxes },
+    ],
+    [],
   )
-}
 
-// ── Dialog de correction (recherche d'article SAP) ──────────────────────────
-function CorrectDialog({ group, onClose, onApply }: {
-  group: MtoGroup
-  onClose: () => void
-  onApply: (code: string) => void
-}) {
-  const [q, setQ] = useState('')
-  const { data: results, isFetching } = useCatalogSearch(q)
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(10,31,51,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: 560, maxWidth: '92vw', borderRadius: 6, padding: 20, boxShadow: '0 12px 50px rgba(0,0,0,.35)' }}>
-        <div style={{ fontWeight: 600, color: '#003366', marginBottom: 4 }}>Corriger le rapprochement</div>
-        <div style={{ fontSize: 13, color: '#6b7a8d', marginBottom: 12 }}>
-          {group.designation_sap ?? '(non trouvé)'} — actuel : <code>{group.article_code ?? '—'}</code>
+    <div className="flex h-full">
+      {!isFullPanel && (
+        <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+          <PanelHeader
+            icon={Package}
+            title="MTOGuru"
+            subtitle="Rapprochement MTO ↔ stock SAP"
+          >
+            {canImport && activeTab === 'matching' && (
+              <ImportButton
+                projectId={view.projectId}
+                onImported={(batchId) => setView((v) => ({ ...v, batchId }))}
+              />
+            )}
+          </PanelHeader>
+
+          <PageNavBar items={tabItems} activeId={activeTab} onTabChange={setActiveTab} />
+
+          <PanelContent scroll={false}>
+            {activeTab === 'matching' && <MatchingTab view={view} setView={setView} />}
+            {activeTab === 'catalogue' && <CatalogueTab />}
+          </PanelContent>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #cdd7e2', borderRadius: 4, padding: '6px 10px' }}>
-          <Search size={15} color="#8a97a8" />
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un article (code ou désignation)…"
-            style={{ border: 'none', outline: 'none', width: '100%', fontSize: 14 }} />
-        </div>
-        <div style={{ margin: '10px 0', maxHeight: 300, overflow: 'auto', border: '1px solid #eef3f8', borderRadius: 4 }}>
-          {isFetching && <div style={{ padding: 10, color: '#8a97a8', fontSize: 13 }}>Recherche…</div>}
-          {(results ?? []).map((a) => (
-            <div key={a.code} onClick={() => onApply(a.code)}
-              style={{ padding: '7px 11px', borderBottom: '1px solid #f0f4f8', cursor: 'pointer', fontSize: 13 }}>
-              <span style={{ fontFamily: 'monospace', color: '#1a3a5c' }}>{a.code}</span> — {a.designation}
-            </div>
-          ))}
-          {q.trim().length < 2 && <div style={{ padding: 10, color: '#8a97a8', fontSize: 13 }}>Saisissez au moins 2 caractères.</div>}
-        </div>
-        <button onClick={onClose} style={{ padding: '7px 14px', border: '1px solid #cdd7e2', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>Fermer</button>
-      </div>
+      )}
+
+      {dynamicPanel?.module === 'mto' && renderRegisteredPanel(dynamicPanel)}
     </div>
   )
 }
 
-export function MtoPage() {
-  const { data: batches } = useMtoBatches()
-  const [selectedBatch, setSelectedBatch] = useState<string | null>(null)
-  const batchId = selectedBatch ?? batches?.[0]?.id ?? null
+// ── Bouton d'import (file picker → POST /import/mto) ───────────────────────
 
-  const { data: groups, isLoading } = useMtoGroups(batchId)
+function ImportButton({
+  projectId,
+  onImported,
+}: {
+  projectId: string | null
+  onImported: (batchId: string) => void
+}) {
+  const { toast } = useToast()
+  const importMto = useImportMto()
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  return (
+    <>
+      <ToolbarButton
+        icon={FileUp}
+        label={importMto.isPending ? 'Import…' : 'Importer'}
+        variant="primary"
+        disabled={importMto.isPending}
+        onClick={() => inputRef.current?.click()}
+      />
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0]
+          if (!file) return
+          try {
+            const batch = await importMto.mutateAsync({ file, projectId })
+            toast({ title: `MTO importé : ${mtoBatchLabel(batch)}`, variant: 'success' })
+            onImported(batch.id)
+          } catch {
+            toast({ title: "Échec de l'import MTO", variant: 'error' })
+          } finally {
+            e.target.value = ''
+          }
+        }}
+      />
+    </>
+  )
+}
+
+// ── Onglet Rapprochement ──────────────────────────────────────────────────
+
+function MatchingTab({
+  view,
+  setView,
+}: {
+  view: MtoListView
+  setView: (v: MtoListView | ((prev: MtoListView) => MtoListView)) => void
+}) {
+  const { toast } = useToast()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [search, setSearch] = useState('')
-  const validate = useValidateGroup(batchId)
-  const correct = useCorrectGroup(batchId)
+
+  const { data: batches } = useMtoBatches(view.projectId)
+  // Batch effectif : sélection explicite, sinon le 1er de la liste.
+  const batchId = view.batchId ?? batches?.[0]?.id ?? null
+
+  const { data: groups, isLoading } = useMtoGroups(batchId, view.statut || null)
   const consolidate = useConsolidate()
-  const [correcting, setCorrecting] = useState<MtoGroup | null>(null)
 
   const stats = useMemo(() => {
     const g = groups ?? []
     const by = (s: string) => g.filter((x) => x.statut === s).length
-    return { total: g.length, ok: by('en stock'), warn: by('partiel'), fail: by('à commander') }
+    return {
+      total: g.length,
+      ok: by('en stock'),
+      warn: by('partiel'),
+      fail: by('à commander'),
+    }
   }, [groups])
 
   const rows = useMemo<MtoRow[]>(
-    () => (groups ?? []).map((g) => ({
-      ...g,
-      children: (g.children ?? []).map((c, i) => ({ id: `${g.id}-c${i}`, _child: true, ...c })),
-    })),
+    () =>
+      (groups ?? []).map((g) => ({
+        ...g,
+        children: (g.children ?? []).map((c, i) => ({ id: `${g.id}-c${i}`, _child: true, ...c })),
+      })),
     [groups],
   )
 
-  const columns = useMemo<ColumnDef<MtoRow, unknown>[]>(() => [
-    {
-      id: 'article', header: 'Article',
-      cell: ({ row }) => row.original._child
-        ? <span style={{ color: '#6b7a8d' }}>↳ {row.original.line_num ?? row.original.row ?? ''} {row.original.mark ?? ''}</span>
-        : <span style={{ fontFamily: 'monospace', color: '#1a3a5c' }}>{row.original.article_code ?? '—'}</span>,
-    },
-    {
-      id: 'designation', header: 'Désignation SAP',
-      cell: ({ row }) => row.original._child
-        ? <span style={{ color: '#6b7a8d' }}>{row.original.description}</span>
-        : <span style={{ fontStyle: row.original.found ? 'normal' : 'italic', color: row.original.found ? 'inherit' : '#8a97a8' }}>{row.original.designation_sap ?? '(non trouvé)'}</span>,
-    },
-    {
-      id: 'famille', header: 'Famille',
-      cell: ({ row }) => row.original._child ? null : <span style={{ fontSize: 11, color: '#37475a' }}>{row.original.famille ?? ''}</span>,
-    },
-    {
-      id: 'besoin', header: 'Besoin',
-      cell: ({ row }) => row.original._child
-        ? <span style={{ color: '#6b7a8d' }}>{row.original.qte ?? ''}</span>
-        : <span>{row.original.besoin}&nbsp;{row.original.unite ?? ''}{row.original.unit_check ? ' ⚠' : ''}</span>,
-    },
-    {
-      id: 'couverture', header: 'Couverture',
-      cell: ({ row }) => row.original._child ? null : <span style={{ fontVariantNumeric: 'tabular-nums' }}>{row.original.dispo}/{row.original.besoin}</span>,
-    },
-    {
-      id: 'statut', header: 'Statut',
-      cell: ({ row }) => (row.original._child || !row.original.statut) ? null : <StatutChip statut={row.original.statut} />,
-    },
-    {
-      id: 'confiance', header: 'Confiance',
-      cell: ({ row }) => row.original._child ? null
-        : row.original.verification_status === 'verified'
-          ? <span style={{ color: '#107c10', fontWeight: 600, fontSize: 12 }}>✓ Validé</span>
-          : <span style={{ fontSize: 12, color: '#6b7a8d' }}>{row.original.confidence ?? ''} · {row.original.nb_lignes ?? 0} l.</span>,
-    },
-    {
-      id: 'actions', header: '',
-      cell: ({ row }) => {
-        if (row.original._child) return null
-        const g = row.original as MtoGroup
-        return (
-          <div style={{ display: 'flex', gap: 4 }}>
-            {g.found && (
-              <button title="Valider" onClick={() => validate.mutate(g.id)} disabled={validate.isPending}
-                style={{ border: '1px solid #107c10', color: '#107c10', background: '#fff', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}>
-                <CheckCircle2 size={15} />
-              </button>
-            )}
-            <button title="Corriger" onClick={() => setCorrecting(g)}
-              style={{ border: '1px solid #cdd7e2', color: '#37475a', background: '#fff', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}>
-              <Pencil size={15} />
-            </button>
-          </div>
-        )
+  const columns = useMemo<ColumnDef<MtoRow, unknown>[]>(
+    () => [
+      {
+        id: 'article',
+        header: 'Article',
+        cell: ({ row }) =>
+          row.original._child ? (
+            <span className="text-muted-foreground">
+              ↳ {row.original.line_num ?? row.original.row ?? ''} {row.original.mark ?? ''}
+            </span>
+          ) : (
+            <span className="font-mono text-xs text-primary">
+              {row.original.article_code ?? '—'}
+            </span>
+          ),
       },
-    },
-  ], [validate])
+      {
+        id: 'designation',
+        header: 'Désignation SAP',
+        cell: ({ row }) =>
+          row.original._child ? (
+            <span className="text-muted-foreground">{row.original.description}</span>
+          ) : row.original.found ? (
+            <span className="text-foreground">{row.original.designation_sap ?? '—'}</span>
+          ) : (
+            <span className="italic text-muted-foreground">(non trouvé)</span>
+          ),
+      },
+      {
+        id: 'famille',
+        header: 'Famille',
+        cell: ({ row }) =>
+          row.original._child ? null : (
+            <span className="text-xs text-muted-foreground">{row.original.famille ?? ''}</span>
+          ),
+      },
+      {
+        id: 'besoin',
+        header: 'Besoin',
+        cell: ({ row }) =>
+          row.original._child ? (
+            <span className="tabular-nums text-muted-foreground">{row.original.qte ?? ''}</span>
+          ) : (
+            <span className="tabular-nums">
+              {row.original.besoin}&nbsp;{row.original.unite ?? ''}
+              {row.original.unit_check ? (
+                <span className="ml-1 text-warning" title="Unités hétérogènes">
+                  ⚠
+                </span>
+              ) : null}
+            </span>
+          ),
+      },
+      {
+        id: 'couverture',
+        header: 'Couverture',
+        cell: ({ row }) =>
+          row.original._child ? null : (
+            <span className={`tabular-nums ${mtoStatusTextClass(row.original.statut)}`}>
+              {row.original.dispo}/{row.original.besoin}
+            </span>
+          ),
+      },
+      {
+        id: 'statut',
+        header: 'Statut',
+        cell: ({ row }) =>
+          row.original._child || !row.original.statut ? null : (
+            <BadgeCell
+              value={mtoStatusLabel(row.original.statut)}
+              variant={mtoStatusVariant(row.original.statut)}
+            />
+          ),
+      },
+      {
+        id: 'confiance',
+        header: 'Confiance',
+        cell: ({ row }) => {
+          if (row.original._child) return null
+          if (row.original.verification_status === 'verified') {
+            return (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+                <CheckCircle2 size={13} /> Validé
+              </span>
+            )
+          }
+          return (
+            <span className="text-xs text-muted-foreground">
+              {row.original.confidence ?? ''} · {row.original.nb_lignes ?? 0} l.
+            </span>
+          )
+        },
+      },
+    ],
+    [],
+  )
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-        <Package size={20} color="#003366" />
-        <h1 style={{ fontSize: 18, fontWeight: 600, color: '#003366', margin: 0 }}>Rapprochement MTO ↔ stock SAP</h1>
-        <select value={batchId ?? ''} onChange={(e) => setSelectedBatch(e.target.value || null)}
-          style={{ marginLeft: 'auto', padding: '6px 10px', border: '1px solid #cdd7e2', borderRadius: 4 }}>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Toolbar : batch + statut + projet + KPIs + re-consolider. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <select
+          value={batchId ?? ''}
+          onChange={(e) => setView((v) => ({ ...v, batchId: e.target.value || null }))}
+          className="gl-form-input h-7 text-xs"
+          title="Lot d'import MTO"
+        >
+          {(batches ?? []).length === 0 && <option value="">Aucun lot</option>}
           {(batches ?? []).map((b) => (
-            <option key={b.id} value={b.id}>{b.label || b.filename || b.id.slice(0, 8)}</option>
+            <option key={b.id} value={b.id}>
+              {mtoBatchLabel(b)}
+              {b.project_name ? ` — ${b.project_name}` : ''}
+            </option>
           ))}
         </select>
-        {batchId && (
-          <button onClick={() => consolidate.mutate(batchId)} disabled={consolidate.isPending}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1px solid #0066b8', color: '#0066b8', background: '#fff', borderRadius: 4, cursor: 'pointer' }}>
-            <RefreshCw size={15} /> Re-consolider
-          </button>
-        )}
-      </div>
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: 13 }}>
-        <span><b>{stats.total}</b> groupes</span>
-        <span style={{ color: '#107c10' }}><b>{stats.ok}</b> en stock</span>
-        <span style={{ color: '#bc6c00' }}><b>{stats.warn}</b> partiel</span>
-        <span style={{ color: '#a01010' }}><b>{stats.fail}</b> à commander</span>
+        <select
+          value={view.statut}
+          onChange={(e) => setView((v) => ({ ...v, statut: e.target.value }))}
+          className="gl-form-input h-7 text-xs"
+          title="Filtrer par statut"
+        >
+          {STATUS_FILTER_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+
+        <div className="min-w-[200px]">
+          <ProjectPicker
+            value={view.projectId}
+            onChange={(pid) => setView((v) => ({ ...v, projectId: pid, batchId: null }))}
+            placeholder="Tous les projets"
+            clearable
+          />
+        </div>
+
+        {/* KPIs compacts (tokens, pas de hex). */}
+        <div className="ml-auto flex flex-wrap items-center gap-3 text-xs">
+          <span className="text-muted-foreground">
+            <b className="text-foreground tabular-nums">{stats.total}</b> groupes
+          </span>
+          <span className={mtoStatusTextClass('en stock')}>
+            <b className="tabular-nums">{stats.ok}</b> en stock
+          </span>
+          <span className={mtoStatusTextClass('partiel')}>
+            <b className="tabular-nums">{stats.warn}</b> partiel
+          </span>
+          <span className={mtoStatusTextClass('à commander')}>
+            <b className="tabular-nums">{stats.fail}</b> à commander
+          </span>
+          {batchId && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await consolidate.mutateAsync(batchId)
+                  toast({ title: 'Consolidation relancée', variant: 'success' })
+                } catch {
+                  toast({ title: 'Consolidation impossible', variant: 'error' })
+                }
+              }}
+              disabled={consolidate.isPending}
+              className="btn-sm btn-secondary"
+            >
+              <RefreshCw size={13} className={consolidate.isPending ? 'animate-spin' : undefined} />
+              <span className="hidden sm:inline">Re-consolider</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <GroupedDataTable<MtoRow>
@@ -204,15 +402,75 @@ export function MtoPage() {
         searchPlaceholder="Rechercher article, désignation, Ø…"
         emptyIcon={Package}
         emptyTitle="Aucun rapprochement — importez un MTO puis consolidez"
+        onRowClick={(row) => {
+          if (row._child) return
+          openDynamicPanel({
+            type: 'detail',
+            module: 'mto',
+            id: row.id,
+            meta: { batchId },
+          })
+        }}
       />
-
-      {correcting && (
-        <CorrectDialog
-          group={correcting}
-          onClose={() => setCorrecting(null)}
-          onApply={(code) => { correct.mutate({ groupId: correcting.id, articleCode: code }); setCorrecting(null) }}
-        />
-      )}
     </div>
   )
 }
+
+// ── Onglet Catalogue (recherche SAP) ──────────────────────────────────────
+
+function CatalogueTab() {
+  const [search, setSearch] = useState('')
+  const debounced = useDebounce(search, 250)
+  const { data: results, isFetching } = useCatalogSearch(debounced)
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+        <div className="flex flex-1 items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5">
+          <Search size={14} className="shrink-0 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un article SAP (code ou désignation)…"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {search.trim().length < 2 ? (
+          <EmptyState
+            icon={Boxes}
+            title="Recherche catalogue SAP"
+            description="Saisissez au moins 2 caractères pour rechercher un article."
+          />
+        ) : isFetching ? (
+          <p className="px-4 py-3 text-sm text-muted-foreground">Recherche…</p>
+        ) : (results ?? []).length === 0 ? (
+          <EmptyState icon={Boxes} title="Aucun article trouvé" size="compact" />
+        ) : (
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10 border-b border-border bg-chrome text-muted-foreground">
+              <tr>
+                <th className="px-4 py-1.5 text-left font-medium">Code</th>
+                <th className="px-4 py-1.5 text-left font-medium">Désignation</th>
+                <th className="px-4 py-1.5 text-left font-medium">Famille</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/50">
+              {(results ?? []).map((a) => (
+                <tr key={a.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-1.5 font-mono text-primary">{a.code}</td>
+                  <td className="px-4 py-1.5 text-foreground">{a.designation}</td>
+                  <td className="px-4 py-1.5 text-muted-foreground">{a.famille ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default MtoPage

@@ -118,13 +118,26 @@ async def import_mto(
 @router.get("/batches", response_model=list[BatchRead],
             dependencies=[require_permission("mto.requirement.read")])
 async def list_batches(
+    project_id: UUID | None = Query(None),
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    res = await db.execute(
-        select(MtoImportBatch).where(MtoImportBatch.entity_id == entity_id)
-        .order_by(MtoImportBatch.created_at.desc()))
-    return res.scalars().all()
+    from app.models.common import Project
+    query = (
+        select(MtoImportBatch, Project.name)
+        .outerjoin(Project, Project.id == MtoImportBatch.project_id)
+        .where(MtoImportBatch.entity_id == entity_id)
+        .order_by(MtoImportBatch.created_at.desc())
+    )
+    if project_id:
+        query = query.where(MtoImportBatch.project_id == project_id)
+    res = await db.execute(query)
+    out: list[BatchRead] = []
+    for batch, project_name in res.all():
+        data = BatchRead.model_validate(batch)
+        data.project_name = project_name
+        out.append(data)
+    return out
 
 
 @router.post("/batches/{batch_id}/consolidate", response_model=ConsolidateResult,

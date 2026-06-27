@@ -24,6 +24,7 @@ class CatalogItemRead(_Read):
 class BatchRead(_Read):
     id: UUID
     project_id: UUID | None = None
+    project_name: str | None = None
     filename: str | None = None
     label: str | None = None
     status: str

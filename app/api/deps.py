@@ -397,6 +397,12 @@ def _resolve_owner_model(owner_type: str):
     if owner_type == "delegation":
         from app.models.common import UserDelegation
         return (UserDelegation, True)
+    if owner_type == "mto_batch":
+        from app.models.mto import MtoImportBatch
+        return (MtoImportBatch, True)
+    if owner_type == "mto_group":
+        from app.models.mto import MtoConsolidatedGroup
+        return (MtoConsolidatedGroup, True)
     # Unmapped (asset, medical_check, passport, etc.) fall through to
     # permission-only check upstream. Doesn't close the orphan loophole
     # for those types but doesn't regress them either.
@@ -538,6 +544,10 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # delegations (any auth = perm core.users.read couvre le cas).
     # Update reserve au delegant lui-meme (deja gere via la route POST).
     "delegation": ("core.users.read", "core.users.manage"),
+    # MTO (MTOGuru) — batches d'import et groupes consolidés portent
+    # notes/tags/pièces jointes polymorphes via les managers partagés.
+    "mto_batch": ("mto.requirement.read", "mto.requirement.update"),
+    "mto_group": ("mto.matching.read", "mto.matching.correct"),
 }
 
 # Auto-fallback for `{module}_staging` owner types: any module present in

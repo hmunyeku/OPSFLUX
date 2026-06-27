@@ -84,6 +84,12 @@ async def _assert_owner_in_entity(
     elif owner_type == "project":
         from app.models.common import Project
         ok = await _check(Project)
+    elif owner_type == "mto_batch":
+        from app.models.mto import MtoImportBatch
+        ok = await _check(MtoImportBatch)
+    elif owner_type == "mto_group":
+        from app.models.mto import MtoConsolidatedGroup
+        ok = await _check(MtoConsolidatedGroup)
     elif owner_type.endswith("_staging"):
         # Staging owner types bypass existence check: owner_id is a
         # client-generated UUID that only resolves once the parent is

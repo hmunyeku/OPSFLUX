@@ -26,7 +26,6 @@ import { useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Boxes,
-  CheckCircle2,
   ChevronLeft,
   FileUp,
   Layers,
@@ -35,6 +34,7 @@ import {
   Search,
 } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
 import { PageNavBar } from '@/components/ui/Tabs'
@@ -42,6 +42,9 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { GroupedDataTable } from '@/components/ui/GroupedDataTable'
 import { BadgeCell } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { CoverageBar, type CoverageCounts } from '@/components/mto/CoverageBar'
+import { MtoCoverageKpis } from '@/components/mto/MtoKpis'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -71,7 +74,7 @@ import './MtoPanels'
 
 type MtoTab = 'mto' | 'catalogue'
 
-/** Ordre d'affichage des statuts métier dans la mini-couverture. */
+/** Statuts métier filtrables, dans l'ordre d'affichage du segmented control. */
 const COVERAGE_ORDER = ['en stock', 'partiel', 'à commander'] as const
 
 /**
@@ -94,11 +97,15 @@ interface MtoProjectView {
 
 const DEFAULT_PROJECT_VIEW: MtoProjectView = { projectId: null }
 
-const STATUS_FILTER_OPTIONS = [
-  { value: '', label: 'Tous les statuts' },
-  { value: 'en stock', label: 'En stock' },
-  { value: 'partiel', label: 'Partiel' },
-  { value: 'à commander', label: 'À commander' },
+/**
+ * Onglets du segmented control de filtre statut (vue rapprochement).
+ * `dot` = classe pastille tokenisée ; `null` = pas de pastille (« Tous »).
+ */
+const STATUS_SEGMENTS: { value: string; label: string; dot: string | null }[] = [
+  { value: '', label: 'Tous', dot: null },
+  { value: 'en stock', label: 'En stock', dot: 'bg-success' },
+  { value: 'partiel', label: 'Partiel', dot: 'bg-warning' },
+  { value: 'à commander', label: 'À commander', dot: 'bg-destructive' },
 ]
 
 function formatDate(value: string | null | undefined): string {
@@ -220,6 +227,17 @@ function MtoListView({
 
   const canImport = hasPermission('mto.requirement.import') || hasPermission('mto.admin')
 
+  // Couverture agrégée sur tous les MTO du projet (somme des `couverture`).
+  const aggregate = useMemo(() => {
+    const counts: CoverageCounts = { 'en stock': 0, partiel: 0, 'à commander': 0 }
+    let total = 0
+    for (const b of batches ?? []) {
+      total += b.nb_groupes
+      for (const s of COVERAGE_ORDER) counts[s] = (counts[s] ?? 0) + (b.couverture?.[s] ?? 0)
+    }
+    return { total, counts }
+  }, [batches])
+
   const columns = useMemo<ColumnDef<MtoBatchStats, unknown>[]>(
     () => [
       {
@@ -250,7 +268,7 @@ function MtoListView({
       {
         id: 'couverture',
         header: 'Couverture',
-        size: 240,
+        size: 260,
         cell: ({ row }) => <CoverageCell stats={row.original} />,
       },
       {
@@ -272,51 +290,52 @@ function MtoListView({
   )
 
   return (
-    <PanelContent scroll={false}>
-      <DataTable<MtoBatchStats>
-        columns={columns}
-        data={batches ?? []}
-        isLoading={isLoading}
-        onRowClick={(row) => onOpenBatch(row.id)}
-        toolbarRight={
-          canImport ? (
-            <ImportMtoButton projectId={projectId} onImported={onOpenBatch} />
-          ) : undefined
-        }
-        emptyIcon={Package}
-        emptyTitle="Aucun MTO pour ce projet"
-        storageKey="mto-batches"
-      />
-    </PanelContent>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* KPI agrégés du projet (couverture cumulée des MTO). */}
+      <div className="border-b border-border px-4 py-3">
+        <MtoCoverageKpis
+          total={aggregate.total}
+          counts={aggregate.counts}
+          totalLabel="Groupes (tous MTO)"
+          isLoading={isLoading}
+        />
+      </div>
+
+      <PanelContent scroll={false}>
+        <DataTable<MtoBatchStats>
+          columns={columns}
+          data={batches ?? []}
+          isLoading={isLoading}
+          onRowClick={(row) => onOpenBatch(row.id)}
+          toolbarRight={
+            canImport ? (
+              <ImportMtoButton projectId={projectId} onImported={onOpenBatch} />
+            ) : undefined
+          }
+          emptyIcon={Package}
+          emptyTitle="Aucun MTO pour ce projet"
+          storageKey="mto-batches"
+        />
+      </PanelContent>
+    </div>
   )
 }
 
 /**
- * Mini-couverture d'un batch : pourcentage de groupes trouvés + chips par
- * statut métier (en stock / partiel / à commander), construits depuis
- * `couverture` et mtoService. Tokens uniquement, pas de hex.
+ * Cellule « Couverture » d'un batch : % trouvés + CoverageBar segmentée
+ * (en stock / partiel / à commander). Remplace les 3 chips empilés par une
+ * unique barre proportionnelle tokenisée (DS).
  */
 function CoverageCell({ stats }: { stats: MtoBatchStats }) {
   const pct =
     stats.nb_groupes > 0 ? Math.round((stats.nb_trouves / stats.nb_groupes) * 100) : 0
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{pct}%</span>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {COVERAGE_ORDER.filter((s) => (stats.couverture?.[s] ?? 0) > 0).map((s) => (
-          <span
-            key={s}
-            className={`text-[10px] tabular-nums ${mtoStatusTextClass(s)}`}
-            title={mtoStatusLabel(s)}
-          >
-            <b>{stats.couverture[s]}</b> {mtoStatusLabel(s).toLowerCase()}
-          </span>
-        ))}
-      </div>
+    <div className="flex items-center gap-2.5">
+      <span className="w-9 shrink-0 text-right text-xs font-semibold tabular-nums text-foreground">
+        {pct}%
+      </span>
+      <CoverageBar counts={stats.couverture ?? {}} size="sm" className="flex-1" />
     </div>
   )
 }
@@ -380,27 +399,32 @@ function MatchingView({
   const [search, setSearch] = useState('')
   const [statut, setStatut] = useState('')
 
-  const { data: groups, isLoading } = useMtoGroups(batchId, statut || null)
+  // On charge TOUS les groupes (pas de filtre serveur) pour garder des
+  // compteurs de statut stables sur le segmented control et les KPI, puis on
+  // filtre côté client → bascule de filtre instantanée, KPI cohérents.
+  const { data: groups, isLoading } = useMtoGroups(batchId, null)
   const consolidate = useConsolidate()
 
-  const stats = useMemo(() => {
-    const g = groups ?? []
-    const by = (s: string) => g.filter((x) => x.statut === s).length
-    return {
-      total: g.length,
-      ok: by('en stock'),
-      warn: by('partiel'),
-      fail: by('à commander'),
+  // Compteurs par statut (sur l'ensemble, indépendants du filtre actif).
+  const counts = useMemo<CoverageCounts>(() => {
+    const c: CoverageCounts = { 'en stock': 0, partiel: 0, 'à commander': 0 }
+    for (const g of groups ?? []) {
+      if (g.statut) c[g.statut] = (c[g.statut] ?? 0) + 1
     }
+    return c
   }, [groups])
+
+  const total = groups?.length ?? 0
 
   const rows = useMemo<MtoRow[]>(
     () =>
-      (groups ?? []).map((g) => ({
-        ...g,
-        children: (g.children ?? []).map((c, i) => ({ id: `${g.id}-c${i}`, _child: true, ...c })),
-      })),
-    [groups],
+      (groups ?? [])
+        .filter((g) => !statut || g.statut === statut)
+        .map((g) => ({
+          ...g,
+          children: (g.children ?? []).map((c, i) => ({ id: `${g.id}-c${i}`, _child: true, ...c })),
+        })),
+    [groups, statut],
   )
 
   const columns = useMemo<ColumnDef<MtoRow, unknown>[]>(
@@ -478,22 +502,26 @@ function MatchingView({
           ),
       },
       {
+        id: 'lignes',
+        header: 'Lignes',
+        size: 90,
+        cell: ({ row }) =>
+          row.original._child ? null : (
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {row.original.nb_lignes ?? 0} ligne{(row.original.nb_lignes ?? 0) !== 1 ? 's' : ''}
+            </span>
+          ),
+      },
+      {
         id: 'confiance',
         header: 'Confiance',
+        size: 130,
         cell: ({ row }) => {
           if (row.original._child) return null
           if (row.original.verification_status === 'verified') {
-            return (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-                <CheckCircle2 size={13} /> Validé
-              </span>
-            )
+            return <BadgeCell value="Validé" variant="success" />
           }
-          return (
-            <span className="text-xs text-muted-foreground">
-              {row.original.confidence ?? ''} · {row.original.nb_lignes ?? 0} l.
-            </span>
-          )
+          return <ConfidenceBadge confidence={row.original.confidence} />
         },
       },
     ],
@@ -502,7 +530,7 @@ function MatchingView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Fil d'Ariane + filtre statut + KPIs + re-consolider. */}
+      {/* Fil d'Ariane + re-consolider. */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <button
           type="button"
@@ -514,72 +542,164 @@ function MatchingView({
           <span className="hidden sm:inline">Retour aux MTO du projet</span>
         </button>
 
-        <select
-          value={statut}
-          onChange={(e) => setStatut(e.target.value)}
-          className="gl-form-input h-7 text-xs"
-          title="Filtrer par statut"
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await consolidate.mutateAsync(batchId)
+              toast({ title: 'Consolidation relancée', variant: 'success' })
+            } catch {
+              toast({ title: 'Consolidation impossible', variant: 'error' })
+            }
+          }}
+          disabled={consolidate.isPending}
+          className="btn-sm btn-secondary ml-auto"
         >
-          {STATUS_FILTER_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-
-        {/* KPIs compacts (tokens, pas de hex). */}
-        <div className="ml-auto flex flex-wrap items-center gap-3 text-xs">
-          <span className="text-muted-foreground">
-            <b className="text-foreground tabular-nums">{stats.total}</b> groupes
-          </span>
-          <span className={mtoStatusTextClass('en stock')}>
-            <b className="tabular-nums">{stats.ok}</b> en stock
-          </span>
-          <span className={mtoStatusTextClass('partiel')}>
-            <b className="tabular-nums">{stats.warn}</b> partiel
-          </span>
-          <span className={mtoStatusTextClass('à commander')}>
-            <b className="tabular-nums">{stats.fail}</b> à commander
-          </span>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                await consolidate.mutateAsync(batchId)
-                toast({ title: 'Consolidation relancée', variant: 'success' })
-              } catch {
-                toast({ title: 'Consolidation impossible', variant: 'error' })
-              }
-            }}
-            disabled={consolidate.isPending}
-            className="btn-sm btn-secondary"
-          >
-            <RefreshCw size={13} className={consolidate.isPending ? 'animate-spin' : undefined} />
-            <span className="hidden sm:inline">Re-consolider</span>
-          </button>
-        </div>
+          <RefreshCw size={13} className={consolidate.isPending ? 'animate-spin' : undefined} />
+          <span className="hidden sm:inline">Re-consolider</span>
+        </button>
       </div>
 
-      <GroupedDataTable<MtoRow>
-        data={rows}
-        columns={columns}
-        getSubRows={(row) => row.children}
-        isLoading={isLoading}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Rechercher article, désignation, Ø…"
-        emptyIcon={Package}
-        emptyTitle="Aucun rapprochement — consolidez ce MTO"
-        onRowClick={(row) => {
-          if (row._child) return
-          openDynamicPanel({
-            type: 'detail',
-            module: 'mto',
-            id: row.id,
-            meta: { batchId },
-          })
-        }}
-      />
+      {/* Cartes KPI + barre de couverture du MTO. */}
+      <div className="border-b border-border px-4 py-3">
+        <MtoCoverageKpis total={total} counts={counts} totalLabel="Groupes" isLoading={isLoading} />
+      </div>
+
+      {/* Toolbar de filtre : segmented control statut (avec compteurs). */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <StatusSegmented
+          value={statut}
+          onChange={setStatut}
+          counts={counts}
+          total={total}
+        />
+      </div>
+
+      {isLoading ? (
+        <MtoTableSkeleton />
+      ) : (
+        <GroupedDataTable<MtoRow>
+          data={rows}
+          columns={columns}
+          getSubRows={(row) => row.children}
+          isLoading={false}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Rechercher article, désignation, Ø…"
+          emptyIcon={Package}
+          emptyTitle="Aucun rapprochement — consolidez ce MTO"
+          onRowClick={(row) => {
+            if (row._child) return
+            openDynamicPanel({
+              type: 'detail',
+              module: 'mto',
+              id: row.id,
+              meta: { batchId },
+            })
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Segmented control de filtre statut (Tous · En stock · Partiel · À commander)
+ * avec compteurs. Pattern DS : boutons-chips tokenisés dans un conteneur
+ * segmenté (aucun composant ToggleGroup générique n'existe dans le DS).
+ */
+function StatusSegmented({
+  value,
+  onChange,
+  counts,
+  total,
+}: {
+  value: string
+  onChange: (v: string) => void
+  counts: CoverageCounts
+  total: number
+}) {
+  const countFor = (v: string) => (v === '' ? total : counts[v] ?? 0)
+
+  return (
+    <div
+      className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5"
+      role="tablist"
+      aria-label="Filtrer par statut"
+    >
+      {STATUS_SEGMENTS.map((seg) => {
+        const active = value === seg.value
+        return (
+          <button
+            key={seg.value || 'all'}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(seg.value)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+              active
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {seg.dot && <span className={cn('h-2 w-2 shrink-0 rounded-full', seg.dot)} />}
+            <span>{seg.label}</span>
+            <span
+              className={cn(
+                'tabular-nums',
+                active ? 'text-muted-foreground' : 'text-muted-foreground/70',
+              )}
+            >
+              {countFor(seg.value)}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Badge de confiance tokenisé (haute → success, moyenne → warning, …). */
+function ConfidenceBadge({ confidence }: { confidence?: string | null }) {
+  if (!confidence) return <span className="text-xs text-muted-foreground">—</span>
+  const norm = confidence.toLowerCase()
+  const variant: 'success' | 'warning' | 'danger' | 'neutral' =
+    norm.includes('haut') || norm.includes('high') || norm.includes('exact')
+      ? 'success'
+      : norm.includes('moy') || norm.includes('medium') || norm.includes('partiel')
+        ? 'warning'
+        : norm.includes('faible') || norm.includes('low')
+          ? 'danger'
+          : 'neutral'
+  return <BadgeCell value={confidence} variant={variant} />
+}
+
+/**
+ * Skeleton de table de rapprochement — remplace le spinner brut pendant le
+ * chargement des groupes. En-têtes + lignes en placeholders tokenisés.
+ */
+function MtoTableSkeleton() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Toolbar de recherche fantôme (miroir de GroupedDataTable). */}
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <Skeleton className="h-4 w-4 rounded" />
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="ml-auto h-3 w-16" />
+      </div>
+      <div className="flex-1 space-y-2 overflow-hidden px-3 py-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 flex-1" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

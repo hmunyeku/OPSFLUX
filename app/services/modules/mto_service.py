@@ -37,6 +37,7 @@ from app.modules.mto.engine.io_loaders import (
     suggest_mapping,
 )
 from app.modules.mto.engine.matching import build_sap_index
+from app.schemas.mto import BatchStatsRead
 
 
 def _s(value) -> str | None:
@@ -140,6 +141,69 @@ async def import_mto(db: AsyncSession, entity_id: UUID, *, path: str,
     await db.commit()
     await db.refresh(batch)
     return batch
+
+
+# --------------------------------------------------------------------------- #
+# Stats batches (couverture par projet) — agrege, sans N+1
+# --------------------------------------------------------------------------- #
+async def get_batch_stats(db: AsyncSession, entity_id: UUID,
+                          project_id: UUID | None = None) -> list[BatchStatsRead]:
+    """Liste les batches MTO de l'entite avec leur couverture (lignes/groupes/trouves).
+
+    Tout est scope par entity_id. 4 requetes agregees au total (pas de N+1) :
+    batches, lignes/batch, groupes/(batch,statut), trouves/batch.
+    """
+    from app.models.common import Project
+
+    query = (
+        select(MtoImportBatch, Project.name)
+        .outerjoin(Project, Project.id == MtoImportBatch.project_id)
+        .where(MtoImportBatch.entity_id == entity_id)
+        .order_by(MtoImportBatch.created_at.desc())
+    )
+    if project_id:
+        query = query.where(MtoImportBatch.project_id == project_id)
+    rows = (await db.execute(query)).all()
+    if not rows:
+        return []
+
+    ids = [batch.id for batch, _ in rows]
+
+    lignes = dict((await db.execute(
+        select(MtoRequirement.batch_id, func.count())
+        .where(MtoRequirement.entity_id == entity_id, MtoRequirement.batch_id.in_(ids))
+        .group_by(MtoRequirement.batch_id)
+    )).all())
+
+    couverture: dict[UUID, dict[str, int]] = {}
+    groupes: dict[UUID, int] = {}
+    for batch_id, statut, count in (await db.execute(
+        select(MtoConsolidatedGroup.batch_id, MtoConsolidatedGroup.statut, func.count())
+        .where(MtoConsolidatedGroup.entity_id == entity_id,
+               MtoConsolidatedGroup.batch_id.in_(ids))
+        .group_by(MtoConsolidatedGroup.batch_id, MtoConsolidatedGroup.statut)
+    )).all():
+        couverture.setdefault(batch_id, {})[statut or "?"] = count
+        groupes[batch_id] = groupes.get(batch_id, 0) + count
+
+    trouves = dict((await db.execute(
+        select(MtoConsolidatedGroup.batch_id, func.count())
+        .where(MtoConsolidatedGroup.entity_id == entity_id,
+               MtoConsolidatedGroup.batch_id.in_(ids),
+               MtoConsolidatedGroup.found.is_(True))
+        .group_by(MtoConsolidatedGroup.batch_id)
+    )).all())
+
+    out: list[BatchStatsRead] = []
+    for batch, project_name in rows:
+        r = BatchStatsRead.model_validate(batch)
+        r.project_name = project_name
+        r.nb_lignes = lignes.get(batch.id, 0)
+        r.nb_groupes = groupes.get(batch.id, 0)
+        r.nb_trouves = trouves.get(batch.id, 0)
+        r.couverture = couverture.get(batch.id, {})
+        out.append(r)
+    return out
 
 
 # --------------------------------------------------------------------------- #

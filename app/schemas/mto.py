@@ -31,6 +31,13 @@ class BatchRead(_Read):
     created_at: datetime | None = None
 
 
+class BatchStatsRead(BatchRead):
+    nb_lignes: int = 0
+    nb_groupes: int = 0
+    nb_trouves: int = 0
+    couverture: dict[str, int] = {}
+
+
 class GroupRead(_Read):
     id: UUID
     batch_id: UUID

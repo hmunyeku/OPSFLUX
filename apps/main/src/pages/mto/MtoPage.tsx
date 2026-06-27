@@ -1,23 +1,33 @@
 /**
- * MTOGuru — page de rapprochement MTO ↔ stock/catalogue SAP.
+ * MTOGuru — page PROJECT-FIRST du rapprochement MTO ↔ stock/catalogue SAP.
  *
- * Réécrite sur le design system OpsFlux (gabarit PackLog / MOC) :
- *   - PanelHeader + ToolbarButton "Importer" (perm mto.requirement.import)
- *   - PageNavBar : onglets Rapprochement / Catalogue
- *   - Toolbar : recherche + filtre statut + sélecteur de batch + ProjectPicker
- *   - GroupedDataTable : colonnes en tokens Tailwind, badges de statut
- *     (BadgeCell), lignes d'origine dépliables (children), clic => DynamicPanel
- *   - DynamicPanel de détail via le registry (cf. MtoPanels.tsx)
- *   - useFilterPersistence pour mémoriser batch / statut / projet
+ * Modèle métier : un PROJET a PLUSIEURS MTO (imports). On entre par un projet,
+ * on voit/charge ses MTO, et le RAPPROCHEMENT (stock + codes SAP) est le DÉTAIL
+ * d'un MTO — pas la page d'accueil.
  *
- * Aucune couleur hex en dur, aucun style inline décoratif, aucun dialog
- * custom : tout passe par les composants OpsFlux et les classes de tokens.
+ * Flux de l'onglet « MTO » :
+ *   1. ProjectPicker proéminent en tête (persisté via useFilterPersistence).
+ *   2. Aucun projet → EmptyState « Choisissez un projet ».
+ *   3. Projet choisi → liste de ses MTO (useMtoBatchStats) dans une DataTable :
+ *      MTO · Date · Lignes · Couverture (chips/barre) · Statut + bouton
+ *      « Charger un MTO » (gated import).
+ *   4. Clic sur une ligne MTO → sous-vue RAPPROCHEMENT de ce batch (groupes
+ *      consolidés, GroupedDataTable dépliable, validation/correction, détail
+ *      via MtoPanels) + fil d'Ariane « ← Retour aux MTO du projet ».
+ *
+ * Onglet « Catalogue & Stock » : import catalogue, import stock (label) et
+ * recherche catalogue.
+ *
+ * Design system OpsFlux (gabarit PackLog / Projets) : PanelHeader, PageNavBar,
+ * ProjectPicker, DataTable, GroupedDataTable, BadgeCell, EmptyState, tokens.
+ * Aucune couleur hex en dur, aucun style inline décoratif.
  */
 import { useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Boxes,
   CheckCircle2,
+  ChevronLeft,
   FileUp,
   Layers,
   Package,
@@ -28,6 +38,7 @@ import {
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
 import { PageNavBar } from '@/components/ui/Tabs'
+import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { GroupedDataTable } from '@/components/ui/GroupedDataTable'
 import { BadgeCell } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -40,22 +51,33 @@ import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import {
   useCatalogSearch,
   useConsolidate,
+  useImportCatalogue,
   useImportMto,
-  useMtoBatches,
+  useImportStock,
+  useMtoBatchStats,
   useMtoGroups,
+  type MtoBatchStats,
   type MtoChild,
   type MtoGroup,
 } from '@/hooks/useMto'
-import { mtoBatchLabel, mtoStatusLabel, mtoStatusTextClass, mtoStatusVariant } from '@/services/mtoService'
+import {
+  mtoBatchLabel,
+  mtoStatusLabel,
+  mtoStatusTextClass,
+  mtoStatusVariant,
+} from '@/services/mtoService'
 // Effet de bord : enregistre le renderer du panneau MTO dans le registry.
 import './MtoPanels'
 
-type MtoTab = 'matching' | 'catalogue'
+type MtoTab = 'mto' | 'catalogue'
+
+/** Ordre d'affichage des statuts métier dans la mini-couverture. */
+const COVERAGE_ORDER = ['en stock', 'partiel', 'à commander'] as const
 
 /**
- * Ligne de table : un groupe (parent) OU une ligne d'origine (child).
- * Omit sur `diameter`/`children` pour réconcilier `string | null` (groupe)
- * et `string | undefined` (child) sans conflit de types.
+ * Ligne de table de rapprochement : un groupe (parent) OU une ligne d'origine
+ * (child). Omit sur `diameter`/`children` pour réconcilier `string | null`
+ * (groupe) et `string | undefined` (child) sans conflit de types.
  */
 type MtoRow = Omit<Partial<MtoGroup>, 'diameter' | 'children'> &
   Omit<Partial<MtoChild>, 'diameter'> & {
@@ -65,14 +87,12 @@ type MtoRow = Omit<Partial<MtoGroup>, 'diameter' | 'children'> &
     children?: MtoRow[]
   }
 
-/** État de filtre persisté (localStorage + DB) sous la clé mto.list.view. */
-interface MtoListView {
-  batchId: string | null
-  statut: string
+/** État persisté de l'onglet MTO (projet courant). */
+interface MtoProjectView {
   projectId: string | null
 }
 
-const DEFAULT_VIEW: MtoListView = { batchId: null, statut: '', projectId: null }
+const DEFAULT_PROJECT_VIEW: MtoProjectView = { projectId: null }
 
 const STATUS_FILTER_OPTIONS = [
   { value: '', label: 'Tous les statuts' },
@@ -81,15 +101,24 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'à commander', label: 'À commander' },
 ]
 
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  try {
+    return new Date(value).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  } catch {
+    return value
+  }
+}
+
 export function MtoPage() {
-  const { hasPermission } = usePermission()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
 
-  const [activeTab, setActiveTab] = useState<MtoTab>('matching')
-  const [view, setView] = useFilterPersistence<MtoListView>('mto.list.view', DEFAULT_VIEW)
-
-  const canImport = hasPermission('mto.requirement.import') || hasPermission('mto.admin')
+  const [activeTab, setActiveTab] = useState<MtoTab>('mto')
 
   // Le panneau plein-écran prend toute la zone : on cache la liste à côté.
   const isFullPanel =
@@ -97,8 +126,8 @@ export function MtoPage() {
 
   const tabItems = useMemo(
     () => [
-      { id: 'matching' as const, label: 'Rapprochement', icon: Layers },
-      { id: 'catalogue' as const, label: 'Catalogue', icon: Boxes },
+      { id: 'mto' as const, label: 'MTO', icon: Layers },
+      { id: 'catalogue' as const, label: 'Catalogue & Stock', icon: Boxes },
     ],
     [],
   )
@@ -111,20 +140,13 @@ export function MtoPage() {
             icon={Package}
             title="MTOGuru"
             subtitle="Rapprochement MTO ↔ stock SAP"
-          >
-            {canImport && activeTab === 'matching' && (
-              <ImportButton
-                projectId={view.projectId}
-                onImported={(batchId) => setView((v) => ({ ...v, batchId }))}
-              />
-            )}
-          </PanelHeader>
+          />
 
           <PageNavBar items={tabItems} activeId={activeTab} onTabChange={setActiveTab} />
 
           <PanelContent scroll={false}>
-            {activeTab === 'matching' && <MatchingTab view={view} setView={setView} />}
-            {activeTab === 'catalogue' && <CatalogueTab />}
+            {activeTab === 'mto' && <MtoProjectTab />}
+            {activeTab === 'catalogue' && <CatalogueStockTab />}
           </PanelContent>
         </div>
       )}
@@ -134,13 +156,178 @@ export function MtoPage() {
   )
 }
 
-// ── Bouton d'import (file picker → POST /import/mto) ───────────────────────
+// ── Onglet MTO (project-first) ─────────────────────────────────────────────
 
-function ImportButton({
+function MtoProjectTab() {
+  const [view, setView] = useFilterPersistence<MtoProjectView>(
+    'mto.project',
+    DEFAULT_PROJECT_VIEW,
+  )
+  // Sous-vue rapprochement : null = liste des MTO du projet.
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
+
+  const projectId = view.projectId
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* ProjectPicker proéminent en tête de l'onglet. */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Projet
+        </span>
+        <div className="min-w-[260px] max-w-[420px] flex-1">
+          <ProjectPicker
+            value={projectId}
+            onChange={(pid) => {
+              setView({ projectId: pid })
+              setSelectedBatchId(null)
+            }}
+            placeholder="Choisissez un projet…"
+            clearable
+          />
+        </div>
+      </div>
+
+      {!projectId ? (
+        <EmptyState
+          icon={Package}
+          title="Choisissez un projet pour voir ses MTO"
+          description="Le rapprochement MTO ↔ stock est organisé par projet. Sélectionnez un projet pour lister ses imports MTO et lancer un rapprochement."
+        />
+      ) : selectedBatchId ? (
+        <MatchingView
+          batchId={selectedBatchId}
+          onBack={() => setSelectedBatchId(null)}
+        />
+      ) : (
+        <MtoListView projectId={projectId} onOpenBatch={setSelectedBatchId} />
+      )}
+    </div>
+  )
+}
+
+// ── Liste des MTO d'un projet ──────────────────────────────────────────────
+
+function MtoListView({
+  projectId,
+  onOpenBatch,
+}: {
+  projectId: string
+  onOpenBatch: (batchId: string) => void
+}) {
+  const { hasPermission } = usePermission()
+  const { data: batches, isLoading } = useMtoBatchStats(projectId)
+
+  const canImport = hasPermission('mto.requirement.import') || hasPermission('mto.admin')
+
+  const columns = useMemo<ColumnDef<MtoBatchStats, unknown>[]>(
+    () => [
+      {
+        id: 'mto',
+        header: 'MTO',
+        cell: ({ row }) => (
+          <span className="font-medium text-foreground">{mtoBatchLabel(row.original)}</span>
+        ),
+      },
+      {
+        id: 'created_at',
+        header: 'Date',
+        size: 120,
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {formatDate(row.original.created_at)}
+          </span>
+        ),
+      },
+      {
+        id: 'nb_lignes',
+        header: 'Lignes',
+        size: 80,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{row.original.nb_lignes}</span>
+        ),
+      },
+      {
+        id: 'couverture',
+        header: 'Couverture',
+        size: 240,
+        cell: ({ row }) => <CoverageCell stats={row.original} />,
+      },
+      {
+        id: 'status',
+        header: 'Statut',
+        size: 120,
+        cell: ({ row }) =>
+          row.original.status ? (
+            <BadgeCell
+              value={mtoStatusLabel(row.original.status)}
+              variant={mtoStatusVariant(row.original.status)}
+            />
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          ),
+      },
+    ],
+    [],
+  )
+
+  return (
+    <PanelContent scroll={false}>
+      <DataTable<MtoBatchStats>
+        columns={columns}
+        data={batches ?? []}
+        isLoading={isLoading}
+        onRowClick={(row) => onOpenBatch(row.id)}
+        toolbarRight={
+          canImport ? (
+            <ImportMtoButton projectId={projectId} onImported={onOpenBatch} />
+          ) : undefined
+        }
+        emptyIcon={Package}
+        emptyTitle="Aucun MTO pour ce projet"
+        storageKey="mto-batches"
+      />
+    </PanelContent>
+  )
+}
+
+/**
+ * Mini-couverture d'un batch : pourcentage de groupes trouvés + chips par
+ * statut métier (en stock / partiel / à commander), construits depuis
+ * `couverture` et mtoService. Tokens uniquement, pas de hex.
+ */
+function CoverageCell({ stats }: { stats: MtoBatchStats }) {
+  const pct =
+    stats.nb_groupes > 0 ? Math.round((stats.nb_trouves / stats.nb_groupes) * 100) : 0
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{pct}%</span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {COVERAGE_ORDER.filter((s) => (stats.couverture?.[s] ?? 0) > 0).map((s) => (
+          <span
+            key={s}
+            className={`text-[10px] tabular-nums ${mtoStatusTextClass(s)}`}
+            title={mtoStatusLabel(s)}
+          >
+            <b>{stats.couverture[s]}</b> {mtoStatusLabel(s).toLowerCase()}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Bouton « Charger un MTO » (file picker → POST /import/mto) ──────────────
+
+function ImportMtoButton({
   projectId,
   onImported,
 }: {
-  projectId: string | null
+  projectId: string
   onImported: (batchId: string) => void
 }) {
   const { toast } = useToast()
@@ -151,7 +338,7 @@ function ImportButton({
     <>
       <ToolbarButton
         icon={FileUp}
-        label={importMto.isPending ? 'Import…' : 'Importer'}
+        label={importMto.isPending ? 'Import…' : 'Charger un MTO'}
         variant="primary"
         disabled={importMto.isPending}
         onClick={() => inputRef.current?.click()}
@@ -179,24 +366,21 @@ function ImportButton({
   )
 }
 
-// ── Onglet Rapprochement ──────────────────────────────────────────────────
+// ── Sous-vue rapprochement d'un batch ──────────────────────────────────────
 
-function MatchingTab({
-  view,
-  setView,
+function MatchingView({
+  batchId,
+  onBack,
 }: {
-  view: MtoListView
-  setView: (v: MtoListView | ((prev: MtoListView) => MtoListView)) => void
+  batchId: string
+  onBack: () => void
 }) {
   const { toast } = useToast()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [search, setSearch] = useState('')
+  const [statut, setStatut] = useState('')
 
-  const { data: batches } = useMtoBatches(view.projectId)
-  // Batch effectif : sélection explicite, sinon le 1er de la liste.
-  const batchId = view.batchId ?? batches?.[0]?.id ?? null
-
-  const { data: groups, isLoading } = useMtoGroups(batchId, view.statut || null)
+  const { data: groups, isLoading } = useMtoGroups(batchId, statut || null)
   const consolidate = useConsolidate()
 
   const stats = useMemo(() => {
@@ -318,26 +502,21 @@ function MatchingTab({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Toolbar : batch + statut + projet + KPIs + re-consolider. */}
+      {/* Fil d'Ariane + filtre statut + KPIs + re-consolider. */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-        <select
-          value={batchId ?? ''}
-          onChange={(e) => setView((v) => ({ ...v, batchId: e.target.value || null }))}
-          className="gl-form-input h-7 text-xs"
-          title="Lot d'import MTO"
+        <button
+          type="button"
+          onClick={onBack}
+          className="btn-sm btn-secondary"
+          title="Retour aux MTO du projet"
         >
-          {(batches ?? []).length === 0 && <option value="">Aucun lot</option>}
-          {(batches ?? []).map((b) => (
-            <option key={b.id} value={b.id}>
-              {mtoBatchLabel(b)}
-              {b.project_name ? ` — ${b.project_name}` : ''}
-            </option>
-          ))}
-        </select>
+          <ChevronLeft size={14} />
+          <span className="hidden sm:inline">Retour aux MTO du projet</span>
+        </button>
 
         <select
-          value={view.statut}
-          onChange={(e) => setView((v) => ({ ...v, statut: e.target.value }))}
+          value={statut}
+          onChange={(e) => setStatut(e.target.value)}
           className="gl-form-input h-7 text-xs"
           title="Filtrer par statut"
         >
@@ -347,15 +526,6 @@ function MatchingTab({
             </option>
           ))}
         </select>
-
-        <div className="min-w-[200px]">
-          <ProjectPicker
-            value={view.projectId}
-            onChange={(pid) => setView((v) => ({ ...v, projectId: pid, batchId: null }))}
-            placeholder="Tous les projets"
-            clearable
-          />
-        </div>
 
         {/* KPIs compacts (tokens, pas de hex). */}
         <div className="ml-auto flex flex-wrap items-center gap-3 text-xs">
@@ -371,24 +541,22 @@ function MatchingTab({
           <span className={mtoStatusTextClass('à commander')}>
             <b className="tabular-nums">{stats.fail}</b> à commander
           </span>
-          {batchId && (
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await consolidate.mutateAsync(batchId)
-                  toast({ title: 'Consolidation relancée', variant: 'success' })
-                } catch {
-                  toast({ title: 'Consolidation impossible', variant: 'error' })
-                }
-              }}
-              disabled={consolidate.isPending}
-              className="btn-sm btn-secondary"
-            >
-              <RefreshCw size={13} className={consolidate.isPending ? 'animate-spin' : undefined} />
-              <span className="hidden sm:inline">Re-consolider</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await consolidate.mutateAsync(batchId)
+                toast({ title: 'Consolidation relancée', variant: 'success' })
+              } catch {
+                toast({ title: 'Consolidation impossible', variant: 'error' })
+              }
+            }}
+            disabled={consolidate.isPending}
+            className="btn-sm btn-secondary"
+          >
+            <RefreshCw size={13} className={consolidate.isPending ? 'animate-spin' : undefined} />
+            <span className="hidden sm:inline">Re-consolider</span>
+          </button>
         </div>
       </div>
 
@@ -401,7 +569,7 @@ function MatchingTab({
         onSearchChange={setSearch}
         searchPlaceholder="Rechercher article, désignation, Ø…"
         emptyIcon={Package}
-        emptyTitle="Aucun rapprochement — importez un MTO puis consolidez"
+        emptyTitle="Aucun rapprochement — consolidez ce MTO"
         onRowClick={(row) => {
           if (row._child) return
           openDynamicPanel({
@@ -416,15 +584,142 @@ function MatchingTab({
   )
 }
 
-// ── Onglet Catalogue (recherche SAP) ──────────────────────────────────────
+// ── Onglet Catalogue & Stock ───────────────────────────────────────────────
 
-function CatalogueTab() {
+function CatalogueStockTab() {
+  const { hasPermission } = usePermission()
+  const { toast } = useToast()
   const [search, setSearch] = useState('')
   const debounced = useDebounce(search, 250)
   const { data: results, isFetching } = useCatalogSearch(debounced)
 
+  const importCatalogue = useImportCatalogue()
+  const importStock = useImportStock()
+  const catalogueRef = useRef<HTMLInputElement | null>(null)
+  const stockRef = useRef<HTMLInputElement | null>(null)
+  const [stockLabel, setStockLabel] = useState('')
+
+  const canImportCatalogue = hasPermission('mto.catalogue.import') || hasPermission('mto.admin')
+  const canImportStock = hasPermission('mto.stock.import') || hasPermission('mto.admin')
+
+  const columns = useMemo<ColumnDef<NonNullable<typeof results>[number], unknown>[]>(
+    () => [
+      {
+        id: 'code',
+        header: 'Code',
+        size: 160,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-primary">{row.original.code}</span>
+        ),
+      },
+      {
+        id: 'designation',
+        header: 'Désignation',
+        cell: ({ row }) => <span className="text-foreground">{row.original.designation}</span>,
+      },
+      {
+        id: 'famille',
+        header: 'Famille',
+        size: 180,
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">{row.original.famille ?? '—'}</span>
+        ),
+      },
+    ],
+    [],
+  )
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* Bandeau import catalogue + stock. */}
+      {(canImportCatalogue || canImportStock) && (
+        <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-2">
+          {canImportCatalogue && (
+            <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Catalogue SAP
+              </p>
+              <ToolbarButton
+                icon={FileUp}
+                label={importCatalogue.isPending ? 'Import…' : 'Importer le catalogue'}
+                disabled={importCatalogue.isPending}
+                onClick={() => catalogueRef.current?.click()}
+              />
+              <input
+                ref={catalogueRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const res = await importCatalogue.mutateAsync(file)
+                    toast({
+                      title: `Catalogue importé : ${res.imported} article(s)`,
+                      variant: 'success',
+                    })
+                  } catch {
+                    toast({ title: "Échec de l'import catalogue", variant: 'error' })
+                  } finally {
+                    e.target.value = ''
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {canImportStock && (
+            <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                État de stock
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={stockLabel}
+                  onChange={(e) => setStockLabel(e.target.value)}
+                  placeholder="Libellé (ex. Stock 2026-06)…"
+                  className="gl-form-input h-8 flex-1 text-xs"
+                />
+                <ToolbarButton
+                  icon={FileUp}
+                  label={importStock.isPending ? 'Import…' : 'Importer le stock'}
+                  disabled={importStock.isPending}
+                  onClick={() => stockRef.current?.click()}
+                />
+              </div>
+              <input
+                ref={stockRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const res = await importStock.mutateAsync({
+                      file,
+                      label: stockLabel || undefined,
+                    })
+                    toast({
+                      title: `Stock importé : ${res.imported} ligne(s)`,
+                      variant: 'success',
+                    })
+                    setStockLabel('')
+                  } catch {
+                    toast({ title: "Échec de l'import stock", variant: 'error' })
+                  } finally {
+                    e.target.value = ''
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recherche catalogue. */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
         <div className="flex flex-1 items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5">
           <Search size={14} className="shrink-0 text-muted-foreground" />
@@ -437,36 +732,24 @@ function CatalogueTab() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col">
         {search.trim().length < 2 ? (
           <EmptyState
             icon={Boxes}
             title="Recherche catalogue SAP"
             description="Saisissez au moins 2 caractères pour rechercher un article."
           />
-        ) : isFetching ? (
-          <p className="px-4 py-3 text-sm text-muted-foreground">Recherche…</p>
-        ) : (results ?? []).length === 0 ? (
-          <EmptyState icon={Boxes} title="Aucun article trouvé" size="compact" />
         ) : (
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10 border-b border-border bg-chrome text-muted-foreground">
-              <tr>
-                <th className="px-4 py-1.5 text-left font-medium">Code</th>
-                <th className="px-4 py-1.5 text-left font-medium">Désignation</th>
-                <th className="px-4 py-1.5 text-left font-medium">Famille</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {(results ?? []).map((a) => (
-                <tr key={a.id} className="hover:bg-muted/20">
-                  <td className="px-4 py-1.5 font-mono text-primary">{a.code}</td>
-                  <td className="px-4 py-1.5 text-foreground">{a.designation}</td>
-                  <td className="px-4 py-1.5 text-muted-foreground">{a.famille ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <PanelContent scroll={false}>
+            <DataTable<NonNullable<typeof results>[number]>
+              columns={columns}
+              data={results ?? []}
+              isLoading={isFetching}
+              emptyIcon={Boxes}
+              emptyTitle="Aucun article trouvé"
+              storageKey="mto-catalogue"
+            />
+          </PanelContent>
         )}
       </div>
     </div>

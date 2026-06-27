@@ -23,6 +23,7 @@ from app.models.common import User
 from app.models.mto import MtoConsolidatedGroup, MtoImportBatch, SapCatalogItem
 from app.schemas.mto import (
     BatchRead,
+    BatchStatsRead,
     CatalogItemRead,
     ConsolidateResult,
     CorrectRequest,
@@ -138,6 +139,16 @@ async def list_batches(
         data.project_name = project_name
         out.append(data)
     return out
+
+
+@router.get("/batches/stats", response_model=list[BatchStatsRead],
+            dependencies=[require_permission("mto.requirement.read")])
+async def batches_stats(
+    project_id: UUID | None = Query(None),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    return await mto_service.get_batch_stats(db, entity_id, project_id)
 
 
 @router.post("/batches/{batch_id}/consolidate", response_model=ConsolidateResult,

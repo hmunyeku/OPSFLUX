@@ -19,6 +19,19 @@ export interface MtoBatch {
   created_at: string | null
 }
 
+/**
+ * Statistiques d'un batch MTO — alimente la liste project-first.
+ * Endpoint : GET /api/v1/mto/batches/stats?project_id=
+ * Le champ `couverture` mappe chaque statut métier (clés de mtoService :
+ * "en stock" / "partiel" / "à commander") vers son nombre de groupes.
+ */
+export interface MtoBatchStats extends MtoBatch {
+  nb_lignes: number
+  nb_groupes: number
+  nb_trouves: number
+  couverture: Record<string, number>
+}
+
 export interface MtoChild {
   line_num?: string
   row?: number
@@ -79,6 +92,24 @@ export function useMtoBatches(projectId?: string | null) {
 }
 
 /**
+ * Statistiques des batches MTO d'un projet (project-first). N'est activé que
+ * si `projectId` est fourni : sans projet, on n'affiche pas de MTO.
+ * Endpoint : GET /api/v1/mto/batches/stats?project_id=
+ */
+export function useMtoBatchStats(projectId: string | null) {
+  return useQuery({
+    queryKey: ['mto-batch-stats', projectId ?? null],
+    queryFn: async () =>
+      (
+        await api.get<MtoBatchStats[]>('/api/v1/mto/batches/stats', {
+          params: { project_id: projectId },
+        })
+      ).data,
+    enabled: !!projectId,
+  })
+}
+
+/**
  * Groupes consolidés d'un batch. `statut` optionnel : filtre côté serveur
  * (en stock / partiel / à commander).
  */
@@ -123,6 +154,53 @@ export function useImportMto() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mto-batches'] })
+    },
+  })
+}
+
+/** Résultat d'un import catalogue / stock (cf. backend ImportResult). */
+export interface MtoImportCount {
+  imported: number
+  kind: string
+}
+
+/**
+ * Import du catalogue SAP (multipart, fichier seul).
+ * Endpoint : POST /api/v1/mto/import/catalogue (perm mto.catalogue.import).
+ */
+export function useImportCatalogue() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return (
+        await api.post<MtoImportCount>('/api/v1/mto/import/catalogue', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      ).data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mto-catalogue'] })
+    },
+  })
+}
+
+/**
+ * Import d'un état de stock SAP (multipart, fichier + label optionnel).
+ * Endpoint : POST /api/v1/mto/import/stock (perm mto.stock.import).
+ */
+export function useImportStock() {
+  return useMutation({
+    mutationFn: async ({ file, label }: { file: File; label?: string }) => {
+      const form = new FormData()
+      form.append('file', file)
+      if (label) form.append('label', label)
+      return (
+        await api.post<MtoImportCount>('/api/v1/mto/import/stock', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      ).data
     },
   })
 }

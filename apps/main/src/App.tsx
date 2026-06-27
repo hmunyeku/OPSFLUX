@@ -51,6 +51,7 @@ const FileManagerPage = lazy(() => import('@/pages/files/FileManagerPage'))
 const SupportPage = lazy(() => import('@/pages/support/SupportPage').then(m => ({ default: m.SupportPage })))
 const SatisfactionPage = lazy(() => import('@/pages/support/SatisfactionPage').then(m => ({ default: m.SatisfactionPage })))
 const MOCPage = lazy(() => import('@/pages/moc/MOCPage').then(m => ({ default: m.MOCPage })))
+const MtoPage = lazy(() => import('@/pages/mto/MtoPage').then(m => ({ default: m.MtoPage })))
 const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default: m.HomePage })))
 const NotFoundPage = lazy(() => import('@/pages/errors/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 
@@ -153,6 +154,7 @@ export default function App() {
                   <Route path="/planner/*" element={<RequireModuleEnabled module="planner"><RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/travelwiz/*" element={<RequireModuleEnabled module="travelwiz"><RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/packlog/*" element={<RequireModuleEnabled module="packlog"><RequirePermission permission="packlog.cargo.read"><PackLogPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/mto/*" element={<RequireModuleEnabled module="mto"><RequirePermission permission="mto.matching.read"><MtoPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/imputations/*" element={<RequirePermission permission="imputation.read"><ImputationsPage /></RequirePermission>} />
                   <Route path="/report-editor/*" element={<Navigate to="/papyrus" replace />} />
                   <Route path="/papyrus/*" element={<RequireModuleEnabled module="papyrus"><RequirePermission permission="papyrus.document.read"><PapyrusPage /></RequirePermission></RequireModuleEnabled>} />

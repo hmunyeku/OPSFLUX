@@ -46,6 +46,7 @@ export const ROUTES = {
   papyrus: '/papyrus',
   pidPfd: '/pid-pfd',
   moc: '/moc',
+  mto: '/mto',
 
   // ── Dynamic ──────────────────────────────────────────────────────────────
   tv: (token: string) => `/tv/${token}`,

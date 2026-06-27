@@ -72,6 +72,7 @@ const moduleNavItems: NavItemDef[] = [
   { path: '/paxlog', icon: Users, labelKey: 'nav.paxlog', module: 'paxlog', order: 40, requiredAnyPermissions: ['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read'] },
   { path: '/travelwiz', icon: Ship, labelKey: 'nav.travelwiz', module: 'travelwiz', order: 42, requiredPermission: 'travelwiz.voyage.read' },
   { path: '/packlog', icon: Package, labelKey: 'nav.packlog', module: 'packlog', order: 43, requiredPermission: 'packlog.cargo.read' },
+  { path: '/mto', icon: Package, labelKey: 'nav.mto', module: 'mto', order: 45, requiredPermission: 'mto.matching.read' },
   { path: '/imputations', icon: Coins, labelKey: 'nav.imputations', module: 'core', order: 44, requiredPermission: 'imputation.read' },
   { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', module: 'papyrus', order: 55, requiredPermission: 'papyrus.document.read' },
   { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid_pfd', order: 58, requiredPermission: 'pid.diagram.read' },

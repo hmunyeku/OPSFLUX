@@ -122,3 +122,12 @@ from app.models.teams import (  # noqa: F401
     Team,
     TeamMember,
 )
+from app.models.mto import (  # noqa: F401
+    MtoConsolidatedGroup,
+    MtoImportBatch,
+    MtoRequirement,
+    MtoValidationRecord,
+    SapCatalogItem,
+    SapInventory,
+    SapItemAlias,
+)

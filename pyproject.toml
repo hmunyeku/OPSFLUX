@@ -21,6 +21,7 @@ dependencies = [
     # MTO module — moteur de rapprochement (fuzzy matching + dataframes)
     "rapidfuzz>=3.0.0",
     "pandas>=2.0.0",
+    "xlsxwriter>=3.0.0",
     # Redis
     "redis[hiredis]>=5.0.0",
     # Auth

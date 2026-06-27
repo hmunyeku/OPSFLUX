@@ -337,6 +337,60 @@ async def consolidate_batch(db: AsyncSession, entity_id: UUID, batch_id: UUID) -
 
 
 # --------------------------------------------------------------------------- #
+# Export Excel metier (reutilise le moteur app/modules/mto/engine/export.py)
+# --------------------------------------------------------------------------- #
+async def export_batch_xlsx(db: AsyncSession, entity_id: UUID, batch_id: UUID) -> bytes:
+    """Classeur Excel (Synthese / A sortir du stock / A commander) d'un batch consolide.
+
+    Recharge les MtoConsolidatedGroup persistes (entity-scope, comme list_groups), les
+    remappe vers le dict attendu par engine.export.build_export_frames/export_bytes, puis
+    delegue la mise en forme au moteur. On ne reconsolide pas : on relit la base.
+
+    Note : pressure/schedule/material ne sont pas persistes par consolidate_batch (ils ne
+    vivent qu'en memoire pendant la consolidation), donc les colonnes Classe/Sch/Matiere
+    sortent vides. ref_fabricant/fabricant sont re-resolus depuis le catalogue par
+    article_code (sap_row reconstruit) pour alimenter la feuille "A commander".
+    """
+    from app.modules.mto.engine.export import export_bytes
+
+    groups = (await db.execute(
+        select(MtoConsolidatedGroup)
+        .where(MtoConsolidatedGroup.entity_id == entity_id,
+               MtoConsolidatedGroup.batch_id == batch_id)
+        .order_by(MtoConsolidatedGroup.besoin.desc())
+    )).scalars().all()
+
+    # ref/fabricant ne sont pas stockes sur le groupe -> 1 lookup catalogue par code present
+    codes = {g.article_code for g in groups if g.article_code}
+    cat: dict[str, SapCatalogItem] = {}
+    if codes:
+        cat = {c.code: c for c in (await db.execute(
+            select(SapCatalogItem).where(
+                SapCatalogItem.entity_id == entity_id, SapCatalogItem.code.in_(codes))
+        )).scalars().all()}
+
+    payload = []
+    for g in groups:
+        item = cat.get(g.article_code or "")
+        payload.append({
+            "article": g.article_code or "",
+            "designation_sap": g.designation_sap or "",
+            "sap_row": {
+                "ref_fabricant": (item.ref_fabricant if item else "") or "",
+                "fabricant": (item.fabricant if item else "") or "",
+            },
+            "children": g.children or [],
+            "besoin": g.besoin, "unite": g.unite,
+            "dispo": g.dispo, "cde": g.cde, "transit": g.transit,
+            "emplacements": g.emplacements or "",
+            "diameter": g.diameter or "",
+            "pressure": None, "schedule": None, "material": None,  # non persistes a la conso
+            "confiance": g.confidence, "statut": g.statut, "found": g.found,
+        })
+    return export_bytes(payload)
+
+
+# --------------------------------------------------------------------------- #
 # Validation & apprentissage
 # --------------------------------------------------------------------------- #
 async def _remember(db: AsyncSession, group: MtoConsolidatedGroup, user_id: UUID | None) -> None:

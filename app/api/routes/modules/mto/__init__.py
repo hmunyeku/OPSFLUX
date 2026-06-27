@@ -8,7 +8,7 @@ import os
 import tempfile
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -179,6 +179,26 @@ async def list_groups(
         query = query.where(MtoConsolidatedGroup.statut == statut)
     res = await db.execute(query)
     return res.scalars().all()
+
+
+_XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.get("/batches/{batch_id}/export.xlsx",
+            dependencies=[require_permission("mto.export")])
+async def export_batch(
+    batch_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export Excel metier (Synthese / A sortir du stock / A commander) du batch consolide."""
+    await _get_batch(db, entity_id, batch_id)  # 404 si batch hors entite
+    content = await mto_service.export_batch_xlsx(db, entity_id, batch_id)
+    return Response(
+        content=content,
+        media_type=_XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="MTO_{batch_id}.xlsx"'},
+    )
 
 
 # --- Validation & correction ----------------------------------------------- #

@@ -7,6 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import api from '@/lib/api'
+import { downloadFile } from '@/lib/downloadPdf'
 
 export interface MtoBatch {
   id: string
@@ -231,6 +232,26 @@ export function useCorrectGroup(batchId: string | null) {
     mutationFn: async ({ groupId, articleCode }: { groupId: string; articleCode: string }) =>
       (await api.post<MtoGroup>(`/api/v1/mto/groups/${groupId}/correct`, { article_code: articleCode })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['mto-groups', batchId] }),
+  })
+}
+
+/**
+ * Téléchargement authentifié du classeur Excel métier d'un batch MTO
+ * (3 feuilles : Synthèse / À sortir du stock / À commander).
+ *
+ * Endpoint : GET /api/v1/mto/batches/{batchId}/export.xlsx
+ * (auth Bearer, permission mto.export). On passe par `downloadFile` (axios +
+ * blob) car une navigation navigateur perdrait le header Authorization.
+ */
+export function useMtoExport(batchId: string | null) {
+  return useMutation({
+    mutationFn: async () => {
+      if (!batchId) throw new Error('batchId requis pour exporter')
+      await downloadFile(
+        `/api/v1/mto/batches/${batchId}/export.xlsx`,
+        `mto-${batchId.slice(0, 8)}.xlsx`,
+      )
+    },
   })
 }
 

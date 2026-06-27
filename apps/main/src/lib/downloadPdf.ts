@@ -44,3 +44,51 @@ function deriveFilenameFromUrl(url: string): string | null {
   }
   return null
 }
+
+/**
+ * Extract the `filename="..."` (or RFC 5987 `filename*=`) part of a
+ * Content-Disposition header, if present.
+ */
+function filenameFromContentDisposition(cd: string | undefined): string | null {
+  if (!cd) return null
+  // RFC 5987 extended form takes precedence (UTF-8, may be URL-encoded).
+  const star = cd.match(/filename\*=(?:UTF-8'')?([^;]+)/i)
+  if (star?.[1]) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''))
+    } catch {
+      return star[1].trim().replace(/^"|"$/g, '')
+    }
+  }
+  const plain = cd.match(/filename="?([^";]+)"?/i)
+  return plain?.[1]?.trim() ?? null
+}
+
+/**
+ * Download an arbitrary file from an authenticated API endpoint (xlsx, csv,
+ * zip…). Generalises {@link downloadPdf}: the Bearer token is attached by the
+ * shared axios instance (a raw browser navigation would lose it → 401), the
+ * response is read as a Blob, and the filename is taken from the
+ * Content-Disposition header when the server provides one.
+ *
+ * @param url - the URL to fetch (relative or absolute)
+ * @param fallbackFilename - filename used when the server sends no
+ *   Content-Disposition header
+ */
+export async function downloadFile(url: string, fallbackFilename: string): Promise<void> {
+  const response = await api.get(url, { responseType: 'blob' })
+  const blob = response.data as Blob
+  const cd = (response.headers?.['content-disposition'] ?? response.headers?.['Content-Disposition']) as
+    | string
+    | undefined
+  const filename = filenameFromContentDisposition(cd) ?? fallbackFilename
+
+  const objectUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = objectUrl
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+}

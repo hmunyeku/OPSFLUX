@@ -6,7 +6,8 @@
  * d'un MTO — pas la page d'accueil.
  *
  * Flux de l'onglet « MTO » :
- *   1. ProjectPicker proéminent en tête (persisté via useFilterPersistence).
+ *   1. Puce du projet courant + ProjectSelectorModal (mode UN seul projet)
+ *      en tête (persisté via useFilterPersistence sous `mto.project`).
  *   2. Aucun projet → EmptyState « Choisissez un projet ».
  *   3. Projet choisi → liste de ses MTO (useMtoBatchStats) dans une DataTable :
  *      MTO · Date · Lignes · Couverture (chips/barre) · Statut + bouton
@@ -19,26 +20,31 @@
  * recherche catalogue.
  *
  * Design system OpsFlux (gabarit PackLog / Projets) : PanelHeader, PageNavBar,
- * ProjectPicker, DataTable, GroupedDataTable, BadgeCell, EmptyState, tokens.
- * Aucune couleur hex en dur, aucun style inline décoratif.
+ * ProjectSelectorModal, DataTable, GroupedDataTable, BadgeCell, EmptyState,
+ * tokens. Aucune couleur hex en dur, aucun style inline décoratif.
  */
-import { useMemo, useRef, useState } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
 import {
   Boxes,
   CheckCircle2,
   ChevronLeft,
   ChevronsDownUp,
   ChevronsUpDown,
+  Download,
   ExternalLink,
   FileUp,
+  FolderKanban,
   Layers,
   Package,
+  Pencil,
   RefreshCw,
   Search,
+  X,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { safeLocalJson, safeLocalSetJson } from '@/lib/safeStorage'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
 import { PageNavBar } from '@/components/ui/Tabs'
@@ -55,7 +61,8 @@ import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { useDebounce } from '@/hooks/useDebounce'
-import { ProjectPicker } from '@/components/shared/ProjectPicker'
+import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
+import { useProject } from '@/hooks/useProjets'
 import {
   useCatalogSearch,
   useConsolidate,
@@ -69,6 +76,7 @@ import {
   type MtoChild,
   type MtoGroup,
 } from '@/hooks/useMto'
+import { MtoExportAssistant } from './MtoExportAssistant'
 import {
   mtoBatchLabel,
   mtoStatusLabel,
@@ -127,6 +135,25 @@ function formatDate(value: string | null | undefined): string {
   }
 }
 
+/** Clé localStorage de la visibilité des colonnes de la table de rapprochement. */
+const MATCHING_COLUMNS_LS_KEY = 'mto.matching.columns'
+
+/**
+ * Visibilité des colonnes de la table de rapprochement, persistée en
+ * localStorage (no-throw via safeStorage). Forme = VisibilityState TanStack
+ * ({ [columnId]: boolean }) ; une colonne absente est visible par défaut.
+ */
+function useMatchingColumnVisibility(): [VisibilityState, (next: VisibilityState) => void] {
+  const [state, setState] = useState<VisibilityState>(() =>
+    safeLocalJson<VisibilityState>(MATCHING_COLUMNS_LS_KEY, {}),
+  )
+  const set = useCallback((next: VisibilityState) => {
+    setState(next)
+    safeLocalSetJson(MATCHING_COLUMNS_LS_KEY, next)
+  }, [])
+  return [state, set]
+}
+
 export function MtoPage() {
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -178,28 +205,44 @@ function MtoProjectTab() {
   )
   // Sous-vue rapprochement : null = liste des MTO du projet.
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const projectId = view.projectId
 
+  const selectProject = (pid: string | null) => {
+    setView({ projectId: pid })
+    setSelectedBatchId(null)
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* ProjectPicker en tête de l'onglet — bande compacte, label inline. */}
+      {/* Sélecteur de projet — puce du projet courant + bouton changer/effacer.
+          Clic → ouvre ProjectSelectorModal (mode UN seul projet). */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Projet
         </span>
-        <div className="min-w-[240px] max-w-[420px] flex-1">
-          <ProjectPicker
-            value={projectId}
-            onChange={(pid) => {
-              setView({ projectId: pid })
-              setSelectedBatchId(null)
-            }}
-            placeholder="Choisissez un projet…"
-            clearable
-          />
-        </div>
+        <ProjectChip
+          projectId={projectId}
+          onOpen={() => setPickerOpen(true)}
+          onClear={() => selectProject(null)}
+        />
       </div>
+
+      <ProjectSelectorModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title="Choisir un projet"
+        selection={{
+          mode: 'selected',
+          projectIds: projectId ? [projectId] : [],
+        }}
+        onSelectionChange={(sel) => {
+          // Mode UN seul projet : on ne garde que le premier sélectionné.
+          selectProject(sel.projectIds[0] ?? null)
+          setPickerOpen(false)
+        }}
+      />
 
       {!projectId ? (
         <EmptyState
@@ -215,6 +258,65 @@ function MtoProjectTab() {
       ) : (
         <MtoListView projectId={projectId} onOpenBatch={setSelectedBatchId} />
       )}
+    </div>
+  )
+}
+
+/**
+ * Puce du projet sélectionné : nom + code (résolus via useProject) avec un
+ * bouton « changer » (ouvre la modale) et « effacer ». Sans projet → bouton
+ * d'invitation à choisir. Tokens DS, aucune couleur en dur.
+ */
+function ProjectChip({
+  projectId,
+  onOpen,
+  onClear,
+}: {
+  projectId: string | null
+  onOpen: () => void
+  onClear: () => void
+}) {
+  const { data: project } = useProject(projectId ?? undefined)
+
+  if (!projectId) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-dashed border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+      >
+        <FolderKanban size={14} className="shrink-0" />
+        <span>Choisissez un projet…</span>
+      </button>
+    )
+  }
+
+  const label = project ? `${project.name} (${project.code})` : '…'
+
+  return (
+    <div className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-card pl-2.5 pr-1 text-sm">
+      <FolderKanban size={14} className="shrink-0 text-primary" />
+      <span className="max-w-[280px] truncate font-medium text-foreground" title={label}>
+        {label}
+      </span>
+      <button
+        type="button"
+        onClick={onOpen}
+        title="Changer de projet"
+        aria-label="Changer de projet"
+        className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <Pencil size={13} />
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        title="Effacer la sélection"
+        aria-label="Effacer la sélection"
+        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+      >
+        <X size={13} />
+      </button>
     </div>
   )
 }
@@ -411,6 +513,11 @@ function MatchingView({
   // Signaux Déplier/Replier tout (compteurs incrémentés au clic).
   const [expandSignal, setExpandSignal] = useState(0)
   const [collapseSignal, setCollapseSignal] = useState(0)
+  // Visibilité des colonnes de la table de rapprochement, persistée en
+  // localStorage (clé mto.matching.columns) — feature « Masquer des colonnes ».
+  const [columnVisibility, setColumnVisibility] = useMatchingColumnVisibility()
+  const [exportOpen, setExportOpen] = useState(false)
+  const canExport = hasPermission('mto.export') || hasPermission('mto.admin')
 
   // On charge TOUS les groupes (pas de filtre serveur) pour garder des
   // compteurs de statut stables sur le segmented control et les KPI, puis on
@@ -615,10 +722,11 @@ function MatchingView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Ligne unique : Retour (gauche) · stats compactes · Re-consolider
-          (droite), + barre de couverture fine collée dessous. */}
+      {/* Ligne d'actions : Retour (gauche) · recherche · stats · Exporter /
+          Re-consolider (droite), + barre de couverture fine collée dessous.
+          La recherche est repositionnée ici (même ligne que « Retour »). */}
       <div className="space-y-1.5 border-b border-border px-4 py-2">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={onBack}
@@ -629,7 +737,29 @@ function MatchingView({
             <span className="hidden md:inline">Retour aux MTO</span>
           </button>
 
-          <div className="min-w-0 flex-1">
+          {/* Recherche texte (remontée depuis la toolbar de la table). */}
+          <div className="flex h-8 min-w-[180px] flex-1 items-center gap-1.5 rounded-md border border-border bg-background px-2.5">
+            <Search size={14} className="shrink-0 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher article, désignation, Ø…"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground"
+                title="Effacer la recherche"
+                aria-label="Effacer la recherche"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          <div className="hidden min-w-0 lg:block">
             <MtoStatStrip
               total={total}
               counts={counts}
@@ -637,6 +767,18 @@ function MatchingView({
               isLoading={isLoading}
             />
           </div>
+
+          {canExport && (
+            <button
+              type="button"
+              onClick={() => setExportOpen(true)}
+              className="btn-sm btn-secondary shrink-0"
+              title="Exporter (classeur Excel + mails)"
+            >
+              <Download size={13} />
+              <span className="hidden md:inline">Exporter</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -659,6 +801,14 @@ function MatchingView({
         <CoverageBar counts={counts} size="sm" />
       </div>
 
+      {exportOpen && (
+        <MtoExportAssistant
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          batchId={batchId}
+        />
+      )}
+
       {/* Conteneur borné (min-h-0 + flex-1) : la table interne de
           GroupedDataTable peut alors activer son propre scroll vertical
           (en-tête sticky) + horizontal, plutôt que d'étirer toute la page. */}
@@ -671,14 +821,19 @@ function MatchingView({
             columns={columns}
             getSubRows={(row) => row.children}
             isLoading={false}
+            // Recherche repositionnée dans la barre d'actions ci-dessus : on
+            // garde le filtrage (searchValue piloté), sans champ interne
+            // (onSearchChange omis → pas de double champ de recherche).
             searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Rechercher article, désignation, Ø…"
             emptyIcon={Package}
             emptyTitle="Aucun rapprochement — consolidez ce MTO"
             pageSize={50}
             expandAllSignal={expandSignal}
             collapseAllSignal={collapseSignal}
+            columnToggle
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
+            nonHideableColumnIds={['article', 'actions']}
             toolbarRight={
               <div className="flex items-center gap-1.5">
                 <button

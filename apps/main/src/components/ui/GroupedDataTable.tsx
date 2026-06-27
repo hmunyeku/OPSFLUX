@@ -14,7 +14,7 @@
  *     onSearchChange={setSearch}
  *   />
  */
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -26,10 +26,11 @@ import {
   type SortingState,
   type ExpandedState,
   type PaginationState,
+  type VisibilityState,
   type ColumnDef,
   type Row,
 } from '@tanstack/react-table'
-import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Loader2, Search } from 'lucide-react'
+import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Check, Columns3, Loader2, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { DataTablePaginationBar } from '@/components/ui/DataTable/Pagination'
@@ -82,6 +83,25 @@ export interface GroupedDataTableProps<TData> {
    * full collapse (table.toggleAllRowsExpanded(false)). Omitted → no effect.
    */
   collapseAllSignal?: number
+  /**
+   * Optional column-visibility toggle. When `true`, a « Colonnes » menu is
+   * rendered in the toolbar (right side, before `toolbarRight`). Strictly
+   * opt-in: omitted → no menu, no behavior change for existing callers.
+   *
+   * Pair with `columnVisibility` + `onColumnVisibilityChange` for a
+   * controlled state (e.g. persisted in localStorage). When the menu is
+   * enabled but no controlled state is provided, an internal state is used.
+   */
+  columnToggle?: boolean
+  /** Controlled column-visibility map (TanStack VisibilityState). */
+  columnVisibility?: VisibilityState
+  /** Called whenever the visibility map changes (controlled mode). */
+  onColumnVisibilityChange?: (next: VisibilityState) => void
+  /**
+   * Columns that should never appear in the « Colonnes » menu (e.g. an
+   * actions column with an empty header). Matched on column id.
+   */
+  nonHideableColumnIds?: string[]
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -104,9 +124,37 @@ export function GroupedDataTable<TData>({
   pageSizeOptions = [25, 50, 100],
   expandAllSignal,
   collapseAllSignal,
+  columnToggle = false,
+  columnVisibility,
+  onColumnVisibilityChange,
+  nonHideableColumnIds,
 }: GroupedDataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<ExpandedState>(true) // all expanded by default
+
+  // Column visibility — opt-in. Controlled when the caller passes
+  // `columnVisibility`, otherwise an internal fallback so the « Colonnes »
+  // menu still works standalone.
+  const [internalVisibility, setInternalVisibility] = useState<VisibilityState>({})
+  const visibilityState = columnVisibility ?? internalVisibility
+  const setVisibility = (next: VisibilityState) => {
+    if (onColumnVisibilityChange) onColumnVisibilityChange(next)
+    if (columnVisibility === undefined) setInternalVisibility(next)
+  }
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false)
+  const columnsMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close the columns menu on outside click.
+  useEffect(() => {
+    if (!columnsMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (columnsMenuRef.current && !columnsMenuRef.current.contains(e.target as Node)) {
+        setColumnsMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [columnsMenuOpen])
 
   // Client pagination is opt-in: only wired when `pageSize` is provided so
   // the default (no pagination) behavior stays byte-for-byte unchanged.
@@ -123,10 +171,15 @@ export function GroupedDataTable<TData>({
       sorting,
       expanded,
       globalFilter: searchValue,
+      columnVisibility: visibilityState,
       ...(paginationEnabled ? { pagination } : {}),
     },
     onSortingChange: setSorting,
     onExpandedChange: setExpanded,
+    onColumnVisibilityChange: (updater) => {
+      const next = typeof updater === 'function' ? updater(visibilityState) : updater
+      setVisibility(next)
+    },
     onPaginationChange: paginationEnabled ? setPagination : undefined,
     getSubRows,
     getCoreRowModel: getCoreRowModel(),
@@ -181,7 +234,7 @@ export function GroupedDataTable<TData>({
     <div className={cn('flex flex-col h-full', className)}>
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-background shrink-0">
-        {onSearchChange && (
+        {onSearchChange ? (
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <Search size={13} className="text-muted-foreground shrink-0" />
             <input
@@ -192,10 +245,70 @@ export function GroupedDataTable<TData>({
               className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground min-w-0"
             />
           </div>
+        ) : (
+          // Pas de champ de recherche interne (recherche déportée par le
+          // parent) → spacer pour pousser les contrôles à droite, comme quand
+          // la recherche occupe le flex-1.
+          <div className="flex-1 min-w-0" />
         )}
         <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
           {totalItems} résultat{totalItems !== 1 ? 's' : ''}
         </span>
+
+        {/* Column visibility menu (opt-in via `columnToggle`). */}
+        {columnToggle && (
+          <div className="relative shrink-0" ref={columnsMenuRef}>
+            <button
+              type="button"
+              onClick={() => setColumnsMenuOpen((v) => !v)}
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              title="Colonnes visibles"
+            >
+              <Columns3 size={14} />
+              <span className="hidden lg:inline">Colonnes</span>
+            </button>
+            {columnsMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1 max-h-[min(65vh,30rem)] min-w-[180px] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-md border bg-popover py-1 shadow-lg">
+                <p className="mb-0.5 border-b border-border/50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Colonnes visibles
+                </p>
+                {table
+                  .getAllLeafColumns()
+                  .filter(
+                    (col) =>
+                      col.getCanHide() &&
+                      !(nonHideableColumnIds ?? []).includes(col.id) &&
+                      // Hide columns without a string header (e.g. actions) —
+                      // they have no readable label for the checkbox.
+                      typeof col.columnDef.header === 'string' &&
+                      (col.columnDef.header as string).length > 0,
+                  )
+                  .map((col) => {
+                    const isVisible = col.getIsVisible()
+                    return (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() => col.toggleVisibility(!isVisible)}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+                      >
+                        <span
+                          className={cn(
+                            'flex h-3.5 w-3.5 items-center justify-center rounded-sm border',
+                            isVisible ? 'border-primary bg-primary' : 'border-border',
+                          )}
+                        >
+                          {isVisible && <Check size={9} className="text-white" />}
+                        </span>
+                        <span>{col.columnDef.header as string}</span>
+                      </button>
+                    )
+                  })}
+              </div>
+            )}
+          </div>
+        )}
+
         {toolbarRight}
       </div>
 

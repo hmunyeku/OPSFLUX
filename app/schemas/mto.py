@@ -27,6 +27,7 @@ class BatchRead(_Read):
     project_name: str | None = None
     filename: str | None = None
     label: str | None = None
+    role: str = "design"  # design|revise|unique
     status: str
     created_at: datetime | None = None
 
@@ -74,3 +75,21 @@ class ConsolidateResult(BaseModel):
 
 class CorrectRequest(BaseModel):
     article_code: str
+
+
+class MtoDiffItem(BaseModel):
+    mto_key: str
+    designation: str
+    diameter: str | None = None
+    unite: str | None = None
+    besoin_design: float
+    besoin_revise: float
+    delta: float  # besoin_revise - besoin_design
+    change_type: str  # added|removed|changed|unchanged
+
+
+class MtoDiffResult(BaseModel):
+    design_batch_id: UUID
+    revise_batch_id: UUID
+    summary: dict[str, int]  # {added, removed, changed, unchanged}
+    items: list[MtoDiffItem]

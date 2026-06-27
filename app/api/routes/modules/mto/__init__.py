@@ -29,6 +29,7 @@ from app.schemas.mto import (
     CorrectRequest,
     GroupRead,
     ImportResult,
+    MtoDiffResult,
 )
 from app.services.modules import mto_service
 
@@ -101,6 +102,7 @@ async def import_mto(
     file: UploadFile = File(...),
     project_id: UUID | None = Form(None),
     label: str = Form(""),
+    role: str = Form("design"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -109,7 +111,8 @@ async def import_mto(
     try:
         batch = await mto_service.import_mto(
             db, entity_id, path=path, project_id=project_id,
-            filename=file.filename or "", label=label, created_by=current_user.id)
+            filename=file.filename or "", label=label, role=role,
+            created_by=current_user.id)
     finally:
         os.unlink(path)
     return batch
@@ -149,6 +152,21 @@ async def batches_stats(
     db: AsyncSession = Depends(get_db),
 ):
     return await mto_service.get_batch_stats(db, entity_id, project_id)
+
+
+@router.get("/diff", response_model=MtoDiffResult,
+            dependencies=[require_permission("mto.matching.read")])
+async def mto_diff(
+    design_batch_id: UUID = Query(...),
+    revise_batch_id: UUID = Query(...),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Croisement de 2 MTO (design vs revise) du meme projet -> diff par item."""
+    await _get_batch(db, entity_id, design_batch_id)  # 404 si hors entite
+    await _get_batch(db, entity_id, revise_batch_id)
+    result = await mto_service.compute_mto_diff(db, entity_id, design_batch_id, revise_batch_id)
+    return MtoDiffResult(**result)
 
 
 @router.post("/batches/{batch_id}/consolidate", response_model=ConsolidateResult,

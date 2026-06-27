@@ -26,6 +26,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
 import {
+  ArrowLeftRight,
   Boxes,
   CheckCircle2,
   ChevronLeft,
@@ -35,6 +36,7 @@ import {
   ExternalLink,
   FileUp,
   FolderKanban,
+  GitCompareArrows,
   Layers,
   Package,
   Pencil,
@@ -70,11 +72,15 @@ import {
   useImportMto,
   useImportStock,
   useMtoBatchStats,
+  useMtoDiff,
   useMtoGroups,
   useValidateGroup,
   type MtoBatchStats,
   type MtoChild,
+  type MtoDiffChangeType,
+  type MtoDiffItem,
   type MtoGroup,
+  type MtoRole,
 } from '@/hooks/useMto'
 import { MtoExportAssistant } from './MtoExportAssistant'
 import {
@@ -86,10 +92,56 @@ import {
 // Effet de bord : enregistre le renderer du panneau MTO dans le registry.
 import './MtoPanels'
 
-type MtoTab = 'mto' | 'catalogue'
+type MtoTab = 'mto' | 'croisement' | 'catalogue'
 
 /** Statuts métier filtrables, dans l'ordre d'affichage du segmented control. */
 const COVERAGE_ORDER = ['en stock', 'partiel', 'à commander'] as const
+
+// ── Rôle d'un MTO (design / révisé) ────────────────────────────────────────
+
+/** Libellé FR d'un rôle de MTO (fallback = valeur brute). */
+function mtoRoleLabel(role: string | null | undefined): string {
+  if (role === 'design') return 'Design'
+  if (role === 'revise') return 'Révisé'
+  return role ?? '—'
+}
+
+/** Variante de chip pour un rôle : design = info, révisé = warning. */
+function mtoRoleVariant(role: string | null | undefined): 'info' | 'warning' | 'neutral' {
+  if (role === 'design') return 'info'
+  if (role === 'revise') return 'warning'
+  return 'neutral'
+}
+
+// ── Croisement design ↔ révisé : présentation des types d'écart ─────────────
+
+/** Libellé FR d'un type d'écart du croisement. */
+const DIFF_TYPE_LABELS: Record<MtoDiffChangeType, string> = {
+  added: 'Ajouté',
+  removed: 'Supprimé',
+  changed: 'Modifié',
+  unchanged: 'Inchangé',
+}
+
+/** Variante de chip par type d'écart (unchanged → neutral, pas de "muted"). */
+const DIFF_TYPE_VARIANTS: Record<MtoDiffChangeType, 'success' | 'danger' | 'warning' | 'neutral'> = {
+  added: 'success',
+  removed: 'danger',
+  changed: 'warning',
+  unchanged: 'neutral',
+}
+
+/**
+ * Onglets du segmented control de filtre par type d'écart (vue croisement).
+ * `dot` = classe pastille tokenisée ; `null` = pas de pastille (« Tous »).
+ */
+const DIFF_TYPE_SEGMENTS: { value: '' | MtoDiffChangeType; label: string; dot: string | null }[] = [
+  { value: '', label: 'Tous', dot: null },
+  { value: 'added', label: 'Ajouté', dot: 'bg-success' },
+  { value: 'removed', label: 'Supprimé', dot: 'bg-destructive' },
+  { value: 'changed', label: 'Modifié', dot: 'bg-warning' },
+  { value: 'unchanged', label: 'Inchangé', dot: 'bg-muted-foreground/40' },
+]
 
 /**
  * Ligne de table de rapprochement : un groupe (parent) OU une ligne d'origine
@@ -167,6 +219,7 @@ export function MtoPage() {
   const tabItems = useMemo(
     () => [
       { id: 'mto' as const, label: 'MTO', icon: Layers },
+      { id: 'croisement' as const, label: 'Croisement', icon: GitCompareArrows },
       { id: 'catalogue' as const, label: 'Catalogue & Stock', icon: Boxes },
     ],
     [],
@@ -186,6 +239,7 @@ export function MtoPage() {
 
           <PanelContent scroll={false}>
             {activeTab === 'mto' && <MtoProjectTab />}
+            {activeTab === 'croisement' && <CroisementTab />}
             {activeTab === 'catalogue' && <CatalogueStockTab />}
           </PanelContent>
         </div>
@@ -356,6 +410,17 @@ function MtoListView({
         ),
       },
       {
+        id: 'role',
+        header: 'Rôle',
+        size: 100,
+        cell: ({ row }) => (
+          <BadgeCell
+            value={mtoRoleLabel(row.original.role)}
+            variant={mtoRoleVariant(row.original.role)}
+          />
+        ),
+      },
+      {
         id: 'created_at',
         header: 'Date',
         size: 120,
@@ -462,9 +527,12 @@ function ImportMtoButton({
   const { toast } = useToast()
   const importMto = useImportMto()
   const inputRef = useRef<HTMLInputElement | null>(null)
+  // Rôle choisi avant l'upload (défaut Design). Passé en FormData `role`.
+  const [role, setRole] = useState<MtoRole>('design')
 
   return (
-    <>
+    <div className="flex items-center gap-1.5">
+      <RoleSegmented value={role} onChange={setRole} disabled={importMto.isPending} />
       <ToolbarButton
         icon={FileUp}
         label={importMto.isPending ? 'Import…' : 'Charger un MTO'}
@@ -481,8 +549,11 @@ function ImportMtoButton({
           const file = e.target.files?.[0]
           if (!file) return
           try {
-            const batch = await importMto.mutateAsync({ file, projectId })
-            toast({ title: `MTO importé : ${mtoBatchLabel(batch)}`, variant: 'success' })
+            const batch = await importMto.mutateAsync({ file, projectId, role })
+            toast({
+              title: `MTO ${mtoRoleLabel(role)} importé : ${mtoBatchLabel(batch)}`,
+              variant: 'success',
+            })
             onImported(batch.id)
           } catch {
             toast({ title: "Échec de l'import MTO", variant: 'error' })
@@ -491,7 +562,57 @@ function ImportMtoButton({
           }
         }}
       />
-    </>
+    </div>
+  )
+}
+
+/**
+ * Segmented control de choix du rôle d'un MTO avant import (Design / Révisé).
+ * Pattern DS aligné sur StatusSegmented (boutons-chips tokenisés dans un
+ * conteneur segmenté). Pastille tokenisée par rôle.
+ */
+function RoleSegmented({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: MtoRole
+  onChange: (v: MtoRole) => void
+  disabled?: boolean
+}) {
+  const options: { value: MtoRole; label: string; dot: string }[] = [
+    { value: 'design', label: 'Design', dot: 'bg-info' },
+    { value: 'revise', label: 'Révisé', dot: 'bg-warning' },
+  ]
+  return (
+    <div
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
+      role="radiogroup"
+      aria-label="Rôle du MTO à importer"
+    >
+      {options.map((opt) => {
+        const active = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={disabled}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50',
+              active
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', opt.dot)} />
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -987,6 +1108,429 @@ function MtoTableSkeleton() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Onglet Croisement (design ↔ révisé) ────────────────────────────────────
+
+/**
+ * Onglet « Croisement » : compare 2 MTO d'un même projet (un Design, un
+ * Révisé) et affiche les écarts item par item.
+ *
+ * Project-first comme l'onglet MTO : on réutilise la MÊME clé de persistance
+ * (`mto.project`) que MtoProjectTab, donc le projet courant est partagé entre
+ * les deux onglets. Sans projet → EmptyState.
+ *
+ * Deux sélecteurs (Design / Révisé) alimentés par useMtoBatchStats(projectId)
+ * filtré par `role`. Au choix des deux → useMtoDiff → table du diff + bande de
+ * stats + segmented filter par type + recherche.
+ */
+function CroisementTab() {
+  const [view, setView] = useFilterPersistence<MtoProjectView>(
+    'mto.project',
+    DEFAULT_PROJECT_VIEW,
+  )
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const projectId = view.projectId
+
+  const [designId, setDesignId] = useState<string | null>(null)
+  const [reviseId, setReviseId] = useState<string | null>(null)
+
+  const { data: batches, isLoading: batchesLoading } = useMtoBatchStats(projectId)
+
+  // Batches séparés par rôle pour alimenter les 2 sélecteurs.
+  const designBatches = useMemo(
+    () => (batches ?? []).filter((b) => b.role === 'design'),
+    [batches],
+  )
+  const reviseBatches = useMemo(
+    () => (batches ?? []).filter((b) => b.role === 'revise'),
+    [batches],
+  )
+
+  const selectProject = (pid: string | null) => {
+    setView({ projectId: pid })
+    setDesignId(null)
+    setReviseId(null)
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Sélecteur de projet — même puce que l'onglet MTO. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Projet
+        </span>
+        <ProjectChip
+          projectId={projectId}
+          onOpen={() => setPickerOpen(true)}
+          onClear={() => selectProject(null)}
+        />
+      </div>
+
+      <ProjectSelectorModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title="Choisir un projet"
+        selection={{
+          mode: 'selected',
+          projectIds: projectId ? [projectId] : [],
+        }}
+        onSelectionChange={(sel) => {
+          selectProject(sel.projectIds[0] ?? null)
+          setPickerOpen(false)
+        }}
+      />
+
+      {!projectId ? (
+        <EmptyState
+          icon={GitCompareArrows}
+          title="Choisissez un projet pour croiser ses MTO"
+          description="Le croisement compare le MTO Design et le MTO Révisé d'un même projet. Sélectionnez un projet, puis choisissez les deux MTO à comparer."
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Deux sélecteurs de batch par rôle. */}
+          <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-2">
+            <BatchRoleSelect
+              label="MTO Design"
+              dot="bg-info"
+              batches={designBatches}
+              value={designId}
+              onChange={setDesignId}
+              isLoading={batchesLoading}
+              emptyHint="Aucun MTO Design pour ce projet"
+            />
+            <BatchRoleSelect
+              label="MTO Révisé"
+              dot="bg-warning"
+              batches={reviseBatches}
+              value={reviseId}
+              onChange={setReviseId}
+              isLoading={batchesLoading}
+              emptyHint="Aucun MTO Révisé pour ce projet"
+            />
+          </div>
+
+          {!designId || !reviseId ? (
+            <EmptyState
+              icon={ArrowLeftRight}
+              title="Sélectionnez les deux MTO à croiser"
+              description="Choisissez un MTO Design et un MTO Révisé ci-dessus pour afficher les écarts."
+            />
+          ) : (
+            <DiffView designId={designId} reviseId={reviseId} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Sélecteur d'un batch MTO d'un rôle donné (native <select> + classe DS).
+ * Pastille tokenisée + libellé. État vide explicite si aucun batch du rôle.
+ */
+function BatchRoleSelect({
+  label,
+  dot,
+  batches,
+  value,
+  onChange,
+  isLoading,
+  emptyHint,
+}: {
+  label: string
+  dot: string
+  batches: MtoBatchStats[]
+  value: string | null
+  onChange: (id: string | null) => void
+  isLoading?: boolean
+  emptyHint: string
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-card px-3 py-2.5">
+      <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className={cn('h-2 w-2 shrink-0 rounded-full', dot)} />
+        {label}
+      </p>
+      {isLoading ? (
+        <Skeleton className="h-8 w-full" />
+      ) : batches.length === 0 ? (
+        <p className="text-xs italic text-muted-foreground">{emptyHint}</p>
+      ) : (
+        <select
+          className="gl-form-input h-8 w-full text-sm"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value || null)}
+        >
+          <option value="">Choisir un MTO…</option>
+          {batches.map((b) => (
+            <option key={b.id} value={b.id}>
+              {mtoBatchLabel(b)} · {formatDate(b.created_at)} · {b.nb_lignes} ligne
+              {b.nb_lignes !== 1 ? 's' : ''}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Table du croisement de 2 MTO : récupère le diff (useMtoDiff), affiche la
+ * bande de stats summary, un segmented filter par type d'écart + recherche, et
+ * la DataTable des items (besoins design/révisé, écart coloré, type).
+ */
+function DiffView({ designId, reviseId }: { designId: string; reviseId: string }) {
+  const { data: diff, isLoading, isError } = useMtoDiff(designId, reviseId)
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<'' | MtoDiffChangeType>('')
+
+  const summary = diff?.summary
+  const items = useMemo(
+    () => (diff?.items ?? []).filter((it) => !typeFilter || it.change_type === typeFilter),
+    [diff, typeFilter],
+  )
+
+  const columns = useMemo<ColumnDef<MtoDiffItem, unknown>[]>(
+    () => [
+      {
+        id: 'designation',
+        header: 'Item',
+        cell: ({ row }) => (
+          <span className="text-foreground">{row.original.designation ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'diameter',
+        header: 'Ø',
+        size: 90,
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">{row.original.diameter ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'unite',
+        header: 'Unité',
+        size: 80,
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">{row.original.unite ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'besoin_design',
+        header: 'Besoin design',
+        size: 120,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{row.original.besoin_design}</span>
+        ),
+      },
+      {
+        id: 'besoin_revise',
+        header: 'Besoin révisé',
+        size: 120,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{row.original.besoin_revise}</span>
+        ),
+      },
+      {
+        id: 'delta',
+        header: 'Écart',
+        size: 100,
+        cell: ({ row }) => <DeltaCell delta={row.original.delta} />,
+      },
+      {
+        id: 'change_type',
+        header: 'Type',
+        size: 120,
+        cell: ({ row }) => (
+          <BadgeCell
+            value={DIFF_TYPE_LABELS[row.original.change_type]}
+            variant={DIFF_TYPE_VARIANTS[row.original.change_type]}
+          />
+        ),
+      },
+    ],
+    [],
+  )
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={GitCompareArrows}
+        title="Croisement indisponible"
+        description="Impossible de récupérer les écarts entre ces deux MTO. Réessayez plus tard."
+      />
+    )
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Bande de stats summary + recherche (même gabarit que la vue
+          rapprochement). */}
+      <div className="space-y-1.5 border-b border-border px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex h-8 min-w-[180px] flex-1 items-center gap-1.5 rounded-md border border-border bg-background px-2.5">
+            <Search size={14} className="shrink-0 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher item, Ø…"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground"
+                title="Effacer la recherche"
+                aria-label="Effacer la recherche"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+          <div className="hidden min-w-0 lg:block">
+            <DiffStatStrip summary={summary} isLoading={isLoading} />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PanelContent scroll={false}>
+          <DataTable<MtoDiffItem>
+            columns={columns}
+            data={items}
+            isLoading={isLoading}
+            getRowId={(row) => row.mto_key}
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Rechercher item, Ø…"
+            emptyIcon={GitCompareArrows}
+            emptyTitle="Aucun écart pour ce filtre"
+            storageKey="mto-diff"
+            toolbarRight={
+              <DiffTypeSegmented value={typeFilter} onChange={setTypeFilter} summary={summary} />
+            }
+          />
+        </PanelContent>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Cellule « Écart » : delta signé, coloré (+ success / − destructive / 0
+ * muted). Tabular-nums pour l'alignement.
+ */
+function DeltaCell({ delta }: { delta: number }) {
+  const cls =
+    delta > 0 ? 'text-success' : delta < 0 ? 'text-destructive' : 'text-muted-foreground'
+  const sign = delta > 0 ? '+' : ''
+  return <span className={cn('tabular-nums font-medium', cls)}>{`${sign}${delta}`}</span>
+}
+
+/**
+ * Bande de stats compacte du croisement (added / removed / changed /
+ * unchanged) — même esprit visuel que MtoStatStrip (pastilles tokenisées +
+ * valeur + libellé), adaptée aux 4 compteurs du diff.
+ */
+function DiffStatStrip({
+  summary,
+  isLoading,
+}: {
+  summary: Record<MtoDiffChangeType, number> | undefined
+  isLoading?: boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-6 items-center gap-3" aria-hidden>
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+      </div>
+    )
+  }
+  const s = summary ?? { added: 0, removed: 0, changed: 0, unchanged: 0 }
+  const stats: { dot: string; value: number; label: string }[] = [
+    { dot: 'bg-success', value: s.added, label: 'ajoutés' },
+    { dot: 'bg-destructive', value: s.removed, label: 'supprimés' },
+    { dot: 'bg-warning', value: s.changed, label: 'modifiés' },
+    { dot: 'bg-muted-foreground/40', value: s.unchanged, label: 'inchangés' },
+  ]
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      {stats.map((st, i) => (
+        <span key={st.label} className="inline-flex items-center gap-x-3">
+          {i > 0 && <span aria-hidden className="h-4 w-px shrink-0 bg-border" />}
+          <span className="inline-flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+            <span className={cn('mb-0.5 h-2 w-2 shrink-0 self-center rounded-full', st.dot)} />
+            <span className="text-sm font-semibold tabular-nums text-foreground">{st.value}</span>
+            <span className="text-xs text-muted-foreground">{st.label}</span>
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Segmented control de filtre par type d'écart (Tous · Ajouté · Supprimé ·
+ * Modifié · Inchangé) avec compteurs. Même pattern DS que StatusSegmented.
+ */
+function DiffTypeSegmented({
+  value,
+  onChange,
+  summary,
+}: {
+  value: '' | MtoDiffChangeType
+  onChange: (v: '' | MtoDiffChangeType) => void
+  summary: Record<MtoDiffChangeType, number> | undefined
+}) {
+  const total = summary
+    ? summary.added + summary.removed + summary.changed + summary.unchanged
+    : 0
+  const countFor = (v: '' | MtoDiffChangeType) =>
+    v === '' ? total : summary?.[v] ?? 0
+
+  return (
+    <div
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
+      role="tablist"
+      aria-label="Filtrer par type d'écart"
+    >
+      {DIFF_TYPE_SEGMENTS.map((seg) => {
+        const active = value === seg.value
+        return (
+          <button
+            key={seg.value || 'all'}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(seg.value)}
+            className={cn(
+              'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium transition-colors',
+              active
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {seg.dot && <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', seg.dot)} />}
+            <span className="hidden sm:inline">{seg.label}</span>
+            <span
+              className={cn(
+                'tabular-nums',
+                active ? 'text-muted-foreground' : 'text-muted-foreground/70',
+              )}
+            >
+              {countFor(seg.value)}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -108,6 +108,7 @@ class MtoImportBatch(UUIDPrimaryKeyMixin, TimestampMixin, AuditUserMixin, SoftDe
     )
     filename: Mapped[str | None] = mapped_column(String(300))
     label: Mapped[str | None] = mapped_column(String(100))  # revision / lot
+    role: Mapped[str] = mapped_column(String(20), nullable=False, server_default="design")  # design|revise|unique
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="imported")  # imported|consolidated|validated
 
 

@@ -17,6 +17,8 @@ export interface MtoBatch {
   filename: string | null
   label: string | null
   status: string
+  /** Rôle du MTO dans le projet : "design" (initial) ou "revise" (révisé). */
+  role: string
   created_at: string | null
 }
 
@@ -127,8 +129,13 @@ export function useMtoGroups(batchId: string | null, statut?: string | null) {
   })
 }
 
+/** Rôle d'un MTO dans le cycle d'un projet. */
+export type MtoRole = 'design' | 'revise'
+
 /**
  * Import d'un fichier MTO (multipart). Optionnellement rattaché à un projet.
+ * `role` (design|revise, défaut "design" côté backend) qualifie le MTO pour le
+ * croisement design ↔ révisé.
  * Endpoint : POST /api/v1/mto/import/mto (perm mto.requirement.import).
  */
 export function useImportMto() {
@@ -138,15 +145,18 @@ export function useImportMto() {
       file,
       projectId,
       label,
+      role,
     }: {
       file: File
       projectId?: string | null
       label?: string
+      role?: MtoRole
     }) => {
       const form = new FormData()
       form.append('file', file)
       if (projectId) form.append('project_id', projectId)
       if (label) form.append('label', label)
+      if (role) form.append('role', role)
       return (
         await api.post<MtoImportResult>('/api/v1/mto/import/mto', form, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -261,5 +271,55 @@ export function useCatalogSearch(q: string) {
     queryFn: async () =>
       (await api.get<CatalogItem[]>('/api/v1/mto/catalogue', { params: { q } })).data,
     enabled: q.trim().length >= 2,
+  })
+}
+
+// ── Croisement de 2 MTO (design ↔ révisé) ──────────────────────────────────
+
+/** Type d'évolution d'un item entre le MTO design et le MTO révisé. */
+export type MtoDiffChangeType = 'added' | 'removed' | 'changed' | 'unchanged'
+
+/** Une ligne du croisement design ↔ révisé (clé = item consolidé). */
+export interface MtoDiffItem {
+  mto_key: string
+  designation: string | null
+  diameter: string | null
+  unite: string | null
+  besoin_design: number
+  besoin_revise: number
+  /** besoin_revise - besoin_design (signé). */
+  delta: number
+  change_type: MtoDiffChangeType
+}
+
+/** Résultat complet du croisement de 2 batches MTO. */
+export interface MtoDiffResult {
+  design_batch_id: string
+  revise_batch_id: string
+  summary: Record<MtoDiffChangeType, number>
+  items: MtoDiffItem[]
+}
+
+/**
+ * Croisement de 2 MTO d'un projet (design vs révisé). N'est activé que si les
+ * deux batches sont fournis.
+ * Endpoint : GET /api/v1/mto/diff?design_batch_id=&revise_batch_id=
+ */
+export function useMtoDiff(
+  designBatchId: string | null,
+  reviseBatchId: string | null,
+) {
+  return useQuery({
+    queryKey: ['mto-diff', designBatchId, reviseBatchId],
+    queryFn: async () =>
+      (
+        await api.get<MtoDiffResult>('/api/v1/mto/diff', {
+          params: {
+            design_batch_id: designBatchId,
+            revise_batch_id: reviseBatchId,
+          },
+        })
+      ).data,
+    enabled: !!designBatchId && !!reviseBatchId,
   })
 }

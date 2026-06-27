@@ -112,7 +112,8 @@ async def import_stock(db: AsyncSession, entity_id: UUID, path: str, label: str 
 
 async def import_mto(db: AsyncSession, entity_id: UUID, *, path: str,
                      project_id: UUID | None = None, filename: str = "",
-                     label: str = "", created_by: UUID | None = None) -> MtoImportBatch:
+                     label: str = "", role: str = "design",
+                     created_by: UUID | None = None) -> MtoImportBatch:
     """Importe une liste MTO (.xlsx) -> 1 batch + N requirements (mapping auto-suggere)."""
     sheet = list_mto_sheets(path)[0]
     columns = read_sheet_columns(path, sheet)
@@ -121,7 +122,7 @@ async def import_mto(db: AsyncSession, entity_id: UUID, *, path: str,
 
     batch = MtoImportBatch(entity_id=entity_id, project_id=project_id,
                            filename=filename or None, label=label or None,
-                           status="imported", created_by=created_by)
+                           role=role or "design", status="imported", created_by=created_by)
     db.add(batch)
     await db.flush()  # batch.id
 
@@ -334,6 +335,76 @@ async def consolidate_batch(db: AsyncSession, entity_id: UUID, batch_id: UUID) -
     await db.commit()
     return {"batch_id": str(batch_id), "lines": len(rows), "groups": len(objs),
             "found": sum(1 for o in objs if o["found"])}
+
+
+# --------------------------------------------------------------------------- #
+# Croisement de 2 MTO (P1) — design vs revise
+# --------------------------------------------------------------------------- #
+def _diff_designation(g: MtoConsolidatedGroup) -> str:
+    """Libelle d'affichage d'un groupe : designation_sap sinon 1re description child."""
+    if g.designation_sap:
+        return g.designation_sap
+    for child in (g.children or []):
+        desc = (child or {}).get("description")
+        if desc:
+            return str(desc)
+    return ""
+
+
+async def compute_mto_diff(db: AsyncSession, entity_id: UUID,
+                           design_batch_id: UUID, revise_batch_id: UUID) -> dict:
+    """Croise les groupes consolides de 2 batches MTO (design vs revise) par mto_key.
+
+    Tout est scope par entity_id. Compare le besoin de chaque item :
+    - cle presente des 2 cotes : besoin egal -> unchanged, sinon changed
+    - cle design seule -> removed ; cle revise seule -> added
+    Retourne {design_batch_id, revise_batch_id, summary, items}.
+    """
+    async def _load(batch_id: UUID) -> dict[str, MtoConsolidatedGroup]:
+        rows = (await db.execute(
+            select(MtoConsolidatedGroup).where(
+                MtoConsolidatedGroup.entity_id == entity_id,
+                MtoConsolidatedGroup.batch_id == batch_id,
+            )
+        )).scalars().all()
+        return {g.mto_key: g for g in rows}
+
+    design = await _load(design_batch_id)
+    revise = await _load(revise_batch_id)
+
+    summary = {"added": 0, "removed": 0, "changed": 0, "unchanged": 0}
+    items: list[dict] = []
+    for key in sorted(set(design) | set(revise)):
+        dg = design.get(key)
+        rg = revise.get(key)
+        besoin_design = _num(dg.besoin) if dg is not None else 0.0
+        besoin_revise = _num(rg.besoin) if rg is not None else 0.0
+        if dg is not None and rg is not None:
+            change_type = "unchanged" if besoin_design == besoin_revise else "changed"
+        elif dg is not None:
+            change_type = "removed"
+        else:
+            change_type = "added"
+        summary[change_type] += 1
+
+        ref = rg if rg is not None else dg  # cote present pour les attributs d'affichage
+        items.append({
+            "mto_key": key,
+            "designation": _diff_designation(ref),
+            "diameter": ref.diameter,
+            "unite": ref.unite,
+            "besoin_design": besoin_design,
+            "besoin_revise": besoin_revise,
+            "delta": besoin_revise - besoin_design,
+            "change_type": change_type,
+        })
+
+    return {
+        "design_batch_id": design_batch_id,
+        "revise_batch_id": revise_batch_id,
+        "summary": summary,
+        "items": items,
+    }
 
 
 # --------------------------------------------------------------------------- #

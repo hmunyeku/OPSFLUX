@@ -18,6 +18,9 @@ dependencies = [
     "lxml>=5.0.0",
     # XLSX import (Papyrus bulk document type import)
     "openpyxl>=3.1.0",
+    # MTO module — moteur de rapprochement (fuzzy matching + dataframes)
+    "rapidfuzz>=3.0.0",
+    "pandas>=2.0.0",
     # Redis
     "redis[hiredis]>=5.0.0",
     # Auth

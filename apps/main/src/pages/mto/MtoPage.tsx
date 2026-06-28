@@ -24,6 +24,7 @@
  * tokens. Aucune couleur hex en dur, aucun style inline décoratif.
  */
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { LucideIcon } from 'lucide-react'
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
 import {
@@ -48,6 +49,7 @@ import {
   X,
 } from 'lucide-react'
 
+import i18n from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { safeLocalJson, safeLocalSetJson } from '@/lib/safeStorage'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
@@ -111,10 +113,10 @@ const COVERAGE_ORDER = ['en stock', 'partiel', 'à commander'] as const
 
 // ── Rôle d'un MTO (design / révisé) ────────────────────────────────────────
 
-/** Libellé FR d'un rôle de MTO (fallback = valeur brute). */
+/** Libellé i18n d'un rôle de MTO (fallback = valeur brute). */
 function mtoRoleLabel(role: string | null | undefined): string {
-  if (role === 'design') return 'Design'
-  if (role === 'revise') return 'Révisé'
+  if (role === 'design') return i18n.t('mto.role.design')
+  if (role === 'revise') return i18n.t('mto.role.revise')
   return role ?? '—'
 }
 
@@ -127,12 +129,12 @@ function mtoRoleVariant(role: string | null | undefined): 'info' | 'warning' | '
 
 // ── Croisement design ↔ révisé : présentation des types d'écart ─────────────
 
-/** Libellé FR d'un type d'écart du croisement. */
-const DIFF_TYPE_LABELS: Record<MtoDiffChangeType, string> = {
-  added: 'Ajouté',
-  removed: 'Supprimé',
-  changed: 'Modifié',
-  unchanged: 'Inchangé',
+/** Clé i18n du libellé d'un type d'écart du croisement. */
+const DIFF_TYPE_LABEL_KEYS: Record<MtoDiffChangeType, string> = {
+  added: 'mto.diff.type_added',
+  removed: 'mto.diff.type_removed',
+  changed: 'mto.diff.type_changed',
+  unchanged: 'mto.diff.type_unchanged',
 }
 
 /** Variante de chip par type d'écart (unchanged → neutral, pas de "muted"). */
@@ -147,12 +149,12 @@ const DIFF_TYPE_VARIANTS: Record<MtoDiffChangeType, 'success' | 'danger' | 'warn
  * Onglets du segmented control de filtre par type d'écart (vue croisement).
  * `dot` = classe pastille tokenisée ; `null` = pas de pastille (« Tous »).
  */
-const DIFF_TYPE_SEGMENTS: { value: '' | MtoDiffChangeType; label: string; dot: string | null }[] = [
-  { value: '', label: 'Tous', dot: null },
-  { value: 'added', label: 'Ajouté', dot: 'bg-success' },
-  { value: 'removed', label: 'Supprimé', dot: 'bg-destructive' },
-  { value: 'changed', label: 'Modifié', dot: 'bg-warning' },
-  { value: 'unchanged', label: 'Inchangé', dot: 'bg-muted-foreground/40' },
+const DIFF_TYPE_SEGMENTS: { value: '' | MtoDiffChangeType; labelKey: string; dot: string | null }[] = [
+  { value: '', labelKey: 'mto.diff.all', dot: null },
+  { value: 'added', labelKey: 'mto.diff.type_added', dot: 'bg-success' },
+  { value: 'removed', labelKey: 'mto.diff.type_removed', dot: 'bg-destructive' },
+  { value: 'changed', labelKey: 'mto.diff.type_changed', dot: 'bg-warning' },
+  { value: 'unchanged', labelKey: 'mto.diff.type_unchanged', dot: 'bg-muted-foreground/40' },
 ]
 
 /**
@@ -179,17 +181,17 @@ const DEFAULT_PROJECT_VIEW: MtoProjectView = { projectId: null }
  * Onglets du segmented control de filtre statut (vue rapprochement).
  * `dot` = classe pastille tokenisée ; `null` = pas de pastille (« Tous »).
  */
-const STATUS_SEGMENTS: { value: string; label: string; dot: string | null }[] = [
-  { value: '', label: 'Tous', dot: null },
-  { value: 'en stock', label: 'En stock', dot: 'bg-success' },
-  { value: 'partiel', label: 'Partiel', dot: 'bg-warning' },
-  { value: 'à commander', label: 'À commander', dot: 'bg-destructive' },
+const STATUS_SEGMENTS: { value: string; labelKey: string; dot: string | null }[] = [
+  { value: '', labelKey: 'mto.matching.all', dot: null },
+  { value: 'en stock', labelKey: 'mto.status.en_stock', dot: 'bg-success' },
+  { value: 'partiel', labelKey: 'mto.status.partiel', dot: 'bg-warning' },
+  { value: 'à commander', labelKey: 'mto.status.a_commander', dot: 'bg-destructive' },
 ]
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleDateString('fr-FR', {
+    return new Date(value).toLocaleDateString(i18n.language || 'fr', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -219,6 +221,7 @@ function useMatchingColumnVisibility(): [VisibilityState, (next: VisibilityState
 }
 
 export function MtoPage() {
+  const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
 
@@ -230,13 +233,13 @@ export function MtoPage() {
 
   const tabItems = useMemo(
     () => [
-      { id: 'mto' as const, label: 'MTO', icon: Layers },
-      { id: 'croisement' as const, label: 'Croisement', icon: GitCompareArrows },
-      { id: 'reconciliation' as const, label: 'Réconciliation', icon: PackageCheck },
-      { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
-      { id: 'catalogue' as const, label: 'Catalogue & Stock', icon: Boxes },
+      { id: 'mto' as const, label: t('mto.tabs.mto'), icon: Layers },
+      { id: 'croisement' as const, label: t('mto.tabs.croisement'), icon: GitCompareArrows },
+      { id: 'reconciliation' as const, label: t('mto.tabs.reconciliation'), icon: PackageCheck },
+      { id: 'analytics' as const, label: t('mto.tabs.analytics'), icon: BarChart3 },
+      { id: 'catalogue' as const, label: t('mto.tabs.catalogue'), icon: Boxes },
     ],
-    [],
+    [t],
   )
 
   return (
@@ -245,8 +248,8 @@ export function MtoPage() {
         <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
           <PanelHeader
             icon={Package}
-            title="MTOGuru"
-            subtitle="Rapprochement MTO ↔ stock SAP"
+            title={t('mto.header.title')}
+            subtitle={t('mto.header.subtitle')}
           />
 
           <PageNavBar items={tabItems} activeId={activeTab} onTabChange={setActiveTab} />
@@ -269,6 +272,7 @@ export function MtoPage() {
 // ── Onglet MTO (project-first) ─────────────────────────────────────────────
 
 function MtoProjectTab() {
+  const { t } = useTranslation()
   const [view, setView] = useFilterPersistence<MtoProjectView>(
     'mto.project',
     DEFAULT_PROJECT_VIEW,
@@ -290,7 +294,7 @@ function MtoProjectTab() {
           Clic → ouvre ProjectSelectorModal (mode UN seul projet). */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Projet
+          {t('mto.common.project')}
         </span>
         <ProjectChip
           projectId={projectId}
@@ -302,7 +306,7 @@ function MtoProjectTab() {
       <ProjectSelectorModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Choisir un projet"
+        title={t('mto.common.choose_project')}
         selection={{
           mode: 'selected',
           projectIds: projectId ? [projectId] : [],
@@ -317,8 +321,8 @@ function MtoProjectTab() {
       {!projectId ? (
         <EmptyState
           icon={Package}
-          title="Choisissez un projet pour voir ses MTO"
-          description="Le rapprochement MTO ↔ stock est organisé par projet. Sélectionnez un projet pour lister ses imports MTO et lancer un rapprochement."
+          title={t('mto.list.empty_no_project_title')}
+          description={t('mto.list.empty_no_project_desc')}
         />
       ) : selectedBatchId ? (
         <MatchingView
@@ -346,6 +350,7 @@ function ProjectChip({
   onOpen: () => void
   onClear: () => void
 }) {
+  const { t } = useTranslation()
   const { data: project } = useProject(projectId ?? undefined)
 
   if (!projectId) {
@@ -356,7 +361,7 @@ function ProjectChip({
         className="inline-flex h-8 items-center gap-1.5 rounded-md border border-dashed border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
       >
         <FolderKanban size={14} className="shrink-0" />
-        <span>Choisissez un projet…</span>
+        <span>{t('mto.common.choose_project_placeholder')}</span>
       </button>
     )
   }
@@ -372,8 +377,8 @@ function ProjectChip({
       <button
         type="button"
         onClick={onOpen}
-        title="Changer de projet"
-        aria-label="Changer de projet"
+        title={t('mto.common.change_project')}
+        aria-label={t('mto.common.change_project')}
         className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         <Pencil size={13} />
@@ -381,8 +386,8 @@ function ProjectChip({
       <button
         type="button"
         onClick={onClear}
-        title="Effacer la sélection"
-        aria-label="Effacer la sélection"
+        title={t('mto.common.clear_selection')}
+        aria-label={t('mto.common.clear_selection')}
         className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
       >
         <X size={13} />
@@ -400,6 +405,7 @@ function MtoListView({
   projectId: string
   onOpenBatch: (batchId: string) => void
 }) {
+  const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const { data: batches, isLoading } = useMtoBatchStats(projectId)
 
@@ -420,14 +426,14 @@ function MtoListView({
     () => [
       {
         id: 'mto',
-        header: 'MTO',
+        header: t('mto.list.col_mto'),
         cell: ({ row }) => (
           <span className="font-medium text-foreground">{mtoBatchLabel(row.original)}</span>
         ),
       },
       {
         id: 'role',
-        header: 'Rôle',
+        header: t('mto.list.col_role'),
         size: 100,
         cell: ({ row }) => (
           <BadgeCell
@@ -438,7 +444,7 @@ function MtoListView({
       },
       {
         id: 'created_at',
-        header: 'Date',
+        header: t('mto.list.col_date'),
         size: 120,
         cell: ({ row }) => (
           <span className="text-xs text-muted-foreground">
@@ -448,7 +454,7 @@ function MtoListView({
       },
       {
         id: 'nb_lignes',
-        header: 'Lignes',
+        header: t('mto.list.col_lines'),
         size: 80,
         cell: ({ row }) => (
           <span className="tabular-nums text-foreground">{row.original.nb_lignes}</span>
@@ -456,13 +462,13 @@ function MtoListView({
       },
       {
         id: 'couverture',
-        header: 'Couverture',
+        header: t('mto.list.col_coverage'),
         size: 260,
         cell: ({ row }) => <CoverageCell stats={row.original} />,
       },
       {
         id: 'status',
-        header: 'Statut',
+        header: t('mto.list.col_status'),
         size: 120,
         cell: ({ row }) =>
           row.original.status ? (
@@ -475,7 +481,7 @@ function MtoListView({
           ),
       },
     ],
-    [],
+    [t],
   )
 
   return (
@@ -486,7 +492,7 @@ function MtoListView({
         <MtoStatStrip
           total={aggregate.total}
           counts={aggregate.counts}
-          totalLabel="groupes (tous MTO)"
+          totalLabel={t('mto.list.total_label')}
           isLoading={isLoading}
         />
         <CoverageBar counts={aggregate.counts} size="sm" />
@@ -504,7 +510,7 @@ function MtoListView({
             ) : undefined
           }
           emptyIcon={Package}
-          emptyTitle="Aucun MTO pour ce projet"
+          emptyTitle={t('mto.list.empty_title')}
           storageKey="mto-batches"
         />
       </PanelContent>
@@ -540,6 +546,7 @@ function ImportMtoButton({
   projectId: string
   onImported: (batchId: string) => void
 }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const importMto = useImportMto()
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -551,7 +558,7 @@ function ImportMtoButton({
       <RoleSegmented value={role} onChange={setRole} disabled={importMto.isPending} />
       <ToolbarButton
         icon={FileUp}
-        label={importMto.isPending ? 'Import…' : 'Charger un MTO'}
+        label={importMto.isPending ? t('mto.list.import_pending') : t('mto.list.import_button')}
         variant="primary"
         disabled={importMto.isPending}
         onClick={() => inputRef.current?.click()}
@@ -567,12 +574,15 @@ function ImportMtoButton({
           try {
             const batch = await importMto.mutateAsync({ file, projectId, role })
             toast({
-              title: `MTO ${mtoRoleLabel(role)} importé : ${mtoBatchLabel(batch)}`,
+              title: t('mto.list.import_success', {
+                role: mtoRoleLabel(role),
+                label: mtoBatchLabel(batch),
+              }),
               variant: 'success',
             })
             onImported(batch.id)
           } catch {
-            toast({ title: "Échec de l'import MTO", variant: 'error' })
+            toast({ title: t('mto.list.import_error'), variant: 'error' })
           } finally {
             e.target.value = ''
           }
@@ -596,15 +606,16 @@ function RoleSegmented({
   onChange: (v: MtoRole) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const options: { value: MtoRole; label: string; dot: string }[] = [
-    { value: 'design', label: 'Design', dot: 'bg-info' },
-    { value: 'revise', label: 'Révisé', dot: 'bg-warning' },
+    { value: 'design', label: t('mto.role.design'), dot: 'bg-info' },
+    { value: 'revise', label: t('mto.role.revise'), dot: 'bg-warning' },
   ]
   return (
     <div
       className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
       role="radiogroup"
-      aria-label="Rôle du MTO à importer"
+      aria-label={t('mto.list.import_role_label')}
     >
       {options.map((opt) => {
         const active = value === opt.value
@@ -641,6 +652,7 @@ function MatchingView({
   batchId: string
   onBack: () => void
 }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const confirm = useConfirm()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -667,16 +679,19 @@ function MatchingView({
   // Validation rapide depuis la table (confirm + toast), sans ouvrir le détail.
   const quickValidate = async (group: MtoRow) => {
     const ok = await confirm({
-      title: 'Valider le rapprochement ?',
-      message: `Confirmer le rapprochement de « ${group.designation_sap || group.mto_key || group.article_code || 'ce groupe'} » avec l'article SAP ${group.article_code ?? '—'}.`,
-      confirmLabel: 'Valider',
+      title: t('mto.matching.quick_validate_title'),
+      message: t('mto.matching.quick_validate_message', {
+        item: group.designation_sap || group.mto_key || group.article_code || t('mto.matching.this_group'),
+        article: group.article_code ?? '—',
+      }),
+      confirmLabel: t('mto.matching.validate_confirm'),
     })
     if (!ok) return
     try {
       await validate.mutateAsync(group.id)
-      toast({ title: 'Rapprochement validé', variant: 'success' })
+      toast({ title: t('mto.matching.validate_success'), variant: 'success' })
     } catch {
-      toast({ title: 'Validation impossible', variant: 'error' })
+      toast({ title: t('mto.matching.validate_error'), variant: 'error' })
     }
   }
 
@@ -706,7 +721,7 @@ function MatchingView({
     () => [
       {
         id: 'article',
-        header: 'Article',
+        header: t('mto.matching.col_article'),
         cell: ({ row }) =>
           row.original._child ? (
             <span className="text-muted-foreground">
@@ -720,19 +735,19 @@ function MatchingView({
       },
       {
         id: 'designation',
-        header: 'Désignation SAP',
+        header: t('mto.matching.col_designation_sap'),
         cell: ({ row }) =>
           row.original._child ? (
             <span className="text-muted-foreground">{row.original.description}</span>
           ) : row.original.found ? (
             <span className="text-foreground">{row.original.designation_sap ?? '—'}</span>
           ) : (
-            <span className="italic text-muted-foreground">(non trouvé)</span>
+            <span className="italic text-muted-foreground">{t('mto.matching.not_found')}</span>
           ),
       },
       {
         id: 'famille',
-        header: 'Famille',
+        header: t('mto.matching.col_famille'),
         cell: ({ row }) =>
           row.original._child ? null : (
             <span className="text-xs text-muted-foreground">{row.original.famille ?? ''}</span>
@@ -740,7 +755,7 @@ function MatchingView({
       },
       {
         id: 'besoin',
-        header: 'Besoin',
+        header: t('mto.matching.col_besoin'),
         cell: ({ row }) =>
           row.original._child ? (
             <span className="tabular-nums text-muted-foreground">{row.original.qte ?? ''}</span>
@@ -748,7 +763,7 @@ function MatchingView({
             <span className="tabular-nums">
               {row.original.besoin}&nbsp;{row.original.unite ?? ''}
               {row.original.unit_check ? (
-                <span className="ml-1 text-warning" title="Unités hétérogènes">
+                <span className="ml-1 text-warning" title={t('mto.matching.units_heterogeneous')}>
                   ⚠
                 </span>
               ) : null}
@@ -757,7 +772,7 @@ function MatchingView({
       },
       {
         id: 'couverture',
-        header: 'Couverture',
+        header: t('mto.matching.col_couverture'),
         cell: ({ row }) =>
           row.original._child ? null : (
             <span className={`tabular-nums ${mtoStatusTextClass(row.original.statut)}`}>
@@ -767,7 +782,7 @@ function MatchingView({
       },
       {
         id: 'statut',
-        header: 'Statut',
+        header: t('mto.matching.col_statut'),
         cell: ({ row }) =>
           row.original._child || !row.original.statut ? null : (
             <BadgeCell
@@ -778,18 +793,18 @@ function MatchingView({
       },
       {
         id: 'lignes',
-        header: 'Lignes',
+        header: t('mto.matching.col_lignes'),
         size: 90,
         cell: ({ row }) =>
           row.original._child ? null : (
             <span className="text-xs tabular-nums text-muted-foreground">
-              {row.original.nb_lignes ?? 0} ligne{(row.original.nb_lignes ?? 0) !== 1 ? 's' : ''}
+              {t('mto.common.lines_count', { count: row.original.nb_lignes ?? 0 })}
             </span>
           ),
       },
       {
         id: 'confiance',
-        header: 'Confiance',
+        header: t('mto.matching.col_confiance'),
         size: 130,
         cell: ({ row }) =>
           row.original._child ? null : (
@@ -798,7 +813,7 @@ function MatchingView({
       },
       {
         id: 'verif',
-        header: 'Vérif',
+        header: t('mto.matching.col_verif'),
         size: 110,
         cell: ({ row }) =>
           row.original._child ? null : (
@@ -819,8 +834,8 @@ function MatchingView({
               {showValidate && (
                 <button
                   type="button"
-                  title="Valider le rapprochement"
-                  aria-label="Valider le rapprochement"
+                  title={t('mto.matching.validate_title')}
+                  aria-label={t('mto.matching.validate_title')}
                   disabled={validate.isPending}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -833,8 +848,8 @@ function MatchingView({
               )}
               <button
                 type="button"
-                title="Ouvrir le détail"
-                aria-label="Ouvrir le détail"
+                title={t('mto.matching.open_detail')}
+                aria-label={t('mto.matching.open_detail')}
                 onClick={(e) => {
                   e.stopPropagation()
                   openDynamicPanel({
@@ -854,7 +869,7 @@ function MatchingView({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canValidate, validate.isPending, batchId],
+    [canValidate, validate.isPending, batchId, t],
   )
 
   return (
@@ -868,10 +883,10 @@ function MatchingView({
             type="button"
             onClick={onBack}
             className="btn-sm btn-secondary shrink-0"
-            title="Retour aux MTO du projet"
+            title={t('mto.matching.back_title')}
           >
             <ChevronLeft size={14} />
-            <span className="hidden md:inline">Retour aux MTO</span>
+            <span className="hidden md:inline">{t('mto.matching.back')}</span>
           </button>
 
           {/* Recherche texte (remontée depuis la toolbar de la table). */}
@@ -880,7 +895,7 @@ function MatchingView({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher article, désignation, Ø…"
+              placeholder={t('mto.matching.search_placeholder')}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             />
             {search && (
@@ -888,8 +903,8 @@ function MatchingView({
                 type="button"
                 onClick={() => setSearch('')}
                 className="shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground"
-                title="Effacer la recherche"
-                aria-label="Effacer la recherche"
+                title={t('mto.common.clear_search')}
+                aria-label={t('mto.common.clear_search')}
               >
                 <X size={13} />
               </button>
@@ -900,7 +915,7 @@ function MatchingView({
             <MtoStatStrip
               total={total}
               counts={counts}
-              totalLabel="groupes"
+              totalLabel={t('mto.matching.total_label')}
               isLoading={isLoading}
             />
           </div>
@@ -910,10 +925,10 @@ function MatchingView({
               type="button"
               onClick={() => setExportOpen(true)}
               className="btn-sm btn-secondary shrink-0"
-              title="Exporter (classeur Excel + mails)"
+              title={t('mto.matching.export_title')}
             >
               <Download size={13} />
-              <span className="hidden md:inline">Exporter</span>
+              <span className="hidden md:inline">{t('mto.matching.export')}</span>
             </button>
           )}
 
@@ -922,16 +937,16 @@ function MatchingView({
             onClick={async () => {
               try {
                 await consolidate.mutateAsync(batchId)
-                toast({ title: 'Consolidation relancée', variant: 'success' })
+                toast({ title: t('mto.matching.reconsolidate_success'), variant: 'success' })
               } catch {
-                toast({ title: 'Consolidation impossible', variant: 'error' })
+                toast({ title: t('mto.matching.reconsolidate_error'), variant: 'error' })
               }
             }}
             disabled={consolidate.isPending}
             className="btn-sm btn-secondary shrink-0"
           >
             <RefreshCw size={13} className={consolidate.isPending ? 'animate-spin' : undefined} />
-            <span className="hidden md:inline">Re-consolider</span>
+            <span className="hidden md:inline">{t('mto.matching.reconsolidate')}</span>
           </button>
         </div>
 
@@ -963,7 +978,7 @@ function MatchingView({
             // (onSearchChange omis → pas de double champ de recherche).
             searchValue={search}
             emptyIcon={Package}
-            emptyTitle="Aucun rapprochement — consolidez ce MTO"
+            emptyTitle={t('mto.matching.empty_title')}
             pageSize={50}
             expandAllSignal={expandSignal}
             collapseAllSignal={collapseSignal}
@@ -976,20 +991,20 @@ function MatchingView({
                 <button
                   type="button"
                   onClick={() => setExpandSignal((n) => n + 1)}
-                  title="Déplier tout"
+                  title={t('mto.matching.expand_all')}
                   className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <ChevronsUpDown size={14} />
-                  <span className="hidden lg:inline">Déplier tout</span>
+                  <span className="hidden lg:inline">{t('mto.matching.expand_all')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setCollapseSignal((n) => n + 1)}
-                  title="Replier tout"
+                  title={t('mto.matching.collapse_all')}
                   className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <ChevronsDownUp size={14} />
-                  <span className="hidden lg:inline">Replier tout</span>
+                  <span className="hidden lg:inline">{t('mto.matching.collapse_all')}</span>
                 </button>
                 <StatusSegmented
                   value={statut}
@@ -1031,13 +1046,14 @@ function StatusSegmented({
   counts: CoverageCounts
   total: number
 }) {
+  const { t } = useTranslation()
   const countFor = (v: string) => (v === '' ? total : counts[v] ?? 0)
 
   return (
     <div
       className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
       role="tablist"
-      aria-label="Filtrer par statut"
+      aria-label={t('mto.matching.filter_status')}
     >
       {STATUS_SEGMENTS.map((seg) => {
         const active = value === seg.value
@@ -1056,8 +1072,8 @@ function StatusSegmented({
             )}
           >
             {seg.dot && <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', seg.dot)} />}
-            <span className="hidden sm:inline">{seg.label}</span>
-            <span className="sm:hidden">{seg.dot ? '' : 'Tous'}</span>
+            <span className="hidden sm:inline">{t(seg.labelKey)}</span>
+            <span className="sm:hidden">{seg.dot ? '' : t('mto.matching.all')}</span>
             <span
               className={cn(
                 'tabular-nums',
@@ -1094,9 +1110,9 @@ function ConfidenceBadge({ confidence }: { confidence?: string | null }) {
  *   pending / autre → neutral « En attente ».
  */
 function VerificationBadge({ status }: { status?: string | null }) {
-  if (status === 'verified') return <BadgeCell value="Validé" variant="success" />
-  if (status === 'rejected') return <BadgeCell value="Rejeté" variant="danger" />
-  return <BadgeCell value="En attente" variant="neutral" />
+  if (status === 'verified') return <BadgeCell value={i18n.t('mto.verification.verified')} variant="success" />
+  if (status === 'rejected') return <BadgeCell value={i18n.t('mto.verification.rejected')} variant="danger" />
+  return <BadgeCell value={i18n.t('mto.verification.pending')} variant="neutral" />
 }
 
 /**
@@ -1143,6 +1159,7 @@ function MtoTableSkeleton() {
  * stats + segmented filter par type + recherche.
  */
 function CroisementTab() {
+  const { t } = useTranslation()
   const [view, setView] = useFilterPersistence<MtoProjectView>(
     'mto.project',
     DEFAULT_PROJECT_VIEW,
@@ -1176,7 +1193,7 @@ function CroisementTab() {
       {/* Sélecteur de projet — même puce que l'onglet MTO. */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Projet
+          {t('mto.common.project')}
         </span>
         <ProjectChip
           projectId={projectId}
@@ -1188,7 +1205,7 @@ function CroisementTab() {
       <ProjectSelectorModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Choisir un projet"
+        title={t('mto.common.choose_project')}
         selection={{
           mode: 'selected',
           projectIds: projectId ? [projectId] : [],
@@ -1202,38 +1219,38 @@ function CroisementTab() {
       {!projectId ? (
         <EmptyState
           icon={GitCompareArrows}
-          title="Choisissez un projet pour croiser ses MTO"
-          description="Le croisement compare le MTO Design et le MTO Révisé d'un même projet. Sélectionnez un projet, puis choisissez les deux MTO à comparer."
+          title={t('mto.croisement.empty_no_project_title')}
+          description={t('mto.croisement.empty_no_project_desc')}
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Deux sélecteurs de batch par rôle. */}
           <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-2">
             <BatchRoleSelect
-              label="MTO Design"
+              label={t('mto.croisement.design_label')}
               dot="bg-info"
               batches={designBatches}
               value={designId}
               onChange={setDesignId}
               isLoading={batchesLoading}
-              emptyHint="Aucun MTO Design pour ce projet"
+              emptyHint={t('mto.croisement.design_empty_hint')}
             />
             <BatchRoleSelect
-              label="MTO Révisé"
+              label={t('mto.croisement.revise_label')}
               dot="bg-warning"
               batches={reviseBatches}
               value={reviseId}
               onChange={setReviseId}
               isLoading={batchesLoading}
-              emptyHint="Aucun MTO Révisé pour ce projet"
+              emptyHint={t('mto.croisement.revise_empty_hint')}
             />
           </div>
 
           {!designId || !reviseId ? (
             <EmptyState
               icon={ArrowLeftRight}
-              title="Sélectionnez les deux MTO à croiser"
-              description="Choisissez un MTO Design et un MTO Révisé ci-dessus pour afficher les écarts."
+              title={t('mto.croisement.empty_select_title')}
+              description={t('mto.croisement.empty_select_desc')}
             />
           ) : (
             <DiffView designId={designId} reviseId={reviseId} />
@@ -1265,6 +1282,7 @@ function BatchRoleSelect({
   isLoading?: boolean
   emptyHint: string
 }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-lg border border-border/60 bg-card px-3 py-2.5">
       <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -1281,11 +1299,11 @@ function BatchRoleSelect({
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value || null)}
         >
-          <option value="">Choisir un MTO…</option>
+          <option value="">{t('mto.common.choose_mto')}</option>
           {batches.map((b) => (
             <option key={b.id} value={b.id}>
-              {mtoBatchLabel(b)} · {formatDate(b.created_at)} · {b.nb_lignes} ligne
-              {b.nb_lignes !== 1 ? 's' : ''}
+              {mtoBatchLabel(b)} · {formatDate(b.created_at)} ·{' '}
+              {t('mto.common.lines_count', { count: b.nb_lignes })}
             </option>
           ))}
         </select>
@@ -1300,6 +1318,7 @@ function BatchRoleSelect({
  * la DataTable des items (besoins design/révisé, écart coloré, type).
  */
 function DiffView({ designId, reviseId }: { designId: string; reviseId: string }) {
+  const { t } = useTranslation()
   const { data: diff, isLoading, isError } = useMtoDiff(designId, reviseId)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'' | MtoDiffChangeType>('')
@@ -1314,14 +1333,14 @@ function DiffView({ designId, reviseId }: { designId: string; reviseId: string }
     () => [
       {
         id: 'designation',
-        header: 'Item',
+        header: t('mto.diff.col_item'),
         cell: ({ row }) => (
           <span className="text-foreground">{row.original.designation ?? '—'}</span>
         ),
       },
       {
         id: 'diameter',
-        header: 'Ø',
+        header: t('mto.diff.col_diameter'),
         size: 90,
         cell: ({ row }) => (
           <span className="text-xs text-muted-foreground">{row.original.diameter ?? '—'}</span>
@@ -1329,7 +1348,7 @@ function DiffView({ designId, reviseId }: { designId: string; reviseId: string }
       },
       {
         id: 'unite',
-        header: 'Unité',
+        header: t('mto.diff.col_unite'),
         size: 80,
         cell: ({ row }) => (
           <span className="text-xs text-muted-foreground">{row.original.unite ?? '—'}</span>
@@ -1337,7 +1356,7 @@ function DiffView({ designId, reviseId }: { designId: string; reviseId: string }
       },
       {
         id: 'besoin_design',
-        header: 'Besoin design',
+        header: t('mto.diff.col_besoin_design'),
         size: 120,
         cell: ({ row }) => (
           <span className="tabular-nums text-foreground">{row.original.besoin_design}</span>
@@ -1345,7 +1364,7 @@ function DiffView({ designId, reviseId }: { designId: string; reviseId: string }
       },
       {
         id: 'besoin_revise',
-        header: 'Besoin révisé',
+        header: t('mto.diff.col_besoin_revise'),
         size: 120,
         cell: ({ row }) => (
           <span className="tabular-nums text-foreground">{row.original.besoin_revise}</span>
@@ -1353,31 +1372,31 @@ function DiffView({ designId, reviseId }: { designId: string; reviseId: string }
       },
       {
         id: 'delta',
-        header: 'Écart',
+        header: t('mto.diff.col_ecart'),
         size: 100,
         cell: ({ row }) => <DeltaCell delta={row.original.delta} />,
       },
       {
         id: 'change_type',
-        header: 'Type',
+        header: t('mto.diff.col_type'),
         size: 120,
         cell: ({ row }) => (
           <BadgeCell
-            value={DIFF_TYPE_LABELS[row.original.change_type]}
+            value={t(DIFF_TYPE_LABEL_KEYS[row.original.change_type])}
             variant={DIFF_TYPE_VARIANTS[row.original.change_type]}
           />
         ),
       },
     ],
-    [],
+    [t],
   )
 
   if (isError) {
     return (
       <EmptyState
         icon={GitCompareArrows}
-        title="Croisement indisponible"
-        description="Impossible de récupérer les écarts entre ces deux MTO. Réessayez plus tard."
+        title={t('mto.croisement.error_title')}
+        description={t('mto.croisement.error_desc')}
       />
     )
   }
@@ -1393,7 +1412,7 @@ function DiffView({ designId, reviseId }: { designId: string; reviseId: string }
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher item, Ø…"
+              placeholder={t('mto.croisement.search_placeholder')}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             />
             {search && (
@@ -1401,8 +1420,8 @@ function DiffView({ designId, reviseId }: { designId: string; reviseId: string }
                 type="button"
                 onClick={() => setSearch('')}
                 className="shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground"
-                title="Effacer la recherche"
-                aria-label="Effacer la recherche"
+                title={t('mto.common.clear_search')}
+                aria-label={t('mto.common.clear_search')}
               >
                 <X size={13} />
               </button>
@@ -1423,9 +1442,9 @@ function DiffView({ designId, reviseId }: { designId: string; reviseId: string }
             getRowId={(row) => row.mto_key}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher item, Ø…"
+            searchPlaceholder={t('mto.croisement.search_placeholder')}
             emptyIcon={GitCompareArrows}
-            emptyTitle="Aucun écart pour ce filtre"
+            emptyTitle={t('mto.croisement.empty_filter_title')}
             storageKey="mto-diff"
             toolbarRight={
               <DiffTypeSegmented value={typeFilter} onChange={setTypeFilter} summary={summary} />
@@ -1460,6 +1479,7 @@ function DiffStatStrip({
   summary: Record<MtoDiffChangeType, number> | undefined
   isLoading?: boolean
 }) {
+  const { t } = useTranslation()
   if (isLoading) {
     return (
       <div className="flex h-6 items-center gap-3" aria-hidden>
@@ -1472,10 +1492,10 @@ function DiffStatStrip({
   }
   const s = summary ?? { added: 0, removed: 0, changed: 0, unchanged: 0 }
   const stats: { dot: string; value: number; label: string }[] = [
-    { dot: 'bg-success', value: s.added, label: 'ajoutés' },
-    { dot: 'bg-destructive', value: s.removed, label: 'supprimés' },
-    { dot: 'bg-warning', value: s.changed, label: 'modifiés' },
-    { dot: 'bg-muted-foreground/40', value: s.unchanged, label: 'inchangés' },
+    { dot: 'bg-success', value: s.added, label: t('mto.diff.stat_added') },
+    { dot: 'bg-destructive', value: s.removed, label: t('mto.diff.stat_removed') },
+    { dot: 'bg-warning', value: s.changed, label: t('mto.diff.stat_changed') },
+    { dot: 'bg-muted-foreground/40', value: s.unchanged, label: t('mto.diff.stat_unchanged') },
   ]
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -1506,6 +1526,7 @@ function DiffTypeSegmented({
   onChange: (v: '' | MtoDiffChangeType) => void
   summary: Record<MtoDiffChangeType, number> | undefined
 }) {
+  const { t } = useTranslation()
   const total = summary
     ? summary.added + summary.removed + summary.changed + summary.unchanged
     : 0
@@ -1516,7 +1537,7 @@ function DiffTypeSegmented({
     <div
       className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5"
       role="tablist"
-      aria-label="Filtrer par type d'écart"
+      aria-label={t('mto.croisement.filter_type')}
     >
       {DIFF_TYPE_SEGMENTS.map((seg) => {
         const active = value === seg.value
@@ -1535,7 +1556,7 @@ function DiffTypeSegmented({
             )}
           >
             {seg.dot && <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', seg.dot)} />}
-            <span className="hidden sm:inline">{seg.label}</span>
+            <span className="hidden sm:inline">{t(seg.labelKey)}</span>
             <span
               className={cn(
                 'tabular-nums',
@@ -1564,6 +1585,7 @@ function DiffTypeSegmented({
  * projet) puis import de la consommation + table de réconciliation.
  */
 function ReconciliationTab() {
+  const { t } = useTranslation()
   const [view, setView] = useFilterPersistence<MtoProjectView>(
     'mto.project',
     DEFAULT_PROJECT_VIEW,
@@ -1585,7 +1607,7 @@ function ReconciliationTab() {
       {/* Sélecteur de projet — même puce que les autres onglets. */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Projet
+          {t('mto.common.project')}
         </span>
         <ProjectChip
           projectId={projectId}
@@ -1597,7 +1619,7 @@ function ReconciliationTab() {
       <ProjectSelectorModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Choisir un projet"
+        title={t('mto.common.choose_project')}
         selection={{
           mode: 'selected',
           projectIds: projectId ? [projectId] : [],
@@ -1611,8 +1633,8 @@ function ReconciliationTab() {
       {!projectId ? (
         <EmptyState
           icon={PackageCheck}
-          title="Choisissez un projet pour réconcilier ses MTO"
-          description="La réconciliation rapproche le fourni/commandé de la consommation réelle d'un MTO, et calcule le reliquat à retourner à PERENCO. Sélectionnez un projet, puis choisissez le MTO concerné."
+          title={t('mto.reconcile.empty_no_project_title')}
+          description={t('mto.reconcile.empty_no_project_desc')}
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -1629,8 +1651,8 @@ function ReconciliationTab() {
           {!batchId ? (
             <EmptyState
               icon={PackageCheck}
-              title="Sélectionnez un MTO à réconcilier"
-              description="Choisissez un MTO ci-dessus, importez sa consommation réelle, puis consultez le reliquat à retourner."
+              title={t('mto.reconcile.empty_select_title')}
+              description={t('mto.reconcile.empty_select_desc')}
             />
           ) : (
             <ReconciliationView projectId={projectId} batchId={batchId} />
@@ -1657,27 +1679,28 @@ function ReconcileBatchSelect({
   onChange: (id: string | null) => void
   isLoading?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-lg border border-border/60 bg-card px-3 py-2.5">
       <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <PackageCheck size={13} className="shrink-0 text-primary" />
-        MTO à réconcilier
+        {t('mto.reconcile.select_label')}
       </p>
       {isLoading ? (
         <Skeleton className="h-8 w-full" />
       ) : batches.length === 0 ? (
-        <p className="text-xs italic text-muted-foreground">Aucun MTO pour ce projet</p>
+        <p className="text-xs italic text-muted-foreground">{t('mto.reconcile.select_empty')}</p>
       ) : (
         <select
           className="gl-form-input h-8 w-full text-sm"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value || null)}
         >
-          <option value="">Choisir un MTO…</option>
+          <option value="">{t('mto.common.choose_mto')}</option>
           {batches.map((b) => (
             <option key={b.id} value={b.id}>
               {mtoBatchLabel(b)} · {mtoRoleLabel(b.role)} · {formatDate(b.created_at)} ·{' '}
-              {b.nb_lignes} ligne{b.nb_lignes !== 1 ? 's' : ''}
+              {t('mto.common.lines_count', { count: b.nb_lignes })}
             </option>
           ))}
         </select>
@@ -1699,6 +1722,7 @@ function ReconciliationView({
   projectId: string
   batchId: string
 }) {
+  const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const { data: reconcile, isLoading, isError } = useReconciliation(batchId)
   const [search, setSearch] = useState('')
@@ -1717,7 +1741,7 @@ function ReconciliationView({
     () => [
       {
         id: 'code_article',
-        header: 'Article',
+        header: t('mto.reconcile.col_article'),
         size: 160,
         cell: ({ row }) => (
           <span className="font-mono text-xs text-primary">{row.original.code_article}</span>
@@ -1725,14 +1749,14 @@ function ReconciliationView({
       },
       {
         id: 'designation',
-        header: 'Désignation',
+        header: t('mto.reconcile.col_designation'),
         cell: ({ row }) => (
           <span className="text-foreground">{row.original.designation ?? '—'}</span>
         ),
       },
       {
         id: 'besoin',
-        header: 'Besoin',
+        header: t('mto.reconcile.col_besoin'),
         size: 110,
         cell: ({ row }) => (
           <span className="tabular-nums text-foreground">{row.original.besoin}</span>
@@ -1740,7 +1764,7 @@ function ReconciliationView({
       },
       {
         id: 'a_commander',
-        header: 'Commandé',
+        header: t('mto.reconcile.col_commande'),
         size: 110,
         cell: ({ row }) => (
           <span className="tabular-nums text-foreground">{row.original.a_commander}</span>
@@ -1748,7 +1772,7 @@ function ReconciliationView({
       },
       {
         id: 'consomme',
-        header: 'Consommé',
+        header: t('mto.reconcile.col_consomme'),
         size: 110,
         cell: ({ row }) => (
           <span className="tabular-nums text-foreground">{row.original.consomme}</span>
@@ -1756,20 +1780,20 @@ function ReconciliationView({
       },
       {
         id: 'a_retourner',
-        header: 'À retourner',
+        header: t('mto.reconcile.col_a_retourner'),
         size: 120,
         cell: ({ row }) => <ReturnCell value={row.original.a_retourner} />,
       },
     ],
-    [],
+    [t],
   )
 
   if (isError) {
     return (
       <EmptyState
         icon={PackageCheck}
-        title="Réconciliation indisponible"
-        description="Impossible de récupérer la réconciliation de ce MTO. Importez une consommation ou réessayez plus tard."
+        title={t('mto.reconcile.error_title')}
+        description={t('mto.reconcile.error_desc')}
       />
     )
   }
@@ -1789,7 +1813,7 @@ function ReconciliationView({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher article, désignation…"
+              placeholder={t('mto.reconcile.search_placeholder')}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             />
             {search && (
@@ -1797,8 +1821,8 @@ function ReconciliationView({
                 type="button"
                 onClick={() => setSearch('')}
                 className="shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground"
-                title="Effacer la recherche"
-                aria-label="Effacer la recherche"
+                title={t('mto.common.clear_search')}
+                aria-label={t('mto.common.clear_search')}
               >
                 <X size={13} />
               </button>
@@ -1814,10 +1838,10 @@ function ReconciliationView({
             onClick={() => exportReturnList(reconcile?.items ?? [], batchId)}
             disabled={!summary || summary.total_a_retourner <= 0}
             className="btn-sm btn-secondary shrink-0"
-            title="Exporter la liste de retour (CSV)"
+            title={t('mto.reconcile.export_return_title')}
           >
             <Download size={13} />
-            <span className="hidden md:inline">Exporter la liste de retour</span>
+            <span className="hidden md:inline">{t('mto.reconcile.export_return')}</span>
           </button>
         </div>
 
@@ -1837,10 +1861,10 @@ function ReconciliationView({
             getRowId={(row) => row.code_article}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher article, désignation…"
+            searchPlaceholder={t('mto.reconcile.search_placeholder')}
             emptyIcon={PackageCheck}
             emptyTitle={
-              onlyReturn ? 'Aucun reliquat à retourner' : 'Aucune ligne — importez la consommation'
+              onlyReturn ? t('mto.reconcile.empty_no_return') : t('mto.reconcile.empty_no_lines')
             }
             storageKey="mto-reconciliation"
             toolbarRight={
@@ -1862,7 +1886,7 @@ function ReconciliationView({
                     onlyReturn ? 'bg-warning' : 'bg-muted-foreground/40',
                   )}
                 />
-                À retourner &gt; 0
+                {t('mto.reconcile.only_return_toggle')}
               </button>
             }
           />
@@ -1893,6 +1917,7 @@ function ImportConsumptionButton({
   projectId: string
   batchId: string
 }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const importConsumption = useImportConsumption()
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -1901,7 +1926,7 @@ function ImportConsumptionButton({
     <>
       <ToolbarButton
         icon={FileUp}
-        label={importConsumption.isPending ? 'Import…' : 'Importer la consommation'}
+        label={importConsumption.isPending ? t('mto.reconcile.import_pending') : t('mto.reconcile.import_button')}
         variant="primary"
         disabled={importConsumption.isPending}
         onClick={() => inputRef.current?.click()}
@@ -1917,11 +1942,11 @@ function ImportConsumptionButton({
           try {
             const res = await importConsumption.mutateAsync({ file, projectId, batchId })
             toast({
-              title: `Consommation importée : ${res.imported} ligne${res.imported !== 1 ? 's' : ''}`,
+              title: t('mto.reconcile.import_success', { count: res.imported }),
               variant: 'success',
             })
           } catch {
-            toast({ title: "Échec de l'import de la consommation", variant: 'error' })
+            toast({ title: t('mto.reconcile.import_error'), variant: 'error' })
           } finally {
             e.target.value = ''
           }
@@ -1945,6 +1970,7 @@ function ReconcileStatStrip({
   isLoading?: boolean
   className?: string
 }) {
+  const { t } = useTranslation()
   if (isLoading) {
     return (
       <div className={cn('flex h-6 items-center gap-3', className)} aria-hidden>
@@ -1957,10 +1983,10 @@ function ReconcileStatStrip({
   }
   const s = summary ?? { lines: 0, total_besoin: 0, total_consomme: 0, total_a_retourner: 0 }
   const stats: { dot: string | null; value: number; label: string }[] = [
-    { dot: null, value: s.lines, label: 'lignes' },
-    { dot: 'bg-info', value: s.total_besoin, label: 'besoin' },
-    { dot: 'bg-success', value: s.total_consomme, label: 'consommé' },
-    { dot: 'bg-warning', value: s.total_a_retourner, label: 'à retourner' },
+    { dot: null, value: s.lines, label: t('mto.reconcile.stat_lines') },
+    { dot: 'bg-info', value: s.total_besoin, label: t('mto.reconcile.stat_besoin') },
+    { dot: 'bg-success', value: s.total_consomme, label: t('mto.reconcile.stat_consomme') },
+    { dot: 'bg-warning', value: s.total_a_retourner, label: t('mto.reconcile.stat_a_retourner') },
   ]
   return (
     <div className={cn('flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1', className)}>
@@ -2004,7 +2030,11 @@ function exportReturnList(items: ReconcileItem[], batchId: string): void {
     return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
 
-  const header = ['Code article', 'Désignation', 'À retourner']
+  const header = [
+    i18n.t('mto.reconcile.csv_code_article'),
+    i18n.t('mto.reconcile.csv_designation'),
+    i18n.t('mto.reconcile.csv_a_retourner'),
+  ]
   const rows = toReturn.map((it) => [
     cell(it.code_article),
     cell(it.designation ?? ''),
@@ -2035,6 +2065,7 @@ function exportReturnList(items: ReconcileItem[], batchId: string): void {
  * La requête est donc TOUJOURS active (pas d'EmptyState bloquant sans projet).
  */
 function AnalyticsTab() {
+  const { t } = useTranslation()
   const [view, setView] = useFilterPersistence<MtoProjectView>(
     'mto.project',
     DEFAULT_PROJECT_VIEW,
@@ -2050,7 +2081,7 @@ function AnalyticsTab() {
           Effacer la puce repasse en vue globale entité (pas d'EmptyState). */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Périmètre
+          {t('mto.common.scope')}
         </span>
         <AnalyticsScopeChip
           projectId={projectId}
@@ -2062,7 +2093,7 @@ function AnalyticsTab() {
       <ProjectSelectorModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Choisir un projet"
+        title={t('mto.common.choose_project')}
         selection={{
           mode: 'selected',
           projectIds: projectId ? [projectId] : [],
@@ -2077,8 +2108,8 @@ function AnalyticsTab() {
         <EmptyState
           icon={BarChart3}
           variant="error"
-          title="Statistiques indisponibles"
-          description="Impossible de récupérer les statistiques d'approvisionnement. Réessayez plus tard."
+          title={t('mto.analytics.error_title')}
+          description={t('mto.analytics.error_desc')}
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -2091,31 +2122,31 @@ function AnalyticsTab() {
           <PanelContent>
             <div className="grid gap-3 p-4 lg:grid-cols-2">
               <AnalyticsPanel
-                title="Articles les plus consommés"
+                title={t('mto.analytics.panel_top_consommes')}
                 icon={PackageCheck}
                 isLoading={isLoading}
-                emptyHint="Pas encore de données de consommation"
+                emptyHint={t('mto.analytics.panel_top_consommes_empty')}
                 rows={(data?.top_consommes ?? []).map(topItemToBar)}
               />
               <AnalyticsPanel
-                title="Articles les plus demandés"
+                title={t('mto.analytics.panel_top_demandes')}
                 icon={Package}
                 isLoading={isLoading}
-                emptyHint="Pas encore de données de demande"
+                emptyHint={t('mto.analytics.panel_top_demandes_empty')}
                 rows={(data?.top_demandes ?? []).map(topItemToBar)}
               />
               <AnalyticsPanel
-                title="Fréquence de commande"
+                title={t('mto.analytics.panel_frequence')}
                 icon={RefreshCw}
                 isLoading={isLoading}
-                emptyHint="Pas encore d'historique de commande"
+                emptyHint={t('mto.analytics.panel_frequence_empty')}
                 rows={(data?.top_frequence ?? []).map(freqItemToBar)}
               />
               <AnalyticsPanel
-                title="Souvent commandés ensemble"
+                title={t('mto.analytics.panel_co_occurrence')}
                 icon={GitCompareArrows}
                 isLoading={isLoading}
-                emptyHint="Pas encore de co-occurrences"
+                emptyHint={t('mto.analytics.panel_co_occurrence_empty')}
                 rows={(data?.co_occurrence ?? []).map(pairToBar)}
               />
             </div>
@@ -2140,6 +2171,7 @@ function AnalyticsScopeChip({
   onOpen: () => void
   onClearToGlobal: () => void
 }) {
+  const { t } = useTranslation()
   const { data: project } = useProject(projectId ?? undefined)
 
   if (!projectId) {
@@ -2147,12 +2179,12 @@ function AnalyticsScopeChip({
     return (
       <div className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-card pl-2.5 pr-1 text-sm">
         <Boxes size={14} className="shrink-0 text-primary" />
-        <span className="font-medium text-foreground">Tous les projets</span>
+        <span className="font-medium text-foreground">{t('mto.common.all_projects')}</span>
         <button
           type="button"
           onClick={onOpen}
-          title="Cibler un projet"
-          aria-label="Cibler un projet"
+          title={t('mto.common.target_project')}
+          aria-label={t('mto.common.target_project')}
           className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <Pencil size={13} />
@@ -2172,8 +2204,8 @@ function AnalyticsScopeChip({
       <button
         type="button"
         onClick={onOpen}
-        title="Changer de projet"
-        aria-label="Changer de projet"
+        title={t('mto.common.change_project')}
+        aria-label={t('mto.common.change_project')}
         className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         <Pencil size={13} />
@@ -2181,8 +2213,8 @@ function AnalyticsScopeChip({
       <button
         type="button"
         onClick={onClearToGlobal}
-        title="Voir tous les projets"
-        aria-label="Voir tous les projets"
+        title={t('mto.common.view_all_projects')}
+        aria-label={t('mto.common.view_all_projects')}
         className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         <X size={13} />
@@ -2243,6 +2275,7 @@ function AnalyticsKpiStrip({
   overview: MtoAnalyticsOverview | undefined
   isLoading?: boolean
 }) {
+  const { t } = useTranslation()
   if (isLoading) {
     return (
       <div className="flex h-6 items-center gap-3" aria-hidden>
@@ -2263,11 +2296,11 @@ function AnalyticsKpiStrip({
       total_consomme: 0,
     }
   const stats: { dot: string | null; value: string | number; label: string }[] = [
-    { dot: 'bg-success', value: `${Math.round(o.taux_dispo)}%`, label: 'disponibilité' },
-    { dot: 'bg-destructive', value: o.total_a_commander, label: 'à commander' },
-    { dot: 'bg-info', value: o.total_consomme, label: 'consommé' },
-    { dot: null, value: o.nb_articles, label: 'articles' },
-    { dot: null, value: o.nb_batches, label: 'MTO' },
+    { dot: 'bg-success', value: `${Math.round(o.taux_dispo)}%`, label: t('mto.analytics.kpi_disponibilite') },
+    { dot: 'bg-destructive', value: o.total_a_commander, label: t('mto.analytics.kpi_a_commander') },
+    { dot: 'bg-info', value: o.total_consomme, label: t('mto.analytics.kpi_consomme') },
+    { dot: null, value: o.nb_articles, label: t('mto.analytics.kpi_articles') },
+    { dot: null, value: o.nb_batches, label: t('mto.analytics.kpi_mto') },
   ]
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -2305,6 +2338,7 @@ function AnalyticsPanel({
   isLoading?: boolean
   emptyHint: string
 }) {
+  const { t } = useTranslation()
   const top = rows.slice(0, 15)
   const max = top.reduce((m, r) => Math.max(m, r.value), 0)
 
@@ -2331,7 +2365,7 @@ function AnalyticsPanel({
           <EmptyState
             icon={Icon}
             size="compact"
-            title="Pas encore de données"
+            title={t('mto.analytics.panel_empty_title')}
             description={emptyHint}
           />
         ) : (
@@ -2382,6 +2416,7 @@ function BarRow({ row, max }: { row: AnalyticsBarRow; max: number }) {
 // ── Onglet Catalogue & Stock ───────────────────────────────────────────────
 
 function CatalogueStockTab() {
+  const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const { toast } = useToast()
   const [search, setSearch] = useState('')
@@ -2401,7 +2436,7 @@ function CatalogueStockTab() {
     () => [
       {
         id: 'code',
-        header: 'Code',
+        header: t('mto.catalogue.col_code'),
         size: 160,
         cell: ({ row }) => (
           <span className="font-mono text-xs text-primary">{row.original.code}</span>
@@ -2409,19 +2444,19 @@ function CatalogueStockTab() {
       },
       {
         id: 'designation',
-        header: 'Désignation',
+        header: t('mto.catalogue.col_designation'),
         cell: ({ row }) => <span className="text-foreground">{row.original.designation}</span>,
       },
       {
         id: 'famille',
-        header: 'Famille',
+        header: t('mto.catalogue.col_famille'),
         size: 180,
         cell: ({ row }) => (
           <span className="text-xs text-muted-foreground">{row.original.famille ?? '—'}</span>
         ),
       },
     ],
-    [],
+    [t],
   )
 
   return (
@@ -2432,11 +2467,11 @@ function CatalogueStockTab() {
           {canImportCatalogue && (
             <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
               <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Catalogue SAP
+                {t('mto.catalogue.catalogue_sap')}
               </p>
               <ToolbarButton
                 icon={FileUp}
-                label={importCatalogue.isPending ? 'Import…' : 'Importer le catalogue'}
+                label={importCatalogue.isPending ? t('mto.catalogue.import_pending') : t('mto.catalogue.import_catalogue')}
                 disabled={importCatalogue.isPending}
                 onClick={() => catalogueRef.current?.click()}
               />
@@ -2451,11 +2486,11 @@ function CatalogueStockTab() {
                   try {
                     const res = await importCatalogue.mutateAsync(file)
                     toast({
-                      title: `Catalogue importé : ${res.imported} article(s)`,
+                      title: t('mto.catalogue.import_catalogue_success', { count: res.imported }),
                       variant: 'success',
                     })
                   } catch {
-                    toast({ title: "Échec de l'import catalogue", variant: 'error' })
+                    toast({ title: t('mto.catalogue.import_catalogue_error'), variant: 'error' })
                   } finally {
                     e.target.value = ''
                   }
@@ -2467,19 +2502,19 @@ function CatalogueStockTab() {
           {canImportStock && (
             <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
               <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                État de stock
+                {t('mto.catalogue.stock_state')}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="text"
                   value={stockLabel}
                   onChange={(e) => setStockLabel(e.target.value)}
-                  placeholder="Libellé (ex. Stock 2026-06)…"
+                  placeholder={t('mto.catalogue.stock_label_placeholder')}
                   className="gl-form-input h-8 flex-1 text-xs"
                 />
                 <ToolbarButton
                   icon={FileUp}
-                  label={importStock.isPending ? 'Import…' : 'Importer le stock'}
+                  label={importStock.isPending ? t('mto.catalogue.import_pending') : t('mto.catalogue.import_stock')}
                   disabled={importStock.isPending}
                   onClick={() => stockRef.current?.click()}
                 />
@@ -2498,12 +2533,12 @@ function CatalogueStockTab() {
                       label: stockLabel || undefined,
                     })
                     toast({
-                      title: `Stock importé : ${res.imported} ligne(s)`,
+                      title: t('mto.catalogue.import_stock_success', { count: res.imported }),
                       variant: 'success',
                     })
                     setStockLabel('')
                   } catch {
-                    toast({ title: "Échec de l'import stock", variant: 'error' })
+                    toast({ title: t('mto.catalogue.import_stock_error'), variant: 'error' })
                   } finally {
                     e.target.value = ''
                   }
@@ -2521,7 +2556,7 @@ function CatalogueStockTab() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher un article SAP (code ou désignation)…"
+            placeholder={t('mto.catalogue.search_placeholder')}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
           />
         </div>
@@ -2531,8 +2566,8 @@ function CatalogueStockTab() {
         {search.trim().length < 2 ? (
           <EmptyState
             icon={Boxes}
-            title="Recherche catalogue SAP"
-            description="Saisissez au moins 2 caractères pour rechercher un article."
+            title={t('mto.catalogue.search_title')}
+            description={t('mto.catalogue.search_desc')}
           />
         ) : (
           <PanelContent scroll={false}>
@@ -2541,7 +2576,7 @@ function CatalogueStockTab() {
               data={results ?? []}
               isLoading={isFetching}
               emptyIcon={Boxes}
-              emptyTitle="Aucun article trouvé"
+              emptyTitle={t('mto.catalogue.empty_title')}
               storageKey="mto-catalogue"
             />
           </PanelContent>

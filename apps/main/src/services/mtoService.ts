@@ -10,7 +10,13 @@
  * Aucune couleur hex en dur : on s'appuie sur les variantes `BadgeCell`
  * (chips Pajamas, avec dark: intégré) et sur les tokens texte
  * (`text-success` / `text-warning` / `text-destructive`).
+ *
+ * i18n : les LIBELLÉS affichés passent par i18n (namespace `mto.status.*`).
+ * Les CLÉS de ces maps restent les valeurs métier brutes du backend
+ * ("en stock" / "partiel" / "à commander") — on ne traduit jamais la valeur,
+ * seulement son affichage.
  */
+import i18n from '@/lib/i18n'
 
 /** Les trois statuts métier renvoyés par le moteur de consolidation. */
 export type MtoStatut = 'en stock' | 'partiel' | 'à commander'
@@ -22,11 +28,14 @@ export type MtoStatut = 'en stock' | 'partiel' | 'à commander'
  */
 export type MtoBadgeVariant = 'success' | 'danger' | 'warning' | 'info' | 'neutral'
 
-/** Libellés FR affichés pour chaque statut (clé = valeur backend `statut`). */
-export const MTO_STATUS_LABELS: Record<string, string> = {
-  'en stock': 'En stock',
-  partiel: 'Partiel',
-  'à commander': 'À commander',
+/**
+ * Mapping valeur backend `statut` → clé i18n du libellé affiché.
+ * (Le libellé lui-même vit dans les catalogues `mto.status.*`.)
+ */
+export const MTO_STATUS_LABEL_KEYS: Record<string, string> = {
+  'en stock': 'mto.status.en_stock',
+  partiel: 'mto.status.partiel',
+  'à commander': 'mto.status.a_commander',
 }
 
 /**
@@ -59,10 +68,11 @@ export const MTO_STATUS_CLASSES: Record<string, { text: string; dot: string }> =
   },
 }
 
-/** Libellé d'un statut (fallback = la valeur brute si inconnue). */
+/** Libellé i18n d'un statut (fallback = la valeur brute si inconnue). */
 export function mtoStatusLabel(statut: string | null | undefined): string {
   if (!statut) return '—'
-  return MTO_STATUS_LABELS[statut] ?? statut
+  const key = MTO_STATUS_LABEL_KEYS[statut]
+  return key ? i18n.t(key) : statut
 }
 
 /** Variante de chip pour un statut (fallback neutre). */

@@ -15,6 +15,7 @@ import LanguageDetector from 'i18next-browser-languagedetector'
 
 import fr from '@/locales/fr/common.json'
 import en from '@/locales/en/common.json'
+import it from '@/locales/it/common.json'
 import { safeLocal } from '@/lib/safeStorage'
 
 const I18N_NAMESPACE = 'app'
@@ -126,6 +127,7 @@ i18n
     resources: {
       fr: { translation: fr },
       en: { translation: en },
+      it: { translation: it },
     },
     fallbackLng: 'fr',
     interpolation: {

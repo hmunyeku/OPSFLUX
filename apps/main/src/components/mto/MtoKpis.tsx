@@ -15,6 +15,8 @@
  *
  * `MtoCoverageKpis` est conservé comme alias rétro-compatible.
  */
+import { useTranslation } from 'react-i18next'
+
 import { cn } from '@/lib/utils'
 import type { CoverageCounts } from './CoverageBar'
 
@@ -78,14 +80,16 @@ function Stat({
 export function MtoStatStrip({
   total,
   counts,
-  totalLabel = 'groupes',
+  totalLabel,
   isLoading = false,
   className,
 }: MtoStatStripProps) {
+  const { t } = useTranslation()
   const inStock = counts['en stock'] ?? 0
   const partiel = counts['partiel'] ?? 0
   const aCommander = counts['à commander'] ?? 0
   const foundPct = total > 0 ? Math.round(((inStock + partiel) / total) * 100) : 0
+  const resolvedTotalLabel = totalLabel ?? t('mto.matching.total_label')
 
   if (isLoading) {
     return (
@@ -111,18 +115,18 @@ export function MtoStatStrip({
       <Stat
         dot={null}
         value={total}
-        label={totalLabel}
-        pct={`(${foundPct}% trouvés)`}
+        label={resolvedTotalLabel}
+        pct={t('mto.matching.found_pct_paren', { pct: foundPct })}
       />
       <Sep />
-      <Stat dot="bg-success" value={inStock} label="en stock" pct={pctOf(inStock, total)} />
+      <Stat dot="bg-success" value={inStock} label={t('mto.status.en_stock').toLowerCase()} pct={pctOf(inStock, total)} />
       <Sep />
-      <Stat dot="bg-warning" value={partiel} label="partiel" pct={pctOf(partiel, total)} />
+      <Stat dot="bg-warning" value={partiel} label={t('mto.status.partiel').toLowerCase()} pct={pctOf(partiel, total)} />
       <Sep />
       <Stat
         dot="bg-destructive"
         value={aCommander}
-        label="à commander"
+        label={t('mto.status.a_commander').toLowerCase()}
         pct={pctOf(aCommander, total)}
       />
     </div>

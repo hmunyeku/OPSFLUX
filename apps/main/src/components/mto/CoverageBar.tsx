@@ -17,8 +17,10 @@
  * "en stock" / "partiel" / "à commander"), exactement la forme de
  * `MtoBatchStats.couverture`.
  */
+import { useTranslation } from 'react-i18next'
+
 import { cn } from '@/lib/utils'
-import { MTO_STATUS_LABELS } from '@/services/mtoService'
+import { mtoStatusLabel } from '@/services/mtoService'
 
 /** Comptes par statut métier — superset de `MtoBatchStats.couverture`. */
 export interface CoverageCounts {
@@ -67,6 +69,7 @@ export function CoverageBar({
   showFoundPct = false,
   className,
 }: CoverageBarProps) {
+  const { t } = useTranslation()
   const values = SEGMENTS.map((s) => Math.max(0, counts[s.key] ?? 0))
   const total = values.reduce((a, b) => a + b, 0)
   // « Trouvés » = en stock + partiel (tout sauf à commander).
@@ -79,7 +82,7 @@ export function CoverageBar({
       <div
         className={cn('flex w-full overflow-hidden rounded-full bg-muted', barH)}
         role="img"
-        aria-label={SEGMENTS.map((s) => `${MTO_STATUS_LABELS[s.key]} ${counts[s.key] ?? 0}`).join(', ')}
+        aria-label={SEGMENTS.map((s) => `${mtoStatusLabel(s.key)} ${counts[s.key] ?? 0}`).join(', ')}
       >
         {total > 0 &&
           SEGMENTS.map((s, i) =>
@@ -89,7 +92,7 @@ export function CoverageBar({
                 className={cn('h-full first:rounded-l-full last:rounded-r-full', s.bar)}
                 // Seul style inline toléré : largeur proportionnelle dynamique.
                 style={{ width: `${(values[i] / total) * 100}%` }}
-                title={`${MTO_STATUS_LABELS[s.key]} : ${values[i]}`}
+                title={`${mtoStatusLabel(s.key)} : ${values[i]}`}
               />
             ) : null,
           )}
@@ -99,18 +102,18 @@ export function CoverageBar({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {showFoundPct && (
             <span className="text-[11px] font-semibold tabular-nums text-foreground">
-              {foundPct}% trouvés
+              {t('mto.matching.found_pct', { pct: foundPct })}
             </span>
           )}
           {SEGMENTS.map((s, i) => (
             <span
               key={s.key}
               className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
-              title={MTO_STATUS_LABELS[s.key]}
+              title={mtoStatusLabel(s.key)}
             >
               <span className={cn('h-2 w-2 shrink-0 rounded-full', s.dot)} />
               <b className={cn('tabular-nums', s.text)}>{values[i]}</b>
-              <span className="hidden sm:inline">{MTO_STATUS_LABELS[s.key].toLowerCase()}</span>
+              <span className="hidden sm:inline">{mtoStatusLabel(s.key).toLowerCase()}</span>
             </span>
           ))}
         </div>

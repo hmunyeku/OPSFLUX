@@ -124,6 +124,7 @@ from app.models.teams import (  # noqa: F401
 )
 from app.models.mto import (  # noqa: F401
     MtoConsolidatedGroup,
+    MtoConsumption,
     MtoImportBatch,
     MtoRequirement,
     MtoValidationRecord,

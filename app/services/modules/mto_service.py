@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.mto import (
     MtoConsolidatedGroup,
+    MtoConsumption,
     MtoImportBatch,
     MtoRequirement,
     MtoValidationRecord,
@@ -493,6 +494,144 @@ async def validate_group(db: AsyncSession, group: MtoConsolidatedGroup,
     await db.commit()
     await db.refresh(group)
     return group
+
+
+# --------------------------------------------------------------------------- #
+# Reconciliation P4 — commande/fourni vs consomme -> reliquat a retourner
+# --------------------------------------------------------------------------- #
+_CONSO_CODE_KEYS = ("code", "article", "réf", "ref", "matériel", "material")
+_CONSO_QTE_KEYS = ("qte", "quantité", "quantite", "consomm", "consumed", "used", "qty")
+_CONSO_DESIGN_KEYS = ("désignation", "designation", "description", "libellé", "libelle")
+
+
+def _detect_column(columns, keywords) -> str | None:
+    """1re colonne dont le nom (insensible a la casse) contient un des mots-cles."""
+    for col in columns:
+        name = str(col).strip().lower()
+        if any(kw in name for kw in keywords):
+            return col
+    return None
+
+
+async def import_consumption(db: AsyncSession, entity_id: UUID, path: str,
+                             project_id: UUID, batch_id: UUID | None = None,
+                             created_by: UUID | None = None) -> int:
+    """Importe un fichier de consommation reelle (.xlsx) -> N MtoConsumption.
+
+    Detecte les colonnes code/qte/designation par mots-cles (insensible a la casse).
+    Une ligne par article ; ignore les lignes sans code ou sans quantite. Bulk insert.
+    Retourne le nombre de lignes inserees.
+    """
+    df = pd.read_excel(path)
+    code_col = _detect_column(df.columns, _CONSO_CODE_KEYS)
+    qte_col = _detect_column(df.columns, _CONSO_QTE_KEYS)
+    design_col = _detect_column(df.columns, _CONSO_DESIGN_KEYS)
+    if code_col is None or qte_col is None:
+        return 0
+
+    objs = []
+    for r in df.to_dict("records"):
+        code = _s(r.get(code_col))
+        if not code:
+            continue
+        qte = _num(r.get(qte_col))
+        if qte == 0:
+            continue
+        objs.append({
+            "entity_id": entity_id, "project_id": project_id, "batch_id": batch_id,
+            "code_article": code[:50],
+            "designation": (_s(r.get(design_col)) if design_col else None),
+            "qte": qte, "created_by": created_by,
+        })
+    for i in range(0, len(objs), 2000):
+        await db.execute(insert(MtoConsumption), objs[i:i + 2000])
+    await db.commit()
+    return len(objs)
+
+
+async def reconcile_batch(db: AsyncSession, entity_id: UUID, batch_id: UUID) -> dict:
+    """Rapproche besoin/commande consolide vs consommation reelle d'un batch.
+
+    Agrege les groupes consolides PAR article_code (besoin=Σbesoin, a_commander=Σmax(besoin-dispo,0))
+    et la consommation PAR code_article (consomme=Σqte). Union des codes -> a_retourner =
+    max(besoin - consomme, 0) (reliquat a retourner a PERENCO). Tout est scope par entity_id.
+    """
+    batch = (await db.execute(
+        select(MtoImportBatch).where(
+            MtoImportBatch.id == batch_id, MtoImportBatch.entity_id == entity_id)
+    )).scalar_one_or_none()
+    project_id = batch.project_id if batch is not None else None
+
+    # 1. besoin / a_commander agreges par article_code (depuis les groupes consolides)
+    groups = (await db.execute(
+        select(MtoConsolidatedGroup).where(
+            MtoConsolidatedGroup.entity_id == entity_id,
+            MtoConsolidatedGroup.batch_id == batch_id,
+        )
+    )).scalars().all()
+    besoins: dict[str, dict] = {}
+    for g in groups:
+        code = (g.article_code or "").strip()
+        if not code:
+            continue
+        agg = besoins.setdefault(
+            code, {"besoin": 0.0, "a_commander": 0.0, "designation": None})
+        agg["besoin"] += _num(g.besoin)
+        agg["a_commander"] += max(_num(g.besoin) - _num(g.dispo), 0.0)
+        if not agg["designation"] and g.designation_sap:
+            agg["designation"] = g.designation_sap
+
+    # 2. consomme agrege par code_article (batch direct OU conso libre du meme projet)
+    conso_filter = MtoConsumption.batch_id == batch_id
+    if project_id is not None:
+        conso_filter = conso_filter | (
+            MtoConsumption.batch_id.is_(None) & (MtoConsumption.project_id == project_id))
+    consos = (await db.execute(
+        select(MtoConsumption).where(
+            MtoConsumption.entity_id == entity_id, conso_filter)
+    )).scalars().all()
+    consommes: dict[str, dict] = {}
+    for c in consos:
+        code = (c.code_article or "").strip()
+        if not code:
+            continue
+        agg = consommes.setdefault(code, {"consomme": 0.0, "designation": None})
+        agg["consomme"] += _num(c.qte)
+        if not agg["designation"] and c.designation:
+            agg["designation"] = c.designation
+
+    # 3. union des codes -> items + reliquat
+    items: list[dict] = []
+    total_a_retourner = total_consomme = total_besoin = 0.0
+    for code in sorted(set(besoins) | set(consommes)):
+        b = besoins.get(code, {})
+        cons = consommes.get(code, {})
+        besoin = float(b.get("besoin", 0.0))
+        a_commander = float(b.get("a_commander", 0.0))
+        consomme = float(cons.get("consomme", 0.0))
+        a_retourner = max(besoin - consomme, 0.0)
+        items.append({
+            "code_article": code,
+            "designation": b.get("designation") or cons.get("designation"),
+            "besoin": besoin,
+            "a_commander": a_commander,
+            "consomme": consomme,
+            "a_retourner": a_retourner,
+        })
+        total_besoin += besoin
+        total_consomme += consomme
+        total_a_retourner += a_retourner
+
+    return {
+        "batch_id": batch_id,
+        "summary": {
+            "lines": len(items),
+            "total_a_retourner": total_a_retourner,
+            "total_consomme": total_consomme,
+            "total_besoin": total_besoin,
+        },
+        "items": items,
+    }
 
 
 async def correct_group(db: AsyncSession, group: MtoConsolidatedGroup,

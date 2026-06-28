@@ -30,6 +30,7 @@ from app.schemas.mto import (
     GroupRead,
     ImportResult,
     MtoDiffResult,
+    ReconcileResult,
 )
 from app.services.modules import mto_service
 
@@ -118,6 +119,27 @@ async def import_mto(
     return batch
 
 
+@router.post("/import/consumption", response_model=ImportResult,
+             dependencies=[require_permission("mto.requirement.import")])
+async def import_consumption(
+    file: UploadFile = File(...),
+    project_id: UUID = Form(...),
+    batch_id: UUID | None = Form(None),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Importe la consommation reelle (.xlsx) d'une affaire pour la reconciliation P4."""
+    path = await _save_upload(file)
+    try:
+        n = await mto_service.import_consumption(
+            db, entity_id, path, project_id=project_id, batch_id=batch_id,
+            created_by=current_user.id)
+    finally:
+        os.unlink(path)
+    return ImportResult(imported=n, kind="consumption")
+
+
 # --- Batches & consolidation ----------------------------------------------- #
 @router.get("/batches", response_model=list[BatchRead],
             dependencies=[require_permission("mto.requirement.read")])
@@ -197,6 +219,19 @@ async def list_groups(
         query = query.where(MtoConsolidatedGroup.statut == statut)
     res = await db.execute(query)
     return res.scalars().all()
+
+
+@router.get("/batches/{batch_id}/reconciliation", response_model=ReconcileResult,
+            dependencies=[require_permission("mto.matching.read")])
+async def reconcile_batch(
+    batch_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rapproche commande/fourni vs consomme d'un batch -> reliquat a retourner (P4)."""
+    await _get_batch(db, entity_id, batch_id)  # 404 si batch hors entite
+    result = await mto_service.reconcile_batch(db, entity_id, batch_id)
+    return ReconcileResult(**result)
 
 
 _XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

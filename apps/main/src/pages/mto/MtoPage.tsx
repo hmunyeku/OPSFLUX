@@ -39,6 +39,7 @@ import {
   GitCompareArrows,
   Layers,
   Package,
+  PackageCheck,
   Pencil,
   RefreshCw,
   Search,
@@ -69,11 +70,13 @@ import {
   useCatalogSearch,
   useConsolidate,
   useImportCatalogue,
+  useImportConsumption,
   useImportMto,
   useImportStock,
   useMtoBatchStats,
   useMtoDiff,
   useMtoGroups,
+  useReconciliation,
   useValidateGroup,
   type MtoBatchStats,
   type MtoChild,
@@ -81,6 +84,8 @@ import {
   type MtoDiffItem,
   type MtoGroup,
   type MtoRole,
+  type ReconcileItem,
+  type ReconcileSummary,
 } from '@/hooks/useMto'
 import { MtoExportAssistant } from './MtoExportAssistant'
 import {
@@ -92,7 +97,7 @@ import {
 // Effet de bord : enregistre le renderer du panneau MTO dans le registry.
 import './MtoPanels'
 
-type MtoTab = 'mto' | 'croisement' | 'catalogue'
+type MtoTab = 'mto' | 'croisement' | 'reconciliation' | 'catalogue'
 
 /** Statuts métier filtrables, dans l'ordre d'affichage du segmented control. */
 const COVERAGE_ORDER = ['en stock', 'partiel', 'à commander'] as const
@@ -220,6 +225,7 @@ export function MtoPage() {
     () => [
       { id: 'mto' as const, label: 'MTO', icon: Layers },
       { id: 'croisement' as const, label: 'Croisement', icon: GitCompareArrows },
+      { id: 'reconciliation' as const, label: 'Réconciliation', icon: PackageCheck },
       { id: 'catalogue' as const, label: 'Catalogue & Stock', icon: Boxes },
     ],
     [],
@@ -240,6 +246,7 @@ export function MtoPage() {
           <PanelContent scroll={false}>
             {activeTab === 'mto' && <MtoProjectTab />}
             {activeTab === 'croisement' && <CroisementTab />}
+            {activeTab === 'reconciliation' && <ReconciliationTab />}
             {activeTab === 'catalogue' && <CatalogueStockTab />}
           </PanelContent>
         </div>
@@ -1533,6 +1540,478 @@ function DiffTypeSegmented({
       })}
     </div>
   )
+}
+
+// ── Onglet Réconciliation (fourni/commandé vs consommé) ─────────────────────
+
+/**
+ * Onglet « Réconciliation » : pour un MTO d'un projet, rapproche ce qui a été
+ * fourni/commandé de ce qui a été réellement consommé, et expose le RELIQUAT
+ * à retourner à PERENCO (a_retourner).
+ *
+ * Project-first comme les onglets MTO / Croisement : on réutilise la MÊME clé
+ * de persistance (`mto.project`), donc le projet courant est partagé. Sans
+ * projet → EmptyState. Avec projet → sélecteur de MTO (tous les batches du
+ * projet) puis import de la consommation + table de réconciliation.
+ */
+function ReconciliationTab() {
+  const [view, setView] = useFilterPersistence<MtoProjectView>(
+    'mto.project',
+    DEFAULT_PROJECT_VIEW,
+  )
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const projectId = view.projectId
+
+  const [batchId, setBatchId] = useState<string | null>(null)
+
+  const { data: batches, isLoading: batchesLoading } = useMtoBatchStats(projectId)
+
+  const selectProject = (pid: string | null) => {
+    setView({ projectId: pid })
+    setBatchId(null)
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Sélecteur de projet — même puce que les autres onglets. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Projet
+        </span>
+        <ProjectChip
+          projectId={projectId}
+          onOpen={() => setPickerOpen(true)}
+          onClear={() => selectProject(null)}
+        />
+      </div>
+
+      <ProjectSelectorModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title="Choisir un projet"
+        selection={{
+          mode: 'selected',
+          projectIds: projectId ? [projectId] : [],
+        }}
+        onSelectionChange={(sel) => {
+          selectProject(sel.projectIds[0] ?? null)
+          setPickerOpen(false)
+        }}
+      />
+
+      {!projectId ? (
+        <EmptyState
+          icon={PackageCheck}
+          title="Choisissez un projet pour réconcilier ses MTO"
+          description="La réconciliation rapproche le fourni/commandé de la consommation réelle d'un MTO, et calcule le reliquat à retourner à PERENCO. Sélectionnez un projet, puis choisissez le MTO concerné."
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Sélecteur de MTO du projet (tous rôles confondus). */}
+          <div className="border-b border-border px-4 py-3">
+            <ReconcileBatchSelect
+              batches={batches ?? []}
+              value={batchId}
+              onChange={setBatchId}
+              isLoading={batchesLoading}
+            />
+          </div>
+
+          {!batchId ? (
+            <EmptyState
+              icon={PackageCheck}
+              title="Sélectionnez un MTO à réconcilier"
+              description="Choisissez un MTO ci-dessus, importez sa consommation réelle, puis consultez le reliquat à retourner."
+            />
+          ) : (
+            <ReconciliationView projectId={projectId} batchId={batchId} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Sélecteur d'un batch MTO du projet (native <select> + classe DS). Liste TOUS
+ * les batches (pas de filtre par rôle) : la consommation se réconcilie contre
+ * n'importe quel MTO. Pastille tokenisée par rôle dans le libellé.
+ */
+function ReconcileBatchSelect({
+  batches,
+  value,
+  onChange,
+  isLoading,
+}: {
+  batches: MtoBatchStats[]
+  value: string | null
+  onChange: (id: string | null) => void
+  isLoading?: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-card px-3 py-2.5">
+      <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <PackageCheck size={13} className="shrink-0 text-primary" />
+        MTO à réconcilier
+      </p>
+      {isLoading ? (
+        <Skeleton className="h-8 w-full" />
+      ) : batches.length === 0 ? (
+        <p className="text-xs italic text-muted-foreground">Aucun MTO pour ce projet</p>
+      ) : (
+        <select
+          className="gl-form-input h-8 w-full text-sm"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value || null)}
+        >
+          <option value="">Choisir un MTO…</option>
+          {batches.map((b) => (
+            <option key={b.id} value={b.id}>
+              {mtoBatchLabel(b)} · {mtoRoleLabel(b.role)} · {formatDate(b.created_at)} ·{' '}
+              {b.nb_lignes} ligne{b.nb_lignes !== 1 ? 's' : ''}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Vue de réconciliation d'un MTO : import de la consommation (gated) + table
+ * fourni/commandé vs consommé avec le reliquat à retourner, bande de stats
+ * summary, recherche, filtre « à retourner > 0 » et export CSV de la liste de
+ * retour.
+ */
+function ReconciliationView({
+  projectId,
+  batchId,
+}: {
+  projectId: string
+  batchId: string
+}) {
+  const { hasPermission } = usePermission()
+  const { data: reconcile, isLoading, isError } = useReconciliation(batchId)
+  const [search, setSearch] = useState('')
+  const [onlyReturn, setOnlyReturn] = useState(false)
+
+  const canImport = hasPermission('mto.requirement.import') || hasPermission('mto.admin')
+
+  const summary = reconcile?.summary
+  const items = useMemo(
+    () =>
+      (reconcile?.items ?? []).filter((it) => !onlyReturn || it.a_retourner > 0),
+    [reconcile, onlyReturn],
+  )
+
+  const columns = useMemo<ColumnDef<ReconcileItem, unknown>[]>(
+    () => [
+      {
+        id: 'code_article',
+        header: 'Article',
+        size: 160,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-primary">{row.original.code_article}</span>
+        ),
+      },
+      {
+        id: 'designation',
+        header: 'Désignation',
+        cell: ({ row }) => (
+          <span className="text-foreground">{row.original.designation ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'besoin',
+        header: 'Besoin',
+        size: 110,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{row.original.besoin}</span>
+        ),
+      },
+      {
+        id: 'a_commander',
+        header: 'Commandé',
+        size: 110,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{row.original.a_commander}</span>
+        ),
+      },
+      {
+        id: 'consomme',
+        header: 'Consommé',
+        size: 110,
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">{row.original.consomme}</span>
+        ),
+      },
+      {
+        id: 'a_retourner',
+        header: 'À retourner',
+        size: 120,
+        cell: ({ row }) => <ReturnCell value={row.original.a_retourner} />,
+      },
+    ],
+    [],
+  )
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={PackageCheck}
+        title="Réconciliation indisponible"
+        description="Impossible de récupérer la réconciliation de ce MTO. Importez une consommation ou réessayez plus tard."
+      />
+    )
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Barre d'actions : import consommation · recherche · stats · export.
+          Filtre « à retourner > 0 » + bande de stats summary collés dessous. */}
+      <div className="space-y-1.5 border-b border-border px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {canImport && (
+            <ImportConsumptionButton projectId={projectId} batchId={batchId} />
+          )}
+
+          <div className="flex h-8 min-w-[180px] flex-1 items-center gap-1.5 rounded-md border border-border bg-background px-2.5">
+            <Search size={14} className="shrink-0 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher article, désignation…"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground"
+                title="Effacer la recherche"
+                aria-label="Effacer la recherche"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          <div className="hidden min-w-0 lg:block">
+            <ReconcileStatStrip summary={summary} isLoading={isLoading} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => exportReturnList(reconcile?.items ?? [], batchId)}
+            disabled={!summary || summary.total_a_retourner <= 0}
+            className="btn-sm btn-secondary shrink-0"
+            title="Exporter la liste de retour (CSV)"
+          >
+            <Download size={13} />
+            <span className="hidden md:inline">Exporter la liste de retour</span>
+          </button>
+        </div>
+
+        <ReconcileStatStrip
+          summary={summary}
+          isLoading={isLoading}
+          className="lg:hidden"
+        />
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PanelContent scroll={false}>
+          <DataTable<ReconcileItem>
+            columns={columns}
+            data={items}
+            isLoading={isLoading}
+            getRowId={(row) => row.code_article}
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Rechercher article, désignation…"
+            emptyIcon={PackageCheck}
+            emptyTitle={
+              onlyReturn ? 'Aucun reliquat à retourner' : 'Aucune ligne — importez la consommation'
+            }
+            storageKey="mto-reconciliation"
+            toolbarRight={
+              <button
+                type="button"
+                onClick={() => setOnlyReturn((v) => !v)}
+                role="switch"
+                aria-checked={onlyReturn}
+                className={cn(
+                  'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors',
+                  onlyReturn
+                    ? 'border-warning/40 bg-warning/10 text-warning'
+                    : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 shrink-0 rounded-full',
+                    onlyReturn ? 'bg-warning' : 'bg-muted-foreground/40',
+                  )}
+                />
+                À retourner &gt; 0
+              </button>
+            }
+          />
+        </PanelContent>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Cellule « À retourner » : reliquat coloré (>0 = warning, 0 = muted).
+ * Tabular-nums pour l'alignement.
+ */
+function ReturnCell({ value }: { value: number }) {
+  const cls = value > 0 ? 'text-warning' : 'text-muted-foreground'
+  return <span className={cn('tabular-nums font-medium', cls)}>{value}</span>
+}
+
+/**
+ * Bouton « Importer la consommation » (file picker → POST /import/consumption)
+ * pour un projet + un MTO donné. Toast succès/erreur. Pattern aligné sur
+ * ImportMtoButton (input file caché + ToolbarButton primaire).
+ */
+function ImportConsumptionButton({
+  projectId,
+  batchId,
+}: {
+  projectId: string
+  batchId: string
+}) {
+  const { toast } = useToast()
+  const importConsumption = useImportConsumption()
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  return (
+    <>
+      <ToolbarButton
+        icon={FileUp}
+        label={importConsumption.isPending ? 'Import…' : 'Importer la consommation'}
+        variant="primary"
+        disabled={importConsumption.isPending}
+        onClick={() => inputRef.current?.click()}
+      />
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0]
+          if (!file) return
+          try {
+            const res = await importConsumption.mutateAsync({ file, projectId, batchId })
+            toast({
+              title: `Consommation importée : ${res.imported} ligne${res.imported !== 1 ? 's' : ''}`,
+              variant: 'success',
+            })
+          } catch {
+            toast({ title: "Échec de l'import de la consommation", variant: 'error' })
+          } finally {
+            e.target.value = ''
+          }
+        }}
+      />
+    </>
+  )
+}
+
+/**
+ * Bande de stats compacte de la réconciliation (lignes · besoin · consommé ·
+ * à retourner) — même esprit visuel que MtoStatStrip (pastilles tokenisées +
+ * valeur + libellé), adaptée aux 4 compteurs du summary.
+ */
+function ReconcileStatStrip({
+  summary,
+  isLoading,
+  className,
+}: {
+  summary: ReconcileSummary | undefined
+  isLoading?: boolean
+  className?: string
+}) {
+  if (isLoading) {
+    return (
+      <div className={cn('flex h-6 items-center gap-3', className)} aria-hidden>
+        <span className="h-3.5 w-20 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-28 animate-pulse rounded bg-muted" />
+      </div>
+    )
+  }
+  const s = summary ?? { lines: 0, total_besoin: 0, total_consomme: 0, total_a_retourner: 0 }
+  const stats: { dot: string | null; value: number; label: string }[] = [
+    { dot: null, value: s.lines, label: 'lignes' },
+    { dot: 'bg-info', value: s.total_besoin, label: 'besoin' },
+    { dot: 'bg-success', value: s.total_consomme, label: 'consommé' },
+    { dot: 'bg-warning', value: s.total_a_retourner, label: 'à retourner' },
+  ]
+  return (
+    <div className={cn('flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1', className)}>
+      {stats.map((st, i) => (
+        <span key={st.label} className="inline-flex items-center gap-x-3">
+          {i > 0 && <span aria-hidden className="h-4 w-px shrink-0 bg-border" />}
+          <span className="inline-flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+            {st.dot && (
+              <span className={cn('mb-0.5 h-2 w-2 shrink-0 self-center rounded-full', st.dot)} />
+            )}
+            <span className="text-sm font-semibold tabular-nums text-foreground">{st.value}</span>
+            <span className="text-xs text-muted-foreground">{st.label}</span>
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Génère et télécharge côté front un CSV de la liste de retour (items où
+ * a_retourner > 0) : code, désignation, à retourner. Pas d'endpoint serveur —
+ * Blob + ancre programmatique. CSV protégé contre l'injection de formules et
+ * préfixé d'un BOM UTF-8 (Excel-friendly).
+ */
+function exportReturnList(items: ReconcileItem[], batchId: string): void {
+  const toReturn = items.filter((it) => it.a_retourner > 0)
+  if (toReturn.length === 0) return
+
+  // Mitige l'injection de formules CSV (=, +, -, @, tab, CR en tête).
+  const safe = (value: unknown): string => {
+    const s = String(value ?? '')
+    if (!s) return s
+    const first = s.charAt(0)
+    if (['=', '+', '-', '@', '\t', '\r'].includes(first)) return `'${s}`
+    return s
+  }
+  // Échappe un champ CSV (guillemets doublés, quote si séparateur/quote/CRLF).
+  const cell = (value: unknown): string => {
+    const s = safe(value)
+    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+
+  const header = ['Code article', 'Désignation', 'À retourner']
+  const rows = toReturn.map((it) => [
+    cell(it.code_article),
+    cell(it.designation ?? ''),
+    cell(it.a_retourner),
+  ])
+  const csv = [header.map(cell).join(';'), ...rows.map((r) => r.join(';'))].join('\r\n')
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const objectUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = objectUrl
+  a.download = `retour-perenco-${batchId.slice(0, 8)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
 }
 
 // ── Onglet Catalogue & Stock ───────────────────────────────────────────────

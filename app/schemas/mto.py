@@ -93,3 +93,18 @@ class MtoDiffResult(BaseModel):
     revise_batch_id: UUID
     summary: dict[str, int]  # {added, removed, changed, unchanged}
     items: list[MtoDiffItem]
+
+
+class ReconcileItem(BaseModel):
+    code_article: str
+    designation: str | None = None
+    besoin: float
+    a_commander: float
+    consomme: float
+    a_retourner: float  # max(besoin - consomme, 0) — reliquat a retourner a PERENCO
+
+
+class ReconcileResult(BaseModel):
+    batch_id: UUID
+    summary: dict  # {lines, total_a_retourner, total_consomme, total_besoin}
+    items: list[ReconcileItem]

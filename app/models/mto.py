@@ -188,6 +188,32 @@ class MtoConsolidatedGroup(UUIDPrimaryKeyMixin, TimestampMixin, VerifiableMixin,
     children: Mapped[list] = mapped_column(JSONB, default=list)  # lignes MTO d'origine (nested rows)
 
 
+class MtoConsumption(UUIDPrimaryKeyMixin, TimestampMixin, AuditUserMixin, Base):
+    """Consommation reelle d'articles sur une affaire (P4 reconciliation).
+
+    Rattachee a un projet (affaire) et/ou a un batch MTO. Compare au besoin/commande
+    consolide pour calculer le reliquat a retourner a PERENCO (commande - consomme).
+    """
+
+    __tablename__ = "mto_consumption"
+    __table_args__ = (
+        Index("idx_mto_conso_entity_project", "entity_id", "project_id"),
+        Index("idx_mto_conso_entity_batch", "entity_id", "batch_id"),
+        Index("idx_mto_conso_code", "code_article"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    project_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL")
+    )
+    batch_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mto_import_batches.id", ondelete="SET NULL")
+    )
+    code_article: Mapped[str] = mapped_column(String(50), nullable=False)
+    designation: Mapped[str | None] = mapped_column(String(500))
+    qte: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+
+
 class MtoValidationRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Memoire de validation : signature MTO (desc normalisee + Ø) -> article SAP valide.
 

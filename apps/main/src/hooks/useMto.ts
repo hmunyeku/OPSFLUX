@@ -323,3 +323,94 @@ export function useMtoDiff(
     enabled: !!designBatchId && !!reviseBatchId,
   })
 }
+
+// ── Réconciliation « fourni/commandé vs consommé » (reliquat à retourner) ───
+
+/** Résultat d'un import de consommation (cf. backend ImportResult). */
+export interface MtoConsumptionImportResult {
+  imported: number
+  kind: 'consumption'
+}
+
+/**
+ * Import d'un fichier de consommation réelle (multipart). Rattaché à un projet,
+ * optionnellement à un MTO (batch) précis.
+ * Endpoint : POST /api/v1/mto/import/consumption
+ *   (perm mto.requirement.import).
+ * Invalide la réconciliation du batch concerné.
+ */
+export function useImportConsumption() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      file,
+      projectId,
+      batchId,
+    }: {
+      file: File
+      projectId: string
+      batchId?: string | null
+    }) => {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('project_id', projectId)
+      if (batchId) form.append('batch_id', batchId)
+      return (
+        await api.post<MtoConsumptionImportResult>(
+          '/api/v1/mto/import/consumption',
+          form,
+          { headers: { 'Content-Type': 'multipart/form-data' } },
+        )
+      ).data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['mto-reconciliation', vars.batchId ?? null] })
+    },
+  })
+}
+
+/**
+ * Une ligne de réconciliation : pour un article, ce qui était fourni (besoin),
+ * commandé, consommé, et le reliquat à retourner à PERENCO (a_retourner).
+ */
+export interface ReconcileItem {
+  code_article: string
+  designation: string | null
+  besoin: number
+  a_commander: number
+  consomme: number
+  a_retourner: number
+}
+
+/** Synthèse de la réconciliation d'un MTO (totaux). */
+export interface ReconcileSummary {
+  lines: number
+  total_besoin: number
+  total_consomme: number
+  total_a_retourner: number
+}
+
+/** Résultat complet de la réconciliation d'un batch MTO. */
+export interface ReconcileResult {
+  batch_id: string
+  summary: ReconcileSummary
+  items: ReconcileItem[]
+}
+
+/**
+ * Réconciliation fourni/commandé vs consommé d'un MTO. N'est activé que si
+ * `batchId` est fourni.
+ * Endpoint : GET /api/v1/mto/batches/{batch_id}/reconciliation
+ */
+export function useReconciliation(batchId: string | null) {
+  return useQuery({
+    queryKey: ['mto-reconciliation', batchId ?? null],
+    queryFn: async () =>
+      (
+        await api.get<ReconcileResult>(
+          `/api/v1/mto/batches/${batchId}/reconciliation`,
+        )
+      ).data,
+    enabled: !!batchId,
+  })
+}

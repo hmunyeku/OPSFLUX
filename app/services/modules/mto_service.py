@@ -10,6 +10,7 @@ que charger les fichiers, persister les lignes et relire la base pour reconsolid
 
 from __future__ import annotations
 
+from itertools import combinations
 from uuid import UUID
 
 import pandas as pd
@@ -664,3 +665,160 @@ async def correct_group(db: AsyncSession, group: MtoConsolidatedGroup,
     await db.commit()
     await db.refresh(group)
     return group
+
+
+# --------------------------------------------------------------------------- #
+# Analytics d'approvisionnement (P5) — agregats multi-batches/projets
+# --------------------------------------------------------------------------- #
+_COOC_MAX_PER_BATCH = 200  # borne anti-explosion combinatoire (paires = n*(n-1)/2)
+
+
+def _a_commander(statut: str | None, besoin: float, dispo: float) -> bool:
+    """Un groupe est 'a commander' si statut le dit OU s'il reste un besoin net."""
+    return (statut == "à commander") or (besoin - dispo > 0)
+
+
+async def compute_analytics(db: AsyncSession, entity_id: UUID,
+                            project_id: UUID | None = None) -> dict:
+    """Agrege l'approvisionnement de l'entite (ou d'un projet) sur tous ses batches.
+
+    Si project_id est fourni, on ne considere que les batches de ce projet (join
+    MtoImportBatch sur project_id) ; sinon toute l'entite. Tout est scope par entity_id.
+
+    Renvoie {overview, top_consommes, top_demandes, top_frequence, co_occurrence}.
+    Requetes SQL agregees partout (func.sum/count/group_by) sauf la co-occurrence,
+    calculee en Python (paires d'articles 'a commander' dans un meme batch). La
+    co-occurrence est bornee a 200 articles/batch pour eviter l'explosion combinatoire.
+    """
+    # Perimetre : batch_ids du projet (si filtre) ou tous les batches de l'entite.
+    batch_q = select(MtoImportBatch.id).where(MtoImportBatch.entity_id == entity_id)
+    if project_id is not None:
+        batch_q = batch_q.where(MtoImportBatch.project_id == project_id)
+    batch_ids = [bid for (bid,) in (await db.execute(batch_q)).all()]
+    nb_batches = len(batch_ids)
+
+    # Perimetre vide -> resultat neutre (et on evite un IN () couteux/incorrect).
+    if not batch_ids:
+        return {
+            "overview": {"nb_batches": 0, "nb_articles": 0, "taux_dispo": 0.0,
+                         "total_a_commander": 0.0, "total_consomme": 0.0},
+            "top_consommes": [], "top_demandes": [],
+            "top_frequence": [], "co_occurrence": [],
+        }
+
+    grp_scope = (MtoConsolidatedGroup.entity_id == entity_id,
+                 MtoConsolidatedGroup.batch_id.in_(batch_ids))
+
+    # --- overview (agregats SQL sur les groupes) ----------------------------- #
+    nb_articles = (await db.execute(
+        select(func.count(func.distinct(MtoConsolidatedGroup.article_code)))
+        .where(*grp_scope, MtoConsolidatedGroup.article_code.is_not(None))
+    )).scalar() or 0
+
+    total_groups, en_stock = (await db.execute(
+        select(func.count(),
+               func.count().filter(MtoConsolidatedGroup.statut == "en stock"))
+        .where(*grp_scope)
+    )).one()
+    taux_dispo = (en_stock / total_groups * 100) if total_groups else 0.0  # pourcentage 0..100
+
+    total_a_commander = (await db.execute(
+        select(func.coalesce(func.sum(
+            func.greatest(MtoConsolidatedGroup.besoin - MtoConsolidatedGroup.dispo, 0.0)
+        ), 0.0)).where(*grp_scope)
+    )).scalar() or 0.0
+
+    # --- consommation (scope projet par project_id, sinon toute l'entite) ----- #
+    conso_scope = [MtoConsumption.entity_id == entity_id]
+    if project_id is not None:
+        conso_scope.append(MtoConsumption.project_id == project_id)
+
+    total_consomme = (await db.execute(
+        select(func.coalesce(func.sum(MtoConsumption.qte), 0.0)).where(*conso_scope)
+    )).scalar() or 0.0
+
+    # --- top_consommes : Σqte par code_article (consommation) ----------------- #
+    top_consommes = [
+        {"code_article": code, "designation": desig, "total": float(total or 0.0)}
+        for code, desig, total in (await db.execute(
+            select(MtoConsumption.code_article,
+                   func.max(MtoConsumption.designation),
+                   func.sum(MtoConsumption.qte))
+            .where(*conso_scope)
+            .group_by(MtoConsumption.code_article)
+            .order_by(func.sum(MtoConsumption.qte).desc())
+            .limit(15)
+        )).all()
+    ]
+
+    # --- top_demandes : Σbesoin par article_code (groupes consolides) --------- #
+    top_demandes = [
+        {"code_article": code, "designation": desig, "total": float(total or 0.0)}
+        for code, desig, total in (await db.execute(
+            select(MtoConsolidatedGroup.article_code,
+                   func.max(MtoConsolidatedGroup.designation_sap),
+                   func.sum(MtoConsolidatedGroup.besoin))
+            .where(*grp_scope, MtoConsolidatedGroup.article_code.is_not(None))
+            .group_by(MtoConsolidatedGroup.article_code)
+            .order_by(func.sum(MtoConsolidatedGroup.besoin).desc())
+            .limit(15)
+        )).all()
+    ]
+
+    # --- frequence & co-occurrence : 1 lecture des groupes "a commander" ------ #
+    # On charge les colonnes utiles une fois, puis on agrege en Python (la
+    # co-occurrence est intrinsequement par-batch et combinatoire).
+    rows = (await db.execute(
+        select(MtoConsolidatedGroup.batch_id, MtoConsolidatedGroup.article_code,
+               MtoConsolidatedGroup.designation_sap, MtoConsolidatedGroup.statut,
+               MtoConsolidatedGroup.besoin, MtoConsolidatedGroup.dispo)
+        .where(*grp_scope, MtoConsolidatedGroup.article_code.is_not(None))
+    )).all()
+
+    desig_by_code: dict[str, str | None] = {}
+    batches_by_code: dict[str, set] = {}   # code -> {batch_id ou il est a commander}
+    per_batch: dict[UUID, set] = {}        # batch_id -> {codes a commander}
+    for batch_id, code, desig, statut, besoin, dispo in rows:
+        if not code:
+            continue
+        desig_by_code.setdefault(code, desig)
+        if _a_commander(statut, _num(besoin), _num(dispo)):
+            batches_by_code.setdefault(code, set()).add(batch_id)
+            per_batch.setdefault(batch_id, set()).add(code)
+
+    # top_frequence : nb de batches distincts ou l'article est 'a commander'
+    top_frequence = [
+        {"code_article": code, "designation": desig_by_code.get(code), "count": len(bset)}
+        for code, bset in sorted(
+            batches_by_code.items(), key=lambda kv: (-len(kv[1]), kv[0])
+        )[:15]
+    ]
+
+    # co_occurrence : paires d'articles 'a commander' ensemble dans un meme batch
+    pair_counts: dict[tuple[str, str], int] = {}
+    for codes in per_batch.values():
+        items = sorted(codes)
+        if len(items) > _COOC_MAX_PER_BATCH:  # borne anti-explosion combinatoire
+            items = items[:_COOC_MAX_PER_BATCH]
+        for a, b in combinations(items, 2):
+            pair_counts[(a, b)] = pair_counts.get((a, b), 0) + 1
+    co_occurrence = [
+        {"article_a": a, "article_b": b, "count": cnt}
+        for (a, b), cnt in sorted(
+            pair_counts.items(), key=lambda kv: (-kv[1], kv[0])
+        )[:15]
+    ]
+
+    return {
+        "overview": {
+            "nb_batches": nb_batches,
+            "nb_articles": int(nb_articles),
+            "taux_dispo": float(taux_dispo),
+            "total_a_commander": float(total_a_commander or 0.0),
+            "total_consomme": float(total_consomme or 0.0),
+        },
+        "top_consommes": top_consommes,
+        "top_demandes": top_demandes,
+        "top_frequence": top_frequence,
+        "co_occurrence": co_occurrence,
+    }

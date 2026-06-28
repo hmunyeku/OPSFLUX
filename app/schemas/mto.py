@@ -108,3 +108,38 @@ class ReconcileResult(BaseModel):
     batch_id: UUID
     summary: dict  # {lines, total_a_retourner, total_consomme, total_besoin}
     items: list[ReconcileItem]
+
+
+# --- Analytics d'approvisionnement (P5) — agregats multi-batches/projets ----- #
+class AnalyticsTopItem(BaseModel):
+    code_article: str
+    designation: str | None = None
+    total: float
+
+
+class AnalyticsFreqItem(BaseModel):
+    code_article: str
+    designation: str | None = None
+    count: int
+
+
+class AnalyticsPair(BaseModel):
+    article_a: str
+    article_b: str
+    count: int
+
+
+class AnalyticsOverview(BaseModel):
+    nb_batches: int
+    nb_articles: int
+    taux_dispo: float  # 0..1 = groupes "en stock" / total groupes
+    total_a_commander: float  # Σ max(besoin - dispo, 0)
+    total_consomme: float  # Σ qte MtoConsumption du perimetre
+
+
+class AnalyticsResult(BaseModel):
+    overview: AnalyticsOverview
+    top_consommes: list[AnalyticsTopItem]
+    top_demandes: list[AnalyticsTopItem]
+    top_frequence: list[AnalyticsFreqItem]
+    co_occurrence: list[AnalyticsPair]

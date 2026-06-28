@@ -22,6 +22,7 @@ from app.core.database import get_db
 from app.models.common import User
 from app.models.mto import MtoConsolidatedGroup, MtoImportBatch, SapCatalogItem
 from app.schemas.mto import (
+    AnalyticsResult,
     BatchRead,
     BatchStatsRead,
     CatalogItemRead,
@@ -189,6 +190,18 @@ async def mto_diff(
     await _get_batch(db, entity_id, revise_batch_id)
     result = await mto_service.compute_mto_diff(db, entity_id, design_batch_id, revise_batch_id)
     return MtoDiffResult(**result)
+
+
+@router.get("/analytics", response_model=AnalyticsResult,
+            dependencies=[require_permission("mto.matching.read")])
+async def analytics(
+    project_id: UUID | None = Query(None),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Analytics d'approvisionnement de l'entite (ou d'un projet) : overview + tops + co-occurrence."""
+    result = await mto_service.compute_analytics(db, entity_id, project_id)
+    return AnalyticsResult(**result)
 
 
 @router.post("/batches/{batch_id}/consolidate", response_model=ConsolidateResult,

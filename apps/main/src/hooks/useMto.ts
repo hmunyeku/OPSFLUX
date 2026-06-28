@@ -414,3 +414,67 @@ export function useReconciliation(batchId: string | null) {
     enabled: !!batchId,
   })
 }
+
+// ── Analytics d'approvisionnement (statistiques transverses) ────────────────
+
+/** Synthèse globale des statistiques d'approvisionnement. */
+export interface MtoAnalyticsOverview {
+  /** Nombre de MTO (batches) couverts par la statistique. */
+  nb_batches: number
+  /** Nombre d'articles distincts. */
+  nb_articles: number
+  /** Taux de disponibilité (0–100, en %). */
+  taux_dispo: number
+  /** Total des quantités à commander. */
+  total_a_commander: number
+  /** Total des quantités consommées. */
+  total_consomme: number
+}
+
+/** Un article du palmarès « consommés » / « demandés » (code + total). */
+export interface MtoAnalyticsTopItem {
+  code_article: string
+  designation: string | null
+  total: number
+}
+
+/** Un article du palmarès « fréquence de commande » (code + nb de MTO). */
+export interface MtoAnalyticsFreqItem {
+  code_article: string
+  designation: string | null
+  count: number
+}
+
+/** Une paire d'articles souvent commandés ensemble (co-occurrence). */
+export interface MtoAnalyticsPair {
+  article_a: string
+  article_b: string
+  count: number
+}
+
+/** Résultat complet des analytics d'approvisionnement. */
+export interface MtoAnalyticsResult {
+  overview: MtoAnalyticsOverview
+  top_consommes: MtoAnalyticsTopItem[]
+  top_demandes: MtoAnalyticsTopItem[]
+  top_frequence: MtoAnalyticsFreqItem[]
+  co_occurrence: MtoAnalyticsPair[]
+}
+
+/**
+ * Statistiques d'approvisionnement. `projectId` OPTIONNEL : si fourni, la stat
+ * est cadrée sur ce projet (?project_id=…) ; sinon, vue globale entité.
+ * Toujours activé (un projet null = vue globale, pas d'attente de sélection).
+ * Endpoint : GET /api/v1/mto/analytics?project_id=
+ */
+export function useMtoAnalytics(projectId: string | null) {
+  return useQuery({
+    queryKey: ['mto-analytics', projectId ?? null],
+    queryFn: async () =>
+      (
+        await api.get<MtoAnalyticsResult>('/api/v1/mto/analytics', {
+          params: projectId ? { project_id: projectId } : undefined,
+        })
+      ).data,
+  })
+}

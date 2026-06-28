@@ -24,9 +24,11 @@
  * tokens. Aucune couleur hex en dur, aucun style inline décoratif.
  */
 import { useCallback, useMemo, useRef, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table'
 import {
   ArrowLeftRight,
+  BarChart3,
   Boxes,
   CheckCircle2,
   ChevronLeft,
@@ -73,11 +75,16 @@ import {
   useImportConsumption,
   useImportMto,
   useImportStock,
+  useMtoAnalytics,
   useMtoBatchStats,
   useMtoDiff,
   useMtoGroups,
   useReconciliation,
   useValidateGroup,
+  type MtoAnalyticsFreqItem,
+  type MtoAnalyticsOverview,
+  type MtoAnalyticsPair,
+  type MtoAnalyticsTopItem,
   type MtoBatchStats,
   type MtoChild,
   type MtoDiffChangeType,
@@ -97,7 +104,7 @@ import {
 // Effet de bord : enregistre le renderer du panneau MTO dans le registry.
 import './MtoPanels'
 
-type MtoTab = 'mto' | 'croisement' | 'reconciliation' | 'catalogue'
+type MtoTab = 'mto' | 'croisement' | 'reconciliation' | 'analytics' | 'catalogue'
 
 /** Statuts métier filtrables, dans l'ordre d'affichage du segmented control. */
 const COVERAGE_ORDER = ['en stock', 'partiel', 'à commander'] as const
@@ -226,6 +233,7 @@ export function MtoPage() {
       { id: 'mto' as const, label: 'MTO', icon: Layers },
       { id: 'croisement' as const, label: 'Croisement', icon: GitCompareArrows },
       { id: 'reconciliation' as const, label: 'Réconciliation', icon: PackageCheck },
+      { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
       { id: 'catalogue' as const, label: 'Catalogue & Stock', icon: Boxes },
     ],
     [],
@@ -247,6 +255,7 @@ export function MtoPage() {
             {activeTab === 'mto' && <MtoProjectTab />}
             {activeTab === 'croisement' && <CroisementTab />}
             {activeTab === 'reconciliation' && <ReconciliationTab />}
+            {activeTab === 'analytics' && <AnalyticsTab />}
             {activeTab === 'catalogue' && <CatalogueStockTab />}
           </PanelContent>
         </div>
@@ -2012,6 +2021,362 @@ function exportReturnList(items: ReconcileItem[], batchId: string): void {
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+}
+
+// ── Onglet Analytics (statistiques d'approvisionnement) ─────────────────────
+
+/**
+ * Onglet « Analytics » : statistiques transverses d'approvisionnement.
+ *
+ * Particularité vs les autres onglets : le projet est OPTIONNEL. On réutilise la
+ * MÊME clé de persistance (`mto.project`) mais on autorise le mode global :
+ *   - projet sélectionné → analytics cadrées sur ce projet ;
+ *   - « Tous les projets » (projet effacé) → analytics globales de l'entité.
+ * La requête est donc TOUJOURS active (pas d'EmptyState bloquant sans projet).
+ */
+function AnalyticsTab() {
+  const [view, setView] = useFilterPersistence<MtoProjectView>(
+    'mto.project',
+    DEFAULT_PROJECT_VIEW,
+  )
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const projectId = view.projectId
+
+  const { data, isLoading, isError } = useMtoAnalytics(projectId)
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Sélecteur de projet — OPTIONNEL : puce projet OU « Tous les projets ».
+          Effacer la puce repasse en vue globale entité (pas d'EmptyState). */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Périmètre
+        </span>
+        <AnalyticsScopeChip
+          projectId={projectId}
+          onOpen={() => setPickerOpen(true)}
+          onClearToGlobal={() => setView({ projectId: null })}
+        />
+      </div>
+
+      <ProjectSelectorModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title="Choisir un projet"
+        selection={{
+          mode: 'selected',
+          projectIds: projectId ? [projectId] : [],
+        }}
+        onSelectionChange={(sel) => {
+          setView({ projectId: sel.projectIds[0] ?? null })
+          setPickerOpen(false)
+        }}
+      />
+
+      {isError ? (
+        <EmptyState
+          icon={BarChart3}
+          variant="error"
+          title="Statistiques indisponibles"
+          description="Impossible de récupérer les statistiques d'approvisionnement. Réessayez plus tard."
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Bande KPI : disponibilité · à commander · consommé · articles · MTO. */}
+          <div className="border-b border-border px-4 py-2">
+            <AnalyticsKpiStrip overview={data?.overview} isLoading={isLoading} />
+          </div>
+
+          {/* 4 panneaux (grille 2 colonnes responsive) avec barres de proportion. */}
+          <PanelContent>
+            <div className="grid gap-3 p-4 lg:grid-cols-2">
+              <AnalyticsPanel
+                title="Articles les plus consommés"
+                icon={PackageCheck}
+                isLoading={isLoading}
+                emptyHint="Pas encore de données de consommation"
+                rows={(data?.top_consommes ?? []).map(topItemToBar)}
+              />
+              <AnalyticsPanel
+                title="Articles les plus demandés"
+                icon={Package}
+                isLoading={isLoading}
+                emptyHint="Pas encore de données de demande"
+                rows={(data?.top_demandes ?? []).map(topItemToBar)}
+              />
+              <AnalyticsPanel
+                title="Fréquence de commande"
+                icon={RefreshCw}
+                isLoading={isLoading}
+                emptyHint="Pas encore d'historique de commande"
+                rows={(data?.top_frequence ?? []).map(freqItemToBar)}
+              />
+              <AnalyticsPanel
+                title="Souvent commandés ensemble"
+                icon={GitCompareArrows}
+                isLoading={isLoading}
+                emptyHint="Pas encore de co-occurrences"
+                rows={(data?.co_occurrence ?? []).map(pairToBar)}
+              />
+            </div>
+          </PanelContent>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Puce de périmètre des analytics : soit le projet courant (avec « changer »),
+ * soit l'état « Tous les projets » (vue globale entité). Contrairement à
+ * ProjectChip, l'état sans projet n'est PAS une invite — c'est un mode valide.
+ */
+function AnalyticsScopeChip({
+  projectId,
+  onOpen,
+  onClearToGlobal,
+}: {
+  projectId: string | null
+  onOpen: () => void
+  onClearToGlobal: () => void
+}) {
+  const { data: project } = useProject(projectId ?? undefined)
+
+  if (!projectId) {
+    // Mode global : pastille « Tous les projets » + bouton pour cibler un projet.
+    return (
+      <div className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-card pl-2.5 pr-1 text-sm">
+        <Boxes size={14} className="shrink-0 text-primary" />
+        <span className="font-medium text-foreground">Tous les projets</span>
+        <button
+          type="button"
+          onClick={onOpen}
+          title="Cibler un projet"
+          aria-label="Cibler un projet"
+          className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Pencil size={13} />
+        </button>
+      </div>
+    )
+  }
+
+  const label = project ? `${project.name} (${project.code})` : '…'
+
+  return (
+    <div className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-card pl-2.5 pr-1 text-sm">
+      <FolderKanban size={14} className="shrink-0 text-primary" />
+      <span className="max-w-[280px] truncate font-medium text-foreground" title={label}>
+        {label}
+      </span>
+      <button
+        type="button"
+        onClick={onOpen}
+        title="Changer de projet"
+        aria-label="Changer de projet"
+        className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <Pencil size={13} />
+      </button>
+      <button
+        type="button"
+        onClick={onClearToGlobal}
+        title="Voir tous les projets"
+        aria-label="Voir tous les projets"
+        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <X size={13} />
+      </button>
+    </div>
+  )
+}
+
+/** Une ligne de panneau analytics : libellé + (sous-libellé) + valeur. */
+interface AnalyticsBarRow {
+  key: string
+  label: string
+  sublabel?: string | null
+  value: number
+}
+
+/** Map un MtoAnalyticsTopItem (code/designation/total) en ligne de barre. */
+function topItemToBar(it: MtoAnalyticsTopItem): AnalyticsBarRow {
+  return {
+    key: it.code_article,
+    label: it.code_article,
+    sublabel: it.designation,
+    value: it.total,
+  }
+}
+
+/** Map un MtoAnalyticsFreqItem (code/designation/count) en ligne de barre. */
+function freqItemToBar(it: MtoAnalyticsFreqItem): AnalyticsBarRow {
+  return {
+    key: it.code_article,
+    label: it.code_article,
+    sublabel: it.designation,
+    value: it.count,
+  }
+}
+
+/** Map une paire de co-occurrence (article_a + article_b) en ligne de barre. */
+function pairToBar(p: MtoAnalyticsPair): AnalyticsBarRow {
+  return {
+    key: `${p.article_a}+${p.article_b}`,
+    label: `${p.article_a} + ${p.article_b}`,
+    sublabel: null,
+    value: p.count,
+  }
+}
+
+/**
+ * Bande KPI compacte des analytics (taux dispo · à commander · consommé ·
+ * articles · MTO). Même idiome DS que MtoStatStrip / ReconcileStatStrip
+ * (pastille tokenisée + valeur font-semibold + libellé muted, séparateurs fins),
+ * adaptée aux 5 indicateurs de l'overview qui ne mappent pas la forme fixe
+ * « couverture » de MtoStatStrip.
+ */
+function AnalyticsKpiStrip({
+  overview,
+  isLoading,
+}: {
+  overview: MtoAnalyticsOverview | undefined
+  isLoading?: boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-6 items-center gap-3" aria-hidden>
+        <span className="h-3.5 w-28 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-20 animate-pulse rounded bg-muted" />
+        <span className="h-3.5 w-20 animate-pulse rounded bg-muted" />
+      </div>
+    )
+  }
+  const o =
+    overview ?? {
+      nb_batches: 0,
+      nb_articles: 0,
+      taux_dispo: 0,
+      total_a_commander: 0,
+      total_consomme: 0,
+    }
+  const stats: { dot: string | null; value: string | number; label: string }[] = [
+    { dot: 'bg-success', value: `${Math.round(o.taux_dispo)}%`, label: 'disponibilité' },
+    { dot: 'bg-destructive', value: o.total_a_commander, label: 'à commander' },
+    { dot: 'bg-info', value: o.total_consomme, label: 'consommé' },
+    { dot: null, value: o.nb_articles, label: 'articles' },
+    { dot: null, value: o.nb_batches, label: 'MTO' },
+  ]
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      {stats.map((st, i) => (
+        <span key={st.label} className="inline-flex items-center gap-x-3">
+          {i > 0 && <span aria-hidden className="h-4 w-px shrink-0 bg-border" />}
+          <span className="inline-flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+            {st.dot && (
+              <span className={cn('mb-0.5 h-2 w-2 shrink-0 self-center rounded-full', st.dot)} />
+            )}
+            <span className="text-sm font-semibold tabular-nums text-foreground">{st.value}</span>
+            <span className="text-xs text-muted-foreground">{st.label}</span>
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Panneau analytics : titre + mini-table « top N » avec barre de proportion
+ * (largeur = valeur / max). Skeleton en chargement, EmptyState compact si vide
+ * (normal tant qu'il y a peu d'historique). Affiche au plus 15 lignes.
+ */
+function AnalyticsPanel({
+  title,
+  icon: Icon,
+  rows,
+  isLoading,
+  emptyHint,
+}: {
+  title: string
+  icon: LucideIcon
+  rows: AnalyticsBarRow[]
+  isLoading?: boolean
+  emptyHint: string
+}) {
+  const top = rows.slice(0, 15)
+  const max = top.reduce((m, r) => Math.max(m, r.value), 0)
+
+  return (
+    <section className="flex min-w-0 flex-col rounded-lg border border-border/60 bg-card">
+      <header className="flex items-center gap-1.5 border-b border-border/60 px-3 py-2">
+        <Icon size={14} className="shrink-0 text-primary" />
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">{title}</h3>
+      </header>
+      <div className="p-3">
+        {isLoading ? (
+          <div className="space-y-2.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-3 w-10" />
+                </div>
+                <Skeleton className="h-1.5 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
+        ) : top.length === 0 ? (
+          <EmptyState
+            icon={Icon}
+            size="compact"
+            title="Pas encore de données"
+            description={emptyHint}
+          />
+        ) : (
+          <ol className="space-y-2">
+            {top.map((row) => (
+              <BarRow key={row.key} row={row} max={max} />
+            ))}
+          </ol>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Une ligne de palmarès : libellé (+ sous-libellé optionnel) et valeur alignée,
+ * surplombant une barre de proportion (largeur = value / max). La largeur est le
+ * SEUL style inline autorisé (proportion dynamique) ; couleur via token DS.
+ */
+function BarRow({ row, max }: { row: AnalyticsBarRow; max: number }) {
+  const pct = max > 0 ? Math.max(2, Math.round((row.value / max) * 100)) : 0
+  const title = row.sublabel ? `${row.label} — ${row.sublabel}` : row.label
+
+  return (
+    <li className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate text-xs text-foreground" title={title}>
+          <span className="font-mono text-primary">{row.label}</span>
+          {row.sublabel ? (
+            <span className="ml-1.5 text-muted-foreground">{row.sublabel}</span>
+          ) : null}
+        </span>
+        <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
+          {row.value}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+        <div
+          className="h-full rounded-full bg-primary/70"
+          style={{ width: `${pct}%` }}
+          aria-hidden
+        />
+      </div>
+    </li>
+  )
 }
 
 // ── Onglet Catalogue & Stock ───────────────────────────────────────────────

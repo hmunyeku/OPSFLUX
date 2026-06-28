@@ -21,6 +21,8 @@
  * Design system : Radix Dialog, tokens DS (pas de hex en dur), lucide icons.
  */
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
   Check,
@@ -50,16 +52,16 @@ interface MtoExportAssistantProps {
 /** Une catégorie de mail = un statut métier + sa présentation. */
 interface MailCategory {
   statut: string
-  /** Libellé de la catégorie dans l'UI (peut différer du label statut brut). */
-  title: string
+  /** Clé i18n du libellé de la catégorie dans l'UI (peut différer du label statut brut). */
+  titleKey: string
   /** Pastille tokenisée. */
   dot: string
 }
 
 const MAIL_CATEGORIES: MailCategory[] = [
-  { statut: 'à commander', title: 'À commander', dot: 'bg-destructive' },
-  { statut: 'en stock', title: 'En stock (à sortir)', dot: 'bg-success' },
-  { statut: 'partiel', title: 'Partiel', dot: 'bg-warning' },
+  { statut: 'à commander', titleKey: 'mto.export.cat_a_commander', dot: 'bg-destructive' },
+  { statut: 'en stock', titleKey: 'mto.export.cat_en_stock', dot: 'bg-success' },
+  { statut: 'partiel', titleKey: 'mto.export.cat_partiel', dot: 'bg-warning' },
 ]
 
 /** Formate une quantité + unité de façon lisible (« 12 m », « 3 »). */
@@ -77,50 +79,51 @@ function buildDraft(
   category: MailCategory,
   groups: MtoGroup[],
   batchLabel: string,
+  t: TFunction,
 ): { subject: string; body: string } {
-  const subjectVerb =
+  const verbKey =
     category.statut === 'à commander'
-      ? 'À commander'
+      ? 'mto.export.subject_a_commander'
       : category.statut === 'en stock'
-        ? 'À sortir du stock'
-        : 'Partiel — à compléter'
-  const subject = `[MTO ${batchLabel}] ${subjectVerb} — ${groups.length} article${groups.length > 1 ? 's' : ''}`
+        ? 'mto.export.subject_en_stock'
+        : 'mto.export.subject_partiel'
+  const subject = t('mto.export.subject_line', {
+    count: groups.length,
+    label: batchLabel,
+    verb: t(verbKey),
+  })
+
+  const introKey =
+    category.statut === 'à commander'
+      ? 'mto.export.draft_intro_a_commander'
+      : category.statut === 'en stock'
+        ? 'mto.export.draft_intro_en_stock'
+        : 'mto.export.draft_intro_partiel'
 
   const lines: string[] = []
-  lines.push('Bonjour,')
+  lines.push(t('mto.export.draft_greeting'))
   lines.push('')
-  if (category.statut === 'à commander') {
-    lines.push(
-      `Pour le MTO « ${batchLabel} », merci de lancer une consultation / commande pour les ${groups.length} article(s) suivant(s) (non couverts par le stock) :`,
-    )
-  } else if (category.statut === 'en stock') {
-    lines.push(
-      `Pour le MTO « ${batchLabel} », les ${groups.length} article(s) suivant(s) sont disponibles en stock et peuvent être sortis :`,
-    )
-  } else {
-    lines.push(
-      `Pour le MTO « ${batchLabel} », les ${groups.length} article(s) suivant(s) sont partiellement couverts (à compléter par commande) :`,
-    )
-  }
+  lines.push(t(introKey, { count: groups.length, label: batchLabel }))
   lines.push('')
 
   for (const g of groups) {
-    const code = g.article_code ?? '(code SAP à attribuer)'
-    const designation = g.designation_sap || g.mto_key || '(désignation inconnue)'
+    const code = g.article_code ?? t('mto.export.draft_code_fallback')
+    const designation = g.designation_sap || g.mto_key || t('mto.export.draft_designation_fallback')
     const besoin = fmtQty(g.besoin, g.unite)
     const dispo = fmtQty(g.dispo, g.unite)
     lines.push(`- ${code} — ${designation}`)
-    lines.push(`    Besoin : ${besoin} · Dispo stock : ${dispo}`)
+    lines.push(`    ${t('mto.export.draft_line_besoin', { besoin, dispo })}`)
   }
 
   lines.push('')
-  lines.push('Merci d’avance.')
-  lines.push('Cordialement,')
+  lines.push(t('mto.export.draft_closing_thanks'))
+  lines.push(t('mto.export.draft_closing_regards'))
 
   return { subject, body: lines.join('\n') }
 }
 
 export function MtoExportAssistant({ open, onClose, batchId, batchLabel }: MtoExportAssistantProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const exportXlsx = useMtoExport(batchId)
   // On charge tous les groupes (pas de filtre serveur) : mêmes données que la
@@ -142,9 +145,9 @@ export function MtoExportAssistant({ open, onClose, batchId, batchLabel }: MtoEx
   const handleDownload = async () => {
     try {
       await exportXlsx.mutateAsync()
-      toast({ title: 'Classeur Excel téléchargé', variant: 'success' })
+      toast({ title: t('mto.export.xlsx_success'), variant: 'success' })
     } catch {
-      toast({ title: "Échec du téléchargement Excel", variant: 'error' })
+      toast({ title: t('mto.export.xlsx_error'), variant: 'error' })
     }
   }
 
@@ -158,14 +161,14 @@ export function MtoExportAssistant({ open, onClose, batchId, batchLabel }: MtoEx
             <div className="flex items-center gap-2">
               <Download size={16} className="text-primary" />
               <div>
-                <Dialog.Title className="text-sm font-semibold">Exporter le MTO</Dialog.Title>
+                <Dialog.Title className="text-sm font-semibold">{t('mto.export.title')}</Dialog.Title>
                 <Dialog.Description className="text-xs text-muted-foreground">
                   {label}
                 </Dialog.Description>
               </div>
             </div>
             <Dialog.Close asChild>
-              <button className="btn btn-secondary" aria-label="Fermer">
+              <button className="btn btn-secondary" aria-label={t('mto.export.close')}>
                 <X size={14} />
               </button>
             </Dialog.Close>
@@ -179,9 +182,9 @@ export function MtoExportAssistant({ open, onClose, batchId, batchLabel }: MtoEx
                   <FileSpreadsheet size={18} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-foreground">Classeur Excel métier</h3>
+                  <h3 className="text-sm font-semibold text-foreground">{t('mto.export.section_xlsx')}</h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Trois feuilles : Synthèse · À sortir du stock · À commander.
+                    {t('mto.export.xlsx_desc')}
                   </p>
                 </div>
                 <button
@@ -195,7 +198,7 @@ export function MtoExportAssistant({ open, onClose, batchId, batchLabel }: MtoEx
                   ) : (
                     <Download size={14} />
                   )}
-                  <span>Télécharger</span>
+                  <span>{t('mto.export.download')}</span>
                 </button>
               </div>
             </section>
@@ -205,12 +208,11 @@ export function MtoExportAssistant({ open, onClose, batchId, batchLabel }: MtoEx
               <div className="flex items-center gap-2">
                 <Mail size={14} className="text-muted-foreground" />
                 <h3 className="text-sm font-semibold text-foreground">
-                  Mails prêts pour consultation
+                  {t('mto.export.section_mails')}
                 </h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                Un brouillon par catégorie, généré à partir des groupes consolidés. Copiez-le
-                ou ouvrez votre client mail.
+                {t('mto.export.mails_desc')}
               </p>
 
               {isLoading ? (
@@ -220,8 +222,8 @@ export function MtoExportAssistant({ open, onClose, batchId, batchLabel }: MtoEx
               ) : (groups?.length ?? 0) === 0 ? (
                 <EmptyState
                   icon={Package}
-                  title="Aucun groupe à exporter"
-                  description="Consolidez ce MTO pour générer les brouillons de mail."
+                  title={t('mto.export.empty_title')}
+                  description={t('mto.export.empty_desc')}
                   size="compact"
                 />
               ) : (
@@ -242,7 +244,7 @@ export function MtoExportAssistant({ open, onClose, batchId, batchLabel }: MtoEx
           {/* Footer */}
           <div className="flex shrink-0 items-center justify-end border-t border-border bg-muted/20 px-4 py-3">
             <button onClick={onClose} className="btn-sm btn-secondary">
-              Fermer
+              {t('mto.export.close')}
             </button>
           </div>
         </Dialog.Content>
@@ -261,25 +263,26 @@ function MailDraftCard({
   groups: MtoGroup[]
   batchLabel: string
 }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
 
   const { subject, body } = useMemo(
-    () => buildDraft(category, groups, batchLabel),
-    [category, groups, batchLabel],
+    () => buildDraft(category, groups, batchLabel, t),
+    [category, groups, batchLabel, t],
   )
 
   const isEmpty = groups.length === 0
 
   const handleCopy = async () => {
-    const text = `Objet : ${subject}\n\n${body}`
+    const text = `${t('mto.export.mail_subject_prefix', { subject })}\n\n${body}`
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
-      toast({ title: 'Brouillon copié', variant: 'success' })
+      toast({ title: t('mto.export.copy_success'), variant: 'success' })
       setTimeout(() => setCopied(false), 1800)
     } catch {
-      toast({ title: 'Copie impossible', variant: 'error' })
+      toast({ title: t('mto.export.copy_error'), variant: 'error' })
     }
   }
 
@@ -289,7 +292,7 @@ function MailDraftCard({
     <div className={cn('rounded-lg border border-border/60 bg-background', isEmpty && 'opacity-60')}>
       <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
         <span className={cn('h-2 w-2 shrink-0 rounded-full', category.dot)} />
-        <span className="text-sm font-medium text-foreground">{category.title}</span>
+        <span className="text-sm font-medium text-foreground">{t(category.titleKey)}</span>
         <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
           {groups.length}
         </span>
@@ -299,10 +302,10 @@ function MailDraftCard({
             onClick={handleCopy}
             disabled={isEmpty}
             className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            title="Copier le brouillon"
+            title={t('mto.export.copy_title')}
           >
             {copied ? <Check size={13} className="text-success" /> : <ClipboardCopy size={13} />}
-            <span className="hidden sm:inline">{copied ? 'Copié' : 'Copier'}</span>
+            <span className="hidden sm:inline">{copied ? t('mto.export.copied') : t('mto.export.copy')}</span>
           </button>
           <a
             href={isEmpty ? undefined : mailtoHref}
@@ -316,28 +319,28 @@ function MailDraftCard({
                 ? 'cursor-not-allowed bg-muted text-muted-foreground'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90',
             )}
-            title="Ouvrir le client mail"
+            title={t('mto.export.open_mail_title')}
           >
             <Mail size={13} />
-            <span className="hidden sm:inline">Ouvrir le mail</span>
+            <span className="hidden sm:inline">{t('mto.export.open_mail')}</span>
           </a>
         </div>
       </div>
 
       {isEmpty ? (
         <p className="px-3 py-2 text-xs italic text-muted-foreground">
-          Aucun article {mtoStatusLabel(category.statut).toLowerCase()}.
+          {t('mto.export.empty_category', { status: mtoStatusLabel(category.statut).toLowerCase() })}
         </p>
       ) : (
         <div className="px-3 py-2">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Objet
+            {t('mto.export.label_objet')}
           </p>
           <p className="mb-2 truncate text-xs text-foreground" title={subject}>
             {subject}
           </p>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Corps
+            {t('mto.export.label_corps')}
           </p>
           <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border/40 bg-muted/20 p-2 text-[11px] leading-relaxed text-foreground">
             {body}

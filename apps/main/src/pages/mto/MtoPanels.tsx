@@ -18,6 +18,7 @@
  * d'actions du panneau (plus de dialogs custom).
  */
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2,
   FileText,
@@ -70,6 +71,7 @@ type DetailTab = 'fiche' | 'comments' | 'tags' | 'documents'
 
 /** Détail d'un groupe MTO consolidé. */
 export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const confirm = useConfirm()
   const { hasPermission } = usePermission()
@@ -91,7 +93,7 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
 
   if (isLoading || !group) {
     return (
-      <DynamicPanelShell title="Chargement…">
+      <DynamicPanelShell title={t('mto.detail.loading')}>
         <SkeletonDetailPanel />
       </DynamicPanelShell>
     )
@@ -102,42 +104,49 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
 
   const doValidate = async () => {
     const ok = await confirm({
-      title: 'Valider le rapprochement ?',
-      message: `Confirmer le rapprochement de « ${group.designation_sap || group.mto_key || 'ce groupe'} » avec l'article SAP ${group.article_code ?? '—'}.`,
-      confirmLabel: 'Valider',
+      title: t('mto.detail.validate_title'),
+      message: t('mto.detail.validate_message', {
+        item: group.designation_sap || group.mto_key || t('mto.detail.title_fallback'),
+        article: group.article_code ?? t('mto.common.dash'),
+      }),
+      confirmLabel: t('mto.detail.validate_confirm'),
     })
     if (!ok) return
     try {
       await validate.mutateAsync(group.id)
-      toast({ title: 'Rapprochement validé', variant: 'success' })
+      toast({ title: t('mto.detail.validate_success'), variant: 'success' })
     } catch {
-      toast({ title: 'Validation impossible', variant: 'error' })
+      toast({ title: t('mto.detail.validate_error'), variant: 'error' })
     }
   }
 
   const doCorrect = async (articleCode: string) => {
     try {
       await correct.mutateAsync({ groupId: group.id, articleCode })
-      toast({ title: 'Rapprochement corrigé', variant: 'success' })
+      toast({ title: t('mto.detail.correct_success'), variant: 'success' })
       setCorrectOpen(false)
       setSearch('')
     } catch {
-      toast({ title: 'Correction impossible', variant: 'error' })
+      toast({ title: t('mto.detail.correct_error'), variant: 'error' })
     }
   }
 
   const tabItems = [
-    { id: 'fiche' as const, label: 'Fiche', icon: Info },
-    { id: 'comments' as const, label: 'Commentaires', icon: MessageSquare },
-    { id: 'tags' as const, label: 'Étiquettes', icon: TagIcon },
-    { id: 'documents' as const, label: 'Documents', icon: FileText },
+    { id: 'fiche' as const, label: t('mto.detail.tab_fiche'), icon: Info },
+    { id: 'comments' as const, label: t('mto.detail.tab_comments'), icon: MessageSquare },
+    { id: 'tags' as const, label: t('mto.detail.tab_tags'), icon: TagIcon },
+    { id: 'documents' as const, label: t('mto.detail.tab_documents'), icon: FileText },
   ]
 
   return (
     <DynamicPanelShell
       icon={<Package size={16} className="text-primary" />}
-      title={group.designation_sap || group.mto_key || 'Groupe MTO'}
-      subtitle={group.article_code ? `Article ${group.article_code}` : 'Article non trouvé'}
+      title={group.designation_sap || group.mto_key || t('mto.detail.title_fallback')}
+      subtitle={
+        group.article_code
+          ? t('mto.detail.subtitle_article', { code: group.article_code })
+          : t('mto.detail.subtitle_not_found')
+      }
       actions={[
         ...(canValidate && group.found && !isVerified
           ? [
@@ -148,7 +157,7 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
                 disabled={validate.isPending}
                 onClick={doValidate}
               >
-                Valider
+                {t('mto.detail.validate')}
               </PanelActionButton>,
             ]
           : []),
@@ -160,7 +169,7 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
                 variant="default"
                 onClick={() => setCorrectOpen((v) => !v)}
               >
-                Corriger
+                {t('mto.detail.correct')}
               </PanelActionButton>,
             ]
           : []),
@@ -169,19 +178,19 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
       {/* Bandeau statut + vérification — toujours visible au-dessus des onglets. */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/20 px-4 py-2">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Statut
+          {t('mto.detail.status')}
         </span>
         {group.statut ? (
           <BadgeCell value={mtoStatusLabel(group.statut)} variant={mtoStatusVariant(group.statut)} />
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-xs text-muted-foreground">{t('mto.common.dash')}</span>
         )}
         <span className="ml-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Vérif
+          {t('mto.detail.verif')}
         </span>
         <VerificationBadge status={group.verification_status} />
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {group.nb_lignes} ligne{group.nb_lignes !== 1 ? 's' : ''}
+          {t('mto.common.lines_count', { count: group.nb_lignes })}
         </span>
       </div>
 
@@ -192,10 +201,12 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
           <>
             {/* Correction inline du rapprochement SAP (remplace l'ancien dialog). */}
             {correctOpen && canCorrect && (
-              <FormSection title="Corriger le rapprochement" defaultExpanded>
+              <FormSection title={t('mto.detail.correct_section')} defaultExpanded>
                 <p className="mb-2 text-xs text-muted-foreground">
-                  Actuel :{' '}
-                  <code className="font-mono text-foreground">{group.article_code ?? '—'}</code>
+                  {t('mto.detail.correct_current')}{' '}
+                  <code className="font-mono text-foreground">
+                    {group.article_code ?? t('mto.common.dash')}
+                  </code>
                   {group.designation_sap ? ` — ${group.designation_sap}` : ''}
                 </p>
                 <div className="flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5">
@@ -204,17 +215,19 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
                     autoFocus
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Rechercher un article (code ou désignation)…"
+                    placeholder={t('mto.detail.correct_search_placeholder')}
                     className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
                   />
                 </div>
                 <div className="mt-2 max-h-72 overflow-auto rounded-md border border-border/60">
                   {searching && (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">Recherche…</p>
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      {t('mto.detail.searching')}
+                    </p>
                   )}
                   {search.trim().length < 2 && (
                     <p className="px-3 py-2 text-xs text-muted-foreground">
-                      Saisissez au moins 2 caractères.
+                      {t('mto.detail.min_chars')}
                     </p>
                   )}
                   {(catalogResults ?? []).map((a) => (
@@ -234,66 +247,66 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
             )}
 
             {/* Entête article SAP rapproché. */}
-            <FormSection title="Article SAP rapproché" defaultExpanded>
+            <FormSection title={t('mto.detail.section_article_sap')} defaultExpanded>
               <DetailFieldGrid>
-                <ReadOnlyRow label="Clé MTO" value={group.mto_key} />
+                <ReadOnlyRow label={t('mto.detail.field_mto_key')} value={group.mto_key} />
                 <ReadOnlyRow
-                  label="Code article"
+                  label={t('mto.detail.field_article_code')}
                   value={
                     group.article_code ? (
                       <span className="font-mono text-primary">{group.article_code}</span>
                     ) : (
-                      '—'
+                      t('mto.common.dash')
                     )
                   }
                 />
                 <ReadOnlyRow
-                  label="Désignation"
+                  label={t('mto.detail.field_designation')}
                   value={
                     group.found ? (
-                      group.designation_sap || '—'
+                      group.designation_sap || t('mto.common.dash')
                     ) : (
-                      <span className="italic text-muted-foreground">(non trouvé)</span>
+                      <span className="italic text-muted-foreground">{t('mto.matching.not_found')}</span>
                     )
                   }
                 />
-                <ReadOnlyRow label="Famille" value={group.famille || '—'} />
-                <ReadOnlyRow label="Ø Diamètre" value={group.diameter || '—'} />
+                <ReadOnlyRow label={t('mto.detail.field_famille')} value={group.famille || t('mto.common.dash')} />
+                <ReadOnlyRow label={t('mto.detail.field_diameter')} value={group.diameter || t('mto.common.dash')} />
               </DetailFieldGrid>
             </FormSection>
 
             {/* Besoin / dispo / couverture / emplacements / statut + score. */}
-            <FormSection title="Rapprochement" defaultExpanded>
+            <FormSection title={t('mto.detail.section_rapprochement')} defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow
-                  label="Besoin"
+                  label={t('mto.detail.field_besoin')}
                   value={
                     <span>
                       <span className="tabular-nums">{group.besoin}</span>{' '}
                       {group.unite ?? ''}
                       {group.unit_check && (
                         <span className="ml-1 text-warning" title={group.unit_detail ?? ''}>
-                          ⚠ unités hétérogènes
+                          {t('mto.detail.units_heterogeneous')}
                         </span>
                       )}
                     </span>
                   }
                 />
                 <ReadOnlyRow
-                  label="Disponible"
+                  label={t('mto.detail.field_disponible')}
                   value={<span className="tabular-nums">{group.dispo}</span>}
                 />
                 <ReadOnlyRow
-                  label="Couverture"
+                  label={t('mto.detail.field_couverture')}
                   value={
                     <span className={`tabular-nums font-medium ${mtoStatusTextClass(group.statut)}`}>
                       {group.dispo}/{group.besoin}
                     </span>
                   }
                 />
-                <ReadOnlyRow label="Emplacements" value={group.emplacements || '—'} />
+                <ReadOnlyRow label={t('mto.detail.field_emplacements')} value={group.emplacements || t('mto.common.dash')} />
                 <ReadOnlyRow
-                  label="Statut"
+                  label={t('mto.detail.field_statut')}
                   value={
                     group.statut ? (
                       <BadgeCell
@@ -301,13 +314,13 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
                         variant={mtoStatusVariant(group.statut)}
                       />
                     ) : (
-                      '—'
+                      t('mto.common.dash')
                     )
                   }
                 />
                 <ReadOnlyRow
-                  label="Score / confiance"
-                  value={group.confidence || '—'}
+                  label={t('mto.detail.field_score')}
+                  value={group.confidence || t('mto.common.dash')}
                 />
               </DetailFieldGrid>
 
@@ -320,11 +333,11 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
             </FormSection>
 
             {/* Table des lignes MTO d'origine (children). */}
-            <FormSection title={`Lignes d'origine (${children.length})`} defaultExpanded>
+            <FormSection title={t('mto.detail.section_lignes_origine', { count: children.length })} defaultExpanded>
               {children.length === 0 ? (
                 <EmptyState
                   icon={Package}
-                  title="Aucune ligne d'origine"
+                  title={t('mto.detail.empty_lignes_origine')}
                   size="compact"
                 />
               ) : (
@@ -332,26 +345,26 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
                   <table className="w-full text-xs">
                     <thead className="border-b border-border bg-chrome text-muted-foreground">
                       <tr>
-                        <th className="px-3 py-1.5 text-left font-medium">Ligne</th>
-                        <th className="px-3 py-1.5 text-left font-medium">Repère</th>
-                        <th className="px-3 py-1.5 text-left font-medium">Description</th>
-                        <th className="px-3 py-1.5 text-left font-medium">Ø</th>
-                        <th className="px-3 py-1.5 text-right font-medium">Qté</th>
+                        <th className="px-3 py-1.5 text-left font-medium">{t('mto.detail.col_ligne')}</th>
+                        <th className="px-3 py-1.5 text-left font-medium">{t('mto.detail.col_repere')}</th>
+                        <th className="px-3 py-1.5 text-left font-medium">{t('mto.detail.col_description')}</th>
+                        <th className="px-3 py-1.5 text-left font-medium">{t('mto.detail.col_diameter')}</th>
+                        <th className="px-3 py-1.5 text-right font-medium">{t('mto.detail.col_qte')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
                       {children.map((c: MtoChild, i: number) => (
                         <tr key={`${id}-c${i}`} className="hover:bg-muted/20">
                           <td className="px-3 py-1.5 text-muted-foreground">
-                            {c.line_num ?? c.row ?? '—'}
+                            {c.line_num ?? c.row ?? t('mto.common.dash')}
                           </td>
                           <td className="px-3 py-1.5 text-foreground">
-                            {c.mark ?? c.tag ?? '—'}
+                            {c.mark ?? c.tag ?? t('mto.common.dash')}
                           </td>
-                          <td className="px-3 py-1.5 text-foreground">{c.description ?? '—'}</td>
-                          <td className="px-3 py-1.5 text-muted-foreground">{c.diameter ?? '—'}</td>
+                          <td className="px-3 py-1.5 text-foreground">{c.description ?? t('mto.common.dash')}</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">{c.diameter ?? t('mto.common.dash')}</td>
                           <td className="px-3 py-1.5 text-right tabular-nums text-foreground">
-                            {c.qte ?? '—'}
+                            {c.qte ?? t('mto.common.dash')}
                           </td>
                         </tr>
                       ))}
@@ -364,19 +377,19 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
         )}
 
         {activeTab === 'comments' && (
-          <FormSection title="Commentaires" defaultExpanded>
+          <FormSection title={t('mto.detail.tab_comments_title')} defaultExpanded>
             <NoteManager ownerType={OWNER_TYPE} ownerId={group.id} />
           </FormSection>
         )}
 
         {activeTab === 'tags' && (
-          <FormSection title="Étiquettes" defaultExpanded>
+          <FormSection title={t('mto.detail.tab_tags_title')} defaultExpanded>
             <TagManager ownerType={OWNER_TYPE} ownerId={group.id} />
           </FormSection>
         )}
 
         {activeTab === 'documents' && (
-          <FormSection title="Documents" defaultExpanded>
+          <FormSection title={t('mto.detail.tab_documents_title')} defaultExpanded>
             <AttachmentManager ownerType={OWNER_TYPE} ownerId={group.id} />
           </FormSection>
         )}
@@ -391,9 +404,10 @@ export function MtoGroupDetailPanel({ id, batchId = null }: MtoGroupDetailPanelP
  *   pending / autre → neutral « En attente ».
  */
 function VerificationBadge({ status }: { status?: string | null }) {
-  if (status === 'verified') return <BadgeCell value="Validé" variant="success" />
-  if (status === 'rejected') return <BadgeCell value="Rejeté" variant="danger" />
-  return <BadgeCell value="En attente" variant="neutral" />
+  const { t } = useTranslation()
+  if (status === 'verified') return <BadgeCell value={t('mto.verification.verified')} variant="success" />
+  if (status === 'rejected') return <BadgeCell value={t('mto.verification.rejected')} variant="danger" />
+  return <BadgeCell value={t('mto.verification.pending')} variant="neutral" />
 }
 
 // ── Enregistrement dans le registry des panneaux ──────────────────────────

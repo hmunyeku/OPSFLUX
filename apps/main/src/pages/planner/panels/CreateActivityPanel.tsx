@@ -146,7 +146,6 @@ function ActivityInner() {
                 <AssetPicker
                   value={form.asset_id || null}
                   onChange={(id) => setForm({ ...form, asset_id: id || '' })}
-                  label="Site"
                 />
               </DynamicPanelField>
               <DynamicPanelField label={t('common.project')}>

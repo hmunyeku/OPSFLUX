@@ -215,7 +215,6 @@ export function CreateProjectPanel() {
                     <AssetPicker
                       value={form.asset_id || null}
                       onChange={(id) => setForm({ ...form, asset_id: id || null })}
-                      label="Site / installation"
                     />
                   </DynamicPanelField>
                 </FormGrid>

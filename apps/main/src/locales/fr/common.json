@@ -81,7 +81,10 @@
       "validate_success": "Rapprochement validé",
       "validate_error": "Validation impossible",
       "filter_status": "Filtrer par statut",
-      "all": "Tous"
+      "all": "Tous",
+      "found_pct": "Trouvé",
+      "found_pct_paren": "({{pct}}% trouvé)",
+      "this_group": "ce groupe"
     },
     "confidence": {
       "high": "haute",
@@ -890,7 +893,8 @@
     "contact_company": "Contact entreprise",
     "duration_days": "Durée (jours)",
     "parent_task": "Tâche parente",
-    "team_singular": "Équipe"
+    "team_singular": "Équipe",
+    "saving": "Enregistrement..."
   },
   "attachments_manager": {
     "add_file": "Ajouter un fichier",
@@ -1672,7 +1676,8 @@
         "phones": "Phones",
         "socials": "Socials",
         "tags": "Étiquettes",
-        "authorization_center": "Centre d'habilitation"
+        "authorization_center": "Centre d'habilitation",
+        "history": "Historique"
       },
       "auto_generated": "Auto-généré à la création",
       "trade_name": "Nom commercial principal",
@@ -1814,7 +1819,9 @@
       "blocking_section": "Blocage",
       "contact_department": "Département du contact",
       "contact_position": "Poste du contact",
-      "no_related_projects": "Aucun projet lié"
+      "no_related_projects": "Aucun projet lié",
+      "archive_selected_partial_description": "Certains tiers sélectionnés ne peuvent pas être archivés (déjà archivés ou contraintes métier)",
+      "archive_selected_partial_title": "Archivage partiel"
     },
     "contact_form": {
       "errors": {
@@ -2210,7 +2217,8 @@
         "note_short": "Commentaire...",
         "owner_id": "UUID ou identifiant métier du propriétaire",
         "title": "Titre exact retourné par l'émetteur...",
-        "type": "Rechercher un type..."
+        "type": "Rechercher un type...",
+        "owner_type_first": "Choisissez d'abord un type de propriétaire"
       },
       "sections": {
         "attachments": "Pièces jointes",
@@ -2517,7 +2525,15 @@
         "validated_on": "Validé le",
         "expired": "Expiré il y a {{n}}j",
         "expires_soon": "Expire dans {{n}}j",
-        "valid_n_days": "{{n}}j restants"
+        "valid_n_days": "{{n}}j restants",
+        "history_hide": "Masquer l'historique",
+        "history_search_placeholder": "Rechercher dans l'historique...",
+        "history_show": "Afficher l'historique",
+        "history_title": "Historique",
+        "history_tooltip": "Voir l'historique des modifications",
+        "no_current": "Aucun audit en cours",
+        "submit_for_validation": "Soumettre pour validation",
+        "validation_section": "Validation"
       },
       "view": {
         "matrix": "Vue matrice",
@@ -2531,11 +2547,15 @@
         "effective_from": "Depuis",
         "edit_rule": "Cliquer pour modifier",
         "create_rule": "Cliquer pour ajouter une règle"
-      }
+      },
+      "change_reason": "Motif de modification",
+      "change_reason_placeholder": "Expliquez la raison de cette modification...",
+      "edit_title": "Modifier la règle"
     },
     "job_positions": {
       "title": "Fiches de poste",
-      "create": "Nouvelle fiche de poste"
+      "create": "Nouvelle fiche de poste",
+      "select": "Sélectionner une fiche de poste..."
     },
     "transfers": {
       "title": "Transferts",
@@ -2620,7 +2640,8 @@
       },
       "reject_prompt": "Rejeter prompt",
       "reject_title": "Rejeter titre",
-      "verify": "Vérifier"
+      "verify": "Vérifier",
+      "empty_pending": "Aucune vérification en attente"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -2698,7 +2719,19 @@
     "ex_mise_a_jour_duree_de_validite": "Ex: Mise à jour durée de validité...",
     "aucun_historique_disponible": "Aucun historique disponible.",
     "document_non_trouve_ou_deja_traite": "Document non trouve ou deja traite.",
-    "expliquez_pourquoi_ce_document_est_rejet": "Expliquez pourquoi ce document est rejete..."
+    "expliquez_pourquoi_ce_document_est_rejet": "Expliquez pourquoi ce document est rejete...",
+    "audit_status": {
+      "in_progress": "En cours",
+      "rejected": "Rejeté",
+      "submitted": "Soumis"
+    },
+    "history": {
+      "by": "par",
+      "empty": "Aucun historique",
+      "load_more": "Charger plus",
+      "period": "Période",
+      "system": "Système"
+    }
   },
   "projets": {
     "title": "Projets",
@@ -7359,7 +7392,8 @@
         "budgets": "Budgets",
         "connectors": "Connectors",
         "daily_report": "Daily rapport",
-        "forbidden": "Forbidden"
+        "forbidden": "Forbidden",
+        "business_ai": "IA Métier"
       },
       "stat": {
         "cb_active": "Cb actif",
@@ -7384,7 +7418,9 @@
       },
       "warn": {
         "unsaved": "Unsaved"
-      }
+      },
+      "business_ai_auto_connector": "Connecteur automatique IA métier",
+      "business_ai_help": "Configuration de l'assistant IA pour les processus métier"
     },
     "no_match": "Aucun match",
     "scenarios": {
@@ -7628,7 +7664,8 @@
     "total_rows": "{{count}} lignes au total",
     "export_btn": "Exporter",
     "exporting": "Export en cours…",
-    "advanced": "Export avancé"
+    "advanced": "Export avancé",
+    "wizard_description": "Assistant d'exportation de données"
   },
   "import": {
     "wizard_title": "Assistant d'import",
@@ -7791,7 +7828,8 @@
       "pax_profile": "Profils PAX",
       "project": "Projets",
       "compliance_record": "Conformité"
-    }
+    },
+    "wizard_description": "Assistant d'importation de données"
   },
   "geo": {
     "point": "Point",
@@ -9086,6 +9124,13 @@
       "1": "P1 — Critique",
       "2": "P2 — Normale",
       "3": "P3 — Faible"
+    },
+    "audit": {
+      "no_validators": "Aucun validateur configuré",
+      "reference": "Référence",
+      "target": "Cible",
+      "validation_title": "Validation MOC",
+      "validator_role": "Rôle validateur"
     }
   },
   "quick_create": {
@@ -9173,7 +9218,9 @@
     "tabs": {
       "roles": "Rôles",
       "groups": "Groupes",
-      "permissions": "Permissions"
+      "permissions": "Permissions",
+      "delegations": "Délégations",
+      "settings": "Paramètres"
     },
     "filters": {
       "roles_search": "Filtrer les rôles…",
@@ -9312,6 +9359,31 @@
         "title": "Audit RBAC récent (délégations)",
         "empty": "Aucun événement récent."
       }
+    }
+  },
+  "attachments": {
+    "preview": {
+      "archiveDetail": "Les archives doivent être téléchargées ou ouvertes par un service d'analyse dédié avant consultation fichier par fichier.",
+      "archiveHint": "Aucun contenu d'archive n'est exécuté ou extrait dans le navigateur.",
+      "archiveTitle": "Archive",
+      "diagramDetail": "Ce format doit être routé vers un viewer de diagrammes compatible Draw.io/diagrams.net ou converti côté serveur avant affichage.",
+      "diagramHint": "Formats visés : .drawio, .vsd, .vsdx, .vdx.",
+      "diagramTitle": "Diagramme Visio / Draw.io",
+      "download": "Télécharger",
+      "emptyText": "Fichier texte vide.",
+      "genericHint": "Utilisez l'ouverture ou le téléchargement pour consulter le fichier dans l'application adaptée.",
+      "genericTitle": "Fichier",
+      "industrialDetail": "Les fichiers DWF, Navisworks, DWG, IFC ou modèles 3D nécessitent un viewer industriel dédié avec génération de dérivés.",
+      "industrialHint": "À brancher sur Autodesk Platform Services, un viewer interne, ou un service de conversion maîtrisé par OpsFlux.",
+      "industrialTitle": "Fichier CAO / modèle industriel",
+      "loadError": "Impossible de charger l'aperçu.",
+      "officeDetail": "La prévisualisation complète des documents Word/PowerPoint exige une conversion sécurisée côté serveur vers PDF ou HTML avant affichage.",
+      "officeHint": "Lecture partielle disponible pour Excel/CSV ; Word et PowerPoint restent à convertir.",
+      "officeTitle": "Document Office",
+      "open": "Ouvrir",
+      "sheet": "Feuille",
+      "truncated": "... aperçu tronqué ...",
+      "unsupported": "Aperçu détaillé non disponible dans le navigateur pour ce format."
     }
   }
 }

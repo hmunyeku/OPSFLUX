@@ -9,6 +9,7 @@
  * - Used by: Planner, PaxLog, TravelWiz, PID/PFD, Papyrus, etc.
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { safeLocal } from '@/lib/safeStorage'
 import { useTranslation } from 'react-i18next'
 import { Search, ChevronRight, ChevronDown, MapPin, Loader2, X, Clock, Star } from 'lucide-react'
@@ -173,6 +174,8 @@ export function AssetPicker({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -236,11 +239,28 @@ export function AssetPicker({
     })
   }, [])
 
+  // Calculate dropdown position when opened
+  useEffect(() => {
+    if (open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom + 4, // 4px gap (mt-1)
+        left: rect.left,
+        width: rect.width,
+      })
+    }
+  }, [open])
+
   // Close on outside click
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      // Close if clicking outside both the button and dropdown
+      if (
+        buttonRef.current && !buttonRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false)
         setSearch('')
       }
@@ -255,7 +275,7 @@ export function AssetPicker({
   }, [open])
 
   return (
-    <div className={cn('relative', className)} ref={dropdownRef}>
+    <div className={cn('relative', className)}>
       {label && (
         <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1 block">
           {label}
@@ -264,6 +284,7 @@ export function AssetPicker({
 
       {/* Trigger button */}
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => !disabled && setOpen(!open)}
         disabled={disabled}
@@ -291,9 +312,17 @@ export function AssetPicker({
         <ChevronDown size={14} className={cn('shrink-0 transition-transform', open && 'rotate-180')} />
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 mt-1 w-full min-w-[320px] max-h-[400px] rounded-lg border border-border bg-background shadow-lg flex flex-col overflow-hidden">
+      {/* Dropdown - rendered via portal to avoid overflow clipping */}
+      {open && dropdownPosition && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-50 min-w-[320px] max-h-[400px] rounded-lg border border-border bg-background shadow-lg flex flex-col overflow-hidden"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${Math.max(dropdownPosition.width, 320)}px`,
+          }}
+        >
           {/* Search bar */}
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <Search size={14} className="text-muted-foreground shrink-0" />
@@ -372,7 +401,8 @@ export function AssetPicker({
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

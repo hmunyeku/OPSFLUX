@@ -213,7 +213,7 @@ export function ProjectPicker({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-1 w-full min-w-[320px] max-h-[400px] rounded-lg border border-border bg-background shadow-lg flex flex-col overflow-hidden">
+        <div className="absolute z-[9999] mt-1 w-full min-w-[320px] max-h-[400px] rounded-lg border border-border bg-background shadow-lg flex flex-col overflow-hidden">
           {/* Search bar */}
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <Search size={14} className="text-muted-foreground shrink-0" />

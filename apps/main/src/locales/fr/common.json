@@ -81,7 +81,10 @@
       "validate_success": "Rapprochement validé",
       "validate_error": "Validation impossible",
       "filter_status": "Filtrer par statut",
-      "all": "Tous"
+      "all": "Tous",
+      "found_pct": "{{pct}}% trouvé",
+      "found_pct_paren": "({{pct}}% trouvé)",
+      "this_group": "Ce groupe"
     },
     "confidence": {
       "high": "haute",
@@ -528,6 +531,7 @@
   },
   "common": {
     "save": "Enregistrer",
+    "saving": "Enregistrement...",
     "cancel": "Annuler",
     "delete": "Supprimer",
     "edit": "Modifier",
@@ -909,6 +913,31 @@
     "existing_file_meta": "Version actuelle : {{size}} · {{date}}",
     "replace": "Remplacer",
     "replace_success": "{{name}} remplacé"
+  },
+  "attachments": {
+    "preview": {
+      "archiveDetail": "Fichier archive compressé",
+      "archiveHint": "Téléchargez pour extraire le contenu",
+      "archiveTitle": "Archive",
+      "diagramDetail": "Schéma technique ou diagramme",
+      "diagramHint": "Ouvrez pour voir le détail",
+      "diagramTitle": "Diagramme",
+      "download": "Télécharger",
+      "emptyText": "Aucun aperçu disponible",
+      "genericHint": "Cliquez pour télécharger",
+      "genericTitle": "Fichier",
+      "industrialDetail": "Document industriel ou technique",
+      "industrialHint": "Téléchargez pour consulter",
+      "industrialTitle": "Document technique",
+      "loadError": "Impossible de charger l'aperçu",
+      "officeDetail": "Document bureautique",
+      "officeHint": "Ouvrez avec votre application",
+      "officeTitle": "Document",
+      "open": "Ouvrir",
+      "sheet": "Feuille",
+      "truncated": "Aperçu tronqué",
+      "unsupported": "Type de fichier non pris en charge pour l'aperçu"
+    }
   },
   "datatable": {
     "search_filter": "Sélectionner un filtre ou rechercher…",
@@ -1672,7 +1701,8 @@
         "phones": "Phones",
         "socials": "Socials",
         "tags": "Étiquettes",
-        "authorization_center": "Centre d'habilitation"
+        "authorization_center": "Centre d'habilitation",
+        "history": "Historique"
       },
       "auto_generated": "Auto-généré à la création",
       "trade_name": "Nom commercial principal",
@@ -1814,7 +1844,9 @@
       "blocking_section": "Blocage",
       "contact_department": "Département du contact",
       "contact_position": "Poste du contact",
-      "no_related_projects": "Aucun projet lié"
+      "no_related_projects": "Aucun projet lié",
+      "archive_selected_partial_description": "Certains éléments sélectionnés seront archivés",
+      "archive_selected_partial_title": "Archiver les éléments sélectionnés"
     },
     "contact_form": {
       "errors": {
@@ -2086,6 +2118,18 @@
       "transferts": "Transferts",
       "matrice": "Matrice"
     },
+    "audit_status": {
+      "in_progress": "En cours",
+      "rejected": "Rejeté",
+      "submitted": "Soumis"
+    },
+    "history": {
+      "by": "par",
+      "empty": "Aucun historique",
+      "load_more": "Charger plus",
+      "period": "Période",
+      "system": "Système"
+    },
     "types": {
       "title": "Types de conformité",
       "create": "Nouveau type",
@@ -2210,7 +2254,8 @@
         "note_short": "Commentaire...",
         "owner_id": "UUID ou identifiant métier du propriétaire",
         "title": "Titre exact retourné par l'émetteur...",
-        "type": "Rechercher un type..."
+        "type": "Rechercher un type...",
+        "owner_type_first": "Sélectionnez d'abord un type de propriétaire"
       },
       "sections": {
         "attachments": "Pièces jointes",
@@ -2517,7 +2562,15 @@
         "validated_on": "Validé le",
         "expired": "Expiré il y a {{n}}j",
         "expires_soon": "Expire dans {{n}}j",
-        "valid_n_days": "{{n}}j restants"
+        "valid_n_days": "{{n}}j restants",
+        "history_hide": "Masquer l'historique",
+        "history_search_placeholder": "Rechercher dans l'historique...",
+        "history_show": "Afficher l'historique",
+        "history_title": "Historique des audits",
+        "history_tooltip": "Voir l'historique complet",
+        "no_current": "Aucun audit en cours",
+        "submit_for_validation": "Soumettre pour validation",
+        "validation_section": "Section de validation"
       },
       "view": {
         "matrix": "Vue matrice",
@@ -2531,11 +2584,15 @@
         "effective_from": "Depuis",
         "edit_rule": "Cliquer pour modifier",
         "create_rule": "Cliquer pour ajouter une règle"
-      }
+      },
+      "change_reason": "Raison du changement",
+      "change_reason_placeholder": "Expliquez la raison du changement...",
+      "edit_title": "Modifier la règle"
     },
     "job_positions": {
       "title": "Fiches de poste",
-      "create": "Nouvelle fiche de poste"
+      "create": "Nouvelle fiche de poste",
+      "select": "Sélectionner une fiche de poste"
     },
     "transfers": {
       "title": "Transferts",
@@ -2620,7 +2677,8 @@
       },
       "reject_prompt": "Rejeter prompt",
       "reject_title": "Rejeter titre",
-      "verify": "Vérifier"
+      "verify": "Vérifier",
+      "empty_pending": "Aucune vérification en attente"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -7359,7 +7417,8 @@
         "budgets": "Budgets",
         "connectors": "Connectors",
         "daily_report": "Daily rapport",
-        "forbidden": "Forbidden"
+        "forbidden": "Forbidden",
+        "business_ai": "Intelligence Artificielle"
       },
       "stat": {
         "cb_active": "Cb actif",
@@ -7384,7 +7443,9 @@
       },
       "warn": {
         "unsaved": "Unsaved"
-      }
+      },
+      "business_ai_auto_connector": "Connecteur IA automatique",
+      "business_ai_help": "L'agent IA peut vous assister dans vos tâches"
     },
     "no_match": "Aucun match",
     "scenarios": {
@@ -7628,7 +7689,8 @@
     "total_rows": "{{count}} lignes au total",
     "export_btn": "Exporter",
     "exporting": "Export en cours…",
-    "advanced": "Export avancé"
+    "advanced": "Export avancé",
+    "wizard_description": "Assistant d'export pour générer vos données"
   },
   "import": {
     "wizard_title": "Assistant d'import",
@@ -7791,7 +7853,8 @@
       "pax_profile": "Profils PAX",
       "project": "Projets",
       "compliance_record": "Conformité"
-    }
+    },
+    "wizard_description": "Assistant d'import pour charger vos données"
   },
   "geo": {
     "point": "Point",
@@ -9086,6 +9149,13 @@
       "1": "P1 — Critique",
       "2": "P2 — Normale",
       "3": "P3 — Faible"
+    },
+    "audit": {
+      "no_validators": "Aucun validateur assigné",
+      "reference": "Référence",
+      "target": "Cible",
+      "validation_title": "Validation de l'audit",
+      "validator_role": "Rôle du validateur"
     }
   },
   "quick_create": {
@@ -9173,7 +9243,9 @@
     "tabs": {
       "roles": "Rôles",
       "groups": "Groupes",
-      "permissions": "Permissions"
+      "permissions": "Permissions",
+      "delegations": "Délégations",
+      "settings": "Paramètres"
     },
     "filters": {
       "roles_search": "Filtrer les rôles…",

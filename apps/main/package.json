@@ -116,5 +116,10 @@
     "vitest": "^4.1.6",
     "workbox-build": "^7.3.0",
     "workbox-window": "^7.3.0"
+  },
+  "overrides": {
+    "@glideapps/glide-data-grid": {
+      "marked": "^17.0.5"
+    }
   }
 }

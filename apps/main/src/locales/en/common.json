@@ -81,7 +81,10 @@
       "validate_success": "Matching validated",
       "validate_error": "Validation failed",
       "filter_status": "Filter by status",
-      "all": "All"
+      "all": "All",
+      "found_pct": "{{pct}}% found",
+      "found_pct_paren": "({{pct}}% found)",
+      "this_group": "This group"
     },
     "confidence": {
       "high": "high",
@@ -432,6 +435,7 @@
   },
   "common": {
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
@@ -813,6 +817,31 @@
     "existing_file_meta": "Current version: {{size}} · {{date}}",
     "replace": "Replace",
     "replace_success": "{{name}} replaced"
+  },
+  "attachments": {
+    "preview": {
+      "archiveDetail": "Compressed archive file",
+      "archiveHint": "Download to extract content",
+      "archiveTitle": "Archive",
+      "diagramDetail": "Technical diagram or schematic",
+      "diagramHint": "Open to view details",
+      "diagramTitle": "Diagram",
+      "download": "Download",
+      "emptyText": "No preview available",
+      "genericHint": "Click to download",
+      "genericTitle": "File",
+      "industrialDetail": "Industrial or technical document",
+      "industrialHint": "Download to view",
+      "industrialTitle": "Technical document",
+      "loadError": "Could not load preview",
+      "officeDetail": "Office document",
+      "officeHint": "Open with your application",
+      "officeTitle": "Document",
+      "open": "Open",
+      "sheet": "Sheet",
+      "truncated": "Preview truncated",
+      "unsupported": "File type not supported for preview"
+    }
   },
   "datatable": {
     "search_filter": "Select a filter or search…",
@@ -1575,7 +1604,8 @@
         "phones": "Phones",
         "socials": "Socials",
         "tags": "Tags",
-        "authorization_center": "Authorization center"
+        "authorization_center": "Authorization center",
+        "history": "History"
       },
       "auto_generated": "Auto-generated on creation",
       "trade_name": "Primary trade name",
@@ -1717,7 +1747,9 @@
       "blocking_section": "Blocking",
       "contact_department": "Contact department",
       "contact_position": "Contact role",
-      "no_related_projects": "No related projects"
+      "no_related_projects": "No related projects",
+      "archive_selected_partial_description": "Some selected items will be archived",
+      "archive_selected_partial_title": "Archive selected items"
     },
     "tab_dashboard": "Dashboard",
     "contact_form": {
@@ -1990,6 +2022,18 @@
       "transferts": "Transfers",
       "matrice": "Matrice"
     },
+    "audit_status": {
+      "in_progress": "In Progress",
+      "rejected": "Rejected",
+      "submitted": "Submitted"
+    },
+    "history": {
+      "by": "by",
+      "empty": "No history",
+      "load_more": "Load more",
+      "period": "Period",
+      "system": "System"
+    },
     "types": {
       "title": "Compliance types",
       "create": "New type",
@@ -2072,7 +2116,8 @@
         "note_short": "Comment...",
         "title": "Exact title returned by the issuer...",
         "type": "Type",
-        "owner_id": "Owner id"
+        "owner_id": "Owner id",
+        "owner_type_first": "Select an owner type first"
       },
       "sections": {
         "attachments": "Attachments",
@@ -2384,7 +2429,15 @@
         "validated_on": "Validated on",
         "expired": "Expired {{n}}d ago",
         "expires_soon": "Expires in {{n}}d",
-        "valid_n_days": "{{n}}d remaining"
+        "valid_n_days": "{{n}}d remaining",
+        "history_hide": "Hide history",
+        "history_search_placeholder": "Search in history...",
+        "history_show": "Show history",
+        "history_title": "Audit history",
+        "history_tooltip": "View full history",
+        "no_current": "No current audit",
+        "submit_for_validation": "Submit for validation",
+        "validation_section": "Validation section"
       },
       "view": {
         "matrix": "Matrix view",
@@ -2398,11 +2451,15 @@
         "effective_from": "From",
         "edit_rule": "Click to edit",
         "create_rule": "Click to add rule"
-      }
+      },
+      "change_reason": "Change reason",
+      "change_reason_placeholder": "Explain the reason for the change...",
+      "edit_title": "Edit rule"
     },
     "job_positions": {
       "title": "Job positions",
-      "create": "New job position"
+      "create": "New job position",
+      "select": "Select a job position"
     },
     "transfers": {
       "title": "Transfers",
@@ -2487,7 +2544,8 @@
       },
       "reject_prompt": "Reject prompt",
       "reject_title": "Reject title",
-      "verify": "Verify"
+      "verify": "Verify",
+      "empty_pending": "No pending verification"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -7065,7 +7123,8 @@
         "budgets": "Budgets",
         "connectors": "Connectors",
         "daily_report": "Daily report",
-        "forbidden": "Forbidden"
+        "forbidden": "Forbidden",
+        "business_ai": "Artificial Intelligence"
       },
       "subtitle": "Subtitle",
       "toast": {
@@ -7078,7 +7137,9 @@
       },
       "warn": {
         "unsaved": "Unsaved"
-      }
+      },
+      "business_ai_auto_connector": "Automatic AI connector",
+      "business_ai_help": "The AI agent can assist you with your tasks"
     },
     "scenarios": {
       "field": {
@@ -7322,7 +7383,8 @@
     "total_rows": "{{count}} rows total",
     "export_btn": "Export",
     "exporting": "Exporting...",
-    "advanced": "Advanced export"
+    "advanced": "Advanced export",
+    "wizard_description": "Export wizard to generate your data"
   },
   "import": {
     "wizard_title": "Import Assistant",
@@ -7485,7 +7547,8 @@
       "pax_profile": "PAX Profiles",
       "project": "Projects",
       "compliance_record": "Compliance"
-    }
+    },
+    "wizard_description": "Import wizard to load your data"
   },
   "geo": {
     "point": "Point",
@@ -9077,6 +9140,13 @@
       "1": "P1 — Critical",
       "2": "P2 — Normal",
       "3": "P3 — Low"
+    },
+    "audit": {
+      "no_validators": "No validators assigned",
+      "reference": "Reference",
+      "target": "Target",
+      "validation_title": "Audit validation",
+      "validator_role": "Validator role"
     }
   },
   "quick_create": {
@@ -9173,7 +9243,9 @@
     "tabs": {
       "roles": "Roles",
       "groups": "Groups",
-      "permissions": "Permissions"
+      "permissions": "Permissions",
+      "delegations": "Delegations",
+      "settings": "Settings"
     },
     "filters": {
       "roles_search": "Filter roles…",

@@ -69,7 +69,7 @@
     "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.400.0",
-    "marked": "^17.0.5",
+    "marked": "^4.3.0",
     "mermaid": "^11.14.0",
     "papaparse": "^5.5.3",
     "qrcode.react": "^4.2.0",
@@ -116,10 +116,5 @@
     "vitest": "^4.1.6",
     "workbox-build": "^7.3.0",
     "workbox-window": "^7.3.0"
-  },
-  "overrides": {
-    "@glideapps/glide-data-grid": {
-      "marked": "^17.0.5"
-    }
   }
 }

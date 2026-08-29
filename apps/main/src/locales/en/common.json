@@ -81,7 +81,10 @@
       "validate_success": "Matching validated",
       "validate_error": "Validation failed",
       "filter_status": "Filter by status",
-      "all": "All"
+      "all": "All",
+      "found_pct": "Found",
+      "found_pct_paren": "({{pct}}% found)",
+      "this_group": "this group"
     },
     "confidence": {
       "high": "high",
@@ -794,7 +797,8 @@
     "contact_company": "Company contact",
     "duration_days": "Duration (days)",
     "parent_task": "Parent task",
-    "team_singular": "Team"
+    "team_singular": "Team",
+    "saving": "Saving..."
   },
   "attachments_manager": {
     "add_file": "Add a file",
@@ -1575,7 +1579,8 @@
         "phones": "Phones",
         "socials": "Socials",
         "tags": "Tags",
-        "authorization_center": "Authorization center"
+        "authorization_center": "Authorization center",
+        "history": "History"
       },
       "auto_generated": "Auto-generated on creation",
       "trade_name": "Primary trade name",
@@ -1717,7 +1722,9 @@
       "blocking_section": "Blocking",
       "contact_department": "Contact department",
       "contact_position": "Contact role",
-      "no_related_projects": "No related projects"
+      "no_related_projects": "No related projects",
+      "archive_selected_partial_description": "Some selected third parties cannot be archived (already archived or business constraints)",
+      "archive_selected_partial_title": "Partial archiving"
     },
     "tab_dashboard": "Dashboard",
     "contact_form": {
@@ -2072,7 +2079,8 @@
         "note_short": "Comment...",
         "title": "Exact title returned by the issuer...",
         "type": "Type",
-        "owner_id": "Owner id"
+        "owner_id": "Owner id",
+        "owner_type_first": "Choose an owner type first"
       },
       "sections": {
         "attachments": "Attachments",
@@ -2384,7 +2392,15 @@
         "validated_on": "Validated on",
         "expired": "Expired {{n}}d ago",
         "expires_soon": "Expires in {{n}}d",
-        "valid_n_days": "{{n}}d remaining"
+        "valid_n_days": "{{n}}d remaining",
+        "history_hide": "Hide history",
+        "history_search_placeholder": "Search in history...",
+        "history_show": "Show history",
+        "history_title": "History",
+        "history_tooltip": "View modification history",
+        "no_current": "No current audit",
+        "submit_for_validation": "Submit for validation",
+        "validation_section": "Validation"
       },
       "view": {
         "matrix": "Matrix view",
@@ -2398,11 +2414,15 @@
         "effective_from": "From",
         "edit_rule": "Click to edit",
         "create_rule": "Click to add rule"
-      }
+      },
+      "change_reason": "Change reason",
+      "change_reason_placeholder": "Explain the reason for this change...",
+      "edit_title": "Edit rule"
     },
     "job_positions": {
       "title": "Job positions",
-      "create": "New job position"
+      "create": "New job position",
+      "select": "Select a job position..."
     },
     "transfers": {
       "title": "Transfers",
@@ -2487,7 +2507,8 @@
       },
       "reject_prompt": "Reject prompt",
       "reject_title": "Reject title",
-      "verify": "Verify"
+      "verify": "Verify",
+      "empty_pending": "No pending verifications"
     },
     "exemptions": {
       "title": "Exemptions",
@@ -2602,6 +2623,18 @@
       "attachment": "Attachment",
       "verified_by": "By",
       "target_value": "Target value"
+    },
+    "audit_status": {
+      "in_progress": "In progress",
+      "rejected": "Rejected",
+      "submitted": "Submitted"
+    },
+    "history": {
+      "by": "by",
+      "empty": "No history",
+      "load_more": "Load more",
+      "period": "Period",
+      "system": "System"
     }
   },
   "projets": {
@@ -7065,7 +7098,8 @@
         "budgets": "Budgets",
         "connectors": "Connectors",
         "daily_report": "Daily report",
-        "forbidden": "Forbidden"
+        "forbidden": "Forbidden",
+        "business_ai": "Business AI"
       },
       "subtitle": "Subtitle",
       "toast": {
@@ -7078,7 +7112,9 @@
       },
       "warn": {
         "unsaved": "Unsaved"
-      }
+      },
+      "business_ai_auto_connector": "Business AI auto-connector",
+      "business_ai_help": "AI assistant configuration for business processes"
     },
     "scenarios": {
       "field": {
@@ -7322,7 +7358,8 @@
     "total_rows": "{{count}} rows total",
     "export_btn": "Export",
     "exporting": "Exporting...",
-    "advanced": "Advanced export"
+    "advanced": "Advanced export",
+    "wizard_description": "Data export wizard"
   },
   "import": {
     "wizard_title": "Import Assistant",
@@ -7485,7 +7522,8 @@
       "pax_profile": "PAX Profiles",
       "project": "Projects",
       "compliance_record": "Compliance"
-    }
+    },
+    "wizard_description": "Data import wizard"
   },
   "geo": {
     "point": "Point",
@@ -9077,6 +9115,13 @@
       "1": "P1 — Critical",
       "2": "P2 — Normal",
       "3": "P3 — Low"
+    },
+    "audit": {
+      "no_validators": "No validators configured",
+      "reference": "Reference",
+      "target": "Target",
+      "validation_title": "MOC Validation",
+      "validator_role": "Validator role"
     }
   },
   "quick_create": {
@@ -9173,7 +9218,9 @@
     "tabs": {
       "roles": "Roles",
       "groups": "Groups",
-      "permissions": "Permissions"
+      "permissions": "Permissions",
+      "delegations": "Delegations",
+      "settings": "Settings"
     },
     "filters": {
       "roles_search": "Filter roles…",
@@ -9312,6 +9359,31 @@
         "title": "Recent RBAC audit (delegations)",
         "empty": "No recent events."
       }
+    }
+  },
+  "attachments": {
+    "preview": {
+      "archiveDetail": "Archives must be downloaded or opened by a dedicated analysis service before viewing files individually.",
+      "archiveHint": "No archive content is executed or extracted in the browser.",
+      "archiveTitle": "Archive",
+      "diagramDetail": "This format must be routed to a Draw.io/diagrams.net compatible viewer or converted server-side before display.",
+      "diagramHint": "Targeted formats: .drawio, .vsd, .vsdx, .vdx.",
+      "diagramTitle": "Visio / Draw.io Diagram",
+      "download": "Download",
+      "emptyText": "Empty text file.",
+      "genericHint": "Use open or download to view the file in the appropriate application.",
+      "genericTitle": "File",
+      "industrialDetail": "DWF, Navisworks, DWG, IFC or 3D model files require a dedicated industrial viewer with derivative generation.",
+      "industrialHint": "To be connected to Autodesk Platform Services, an internal viewer, or a conversion service managed by OpsFlux.",
+      "industrialTitle": "CAD file / industrial model",
+      "loadError": "Unable to load preview.",
+      "officeDetail": "Full preview of Word/PowerPoint documents requires secure server-side conversion to PDF or HTML before display.",
+      "officeHint": "Partial reading available for Excel/CSV; Word and PowerPoint remain to be converted.",
+      "officeTitle": "Office Document",
+      "open": "Open",
+      "sheet": "Sheet",
+      "truncated": "... truncated preview ...",
+      "unsupported": "Detailed preview not available in browser for this format."
     }
   }
 }
